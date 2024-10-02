@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "allowSyntheticDefaultImports": true,
+    // Enable latest features
+    "lib": [
+      "ESNext",
+      "DOM"
+    ], // Use modern JavaScript libraries and DOM types
+    "target": "ESNext", // Compile to latest JavaScript version
+    "module": "ESNext", // Use ESNext module system
+    "moduleDetection": "force", // Force module detection
+    // JSX and JavaScript options (remove "jsx" option if you're not using React)
+    "jsx": "react-jsx", // JSX support for React (remove if unnecessary)
+    "allowJs": true, // Allow JavaScript files alongside TypeScript
+    // Bundler mode
+    "moduleResolution": "node", // Use Node.js module resolution (more compatible)
+    "allowImportingTsExtensions": true, // Allow importing TypeScript extensions
+    "verbatimModuleSyntax": true, // Preserve import/export statements as is
+    "noEmit": true, // Do not output files, handled by bundler
+    // Best practices
+    "strict": true, // Enable strict type checking
+    "skipLibCheck": true, // Skip type checking of library files
+    "noFallthroughCasesInSwitch": true, // Prevent fallthrough in switch statements
+    // Stricter flags
+    "noUnusedLocals": false, // Warn on unused local variables (disabled)
+    "noUnusedParameters": false, // Warn on unused function parameters (disabled)
+    "noPropertyAccessFromIndexSignature": false // Allow indexing into unknown types (disabled)
+  },
+  "include": [
+    "src/**/*.ts"
+  ], // Include all TypeScript files in 'src' folder
+  "exclude": [
+    "node_modules"
+  ] // Exclude dependencies from the build
+}
