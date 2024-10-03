@@ -82,56 +82,50 @@ export async function generateSummaryWithOllama(prompt: string): Promise<string>
     }
 }
 
-export interface ConversationBoundary {
-    startTime: string; // ISO string
-    endTime: string;   // ISO string
-}
+// export interface ConversationBoundary {
+//     startTime: string; // ISO string
+//     endTime: string;   // ISO string
+// }
 
-export async function detectConversationsWithOllama(timestamps: string[]): Promise<ConversationBoundary[]> {
-    const prompt = `You are an AI language model that segments a series of message timestamps into conversations based on frequency and duration between messages.
+// export async function detectConversationsWithOllama(timestamps: string[]): Promise<ConversationBoundary[]> {
+//     const prompt = `You are an AI language model that segments a series of message timestamps into multiple conversations based on frequency and duration between messages.
 
-Given the following list of message timestamps in ISO 8601 format, identify the start and end times of each conversation. A new conversation starts if there is a gap of more than 5 minutes between messages.
+//     Given the following list of message timestamps in ISO 8601 format, identify the start and end times of each conversation. A new conversation starts if there is a gap of more than 5 minutes between messages.
+    
+//     Timestamps:
+//     ${timestamps.join('\n')}
+    
+//     IMPORTANT: Only output the JSON array of conversation boundaries and nothing else. Do not include any explanations or additional text.
+    
+//     Provide the result as a JSON array of objects with "startTime" and "endTime" fields in ISO 8601 format.
+    
+//     Response (JSON array):`;
+    
+//     const maxTokens = 500; // Adjust as needed
+//     const model = 'llama3.1';
 
-Timestamps:
-${timestamps.join('\n')}
+//     console.log(prompt);
 
-Provide the result as a JSON array of objects with "startTime" and "endTime" fields in ISO 8601 format.
+//     try {
+//         const generatedText = await queryOllamaAPI(prompt, model, maxTokens);
+//         // Log the generated text
+//         console.log('Generated Text:', generatedText);
 
-Response (JSON array):`;
+//         // Attempt to extract JSON array from the generated text
+//         const jsonMatch = generatedText.match(/\[.*\]/s);
+//         if (!jsonMatch) {
+//             throw new Error('No JSON array found in the response.');
+//         }
 
-    const maxTokens = 500; // Adjust as needed
-    const model = 'llama3.1';
+//         const jsonArrayString = jsonMatch[0];
 
-    try {
-        const generatedText = await queryOllamaAPI(prompt, model, maxTokens);
-        // Parse the generated JSON array
-        const conversations: ConversationBoundary[] = JSON.parse(generatedText);
-        return conversations;
-    } catch (error) {
-        console.error('Error detecting conversations with Ollama:', error);
-        throw new Error('Failed to detect conversations using Ollama.');
-    }
-}
+//         // Parse the JSON array
+//         const conversations: ConversationBoundary[] = JSON.parse(jsonArrayString);
 
-export async function generateTitleForConversation(messages: MessageData[]): Promise<string> {
-    const convText = messages
-        .map((msg) => `${msg.authorUsername}: ${msg.content}`)
-        .join('\n');
+//         return conversations;
+//     } catch (error) {
+//         console.error('Error detecting conversations with Ollama:', error);
+//         throw new Error('Failed to detect conversations using Ollama.');
+//     }
+// }
 
-    const prompt = `You are an AI language model that generates concise titles for conversations.
-
-Given the following conversation, provide a short title that summarizes the main topic.
-
-Conversation:
-${convText}
-
-Title:`;
-
-    try {
-        const title = await generateSummaryWithOllama(prompt);
-        return title.trim();
-    } catch (error) {
-        console.error('Error generating title for conversation:', error);
-        throw new Error('Failed to generate title using Ollama.');
-    }
-}
