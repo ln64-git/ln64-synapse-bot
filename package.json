@@ -11,9 +11,15 @@
   },
   "dependencies": {
     "@discordjs/rest": "^2.3.0",
+    "@langchain/core": "^0.3.6",
+    "@langchain/ollama": "^0.1.0",
     "axios": "^1.7.7",
     "discord.js": "^14.15.3",
     "dotenv": "^16.4.5",
+    "langchain": "^0.3.2",
+    "ollama": "^0.5.9",
+    "openai": "^4.67.1",
+    "p-limit": "^6.1.0",
     "ts-node": "^10.9.2"
   }
 }
