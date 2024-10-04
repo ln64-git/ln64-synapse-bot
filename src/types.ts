@@ -11,5 +11,4 @@ export interface Conversation {
     startTime: Date;
     endTime: Date;
     messages: MessageData[];
-    summaryTitle: string;
 }

@@ -1,74 +1,67 @@
-// src/utils/conversation-utils.ts
 
 import type { Conversation, MessageData } from '../types';
-import { Guild, User } from 'discord.js';
+import { Guild, Snowflake, TextChannel, User } from 'discord.js';
 import { collectMessagesFromGuild } from './guild-utils';
 import pLimit from 'p-limit';
-import { generateSummaryWithAgent } from './agent-utils';
 
 const MAX_CONVERSATIONS = 10; // Adjust as needed
 const MAX_MESSAGES_PER_CONVERSATION = 50; // Adjust as needed
 const CONCURRENCY_LIMIT = 5; // Adjust as needed
 
-const titleCache = new Map<string, string>();
-
+// Collect User Conversations with Context
 export async function collectUserConversations(
     guild: Guild,
     user: User,
     days?: number
 ): Promise<Conversation[]> {
-    // Calculate the 'sinceDate' if 'days' is provided
     let sinceDate: Date | undefined;
     if (days !== undefined && days !== null) {
         sinceDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     }
 
-    // Step 1: Collect messages from the user, pass 'sinceDate'
-    const userMessages: MessageData[] = await collectMessagesFromGuild(
-        guild,
-        user,
-        sinceDate
-    );
+    const userMessages: MessageData[] = await collectMessagesFromGuild(guild, user, sinceDate);
 
     if (userMessages.length === 0) {
         return [];
     }
 
-    // Step 2: Detect conversations based on time gaps
+    // Detect conversations based on time gaps
     const conversations = detectConversations(userMessages);
 
     // Limit the number of conversations
     const limitedConversations = conversations.slice(0, MAX_CONVERSATIONS);
 
-    // Step 3: Generate titles for each conversation with concurrency limit
-    const limit = pLimit(CONCURRENCY_LIMIT);
+    for (const conv of limitedConversations) {
+        const channelId = conv.messages[0].channelId;
+        const contextMessages = await fetchContextMessages(
+            guild,
+            channelId,
+            new Date(conv.startTime.getTime() - 5 * 60 * 1000), // Expanding the window by 5 minutes earlier
+            new Date(conv.endTime.getTime() + 5 * 60 * 1000)    // Expanding the window by 5 minutes later
+        );
 
-    await Promise.all(
-        limitedConversations.map((conversation) =>
-            limit(async () => {
-                const summaryTitle = await generateTitleForConversation(conversation.messages);
-                console.log("Summmary Title:")
-                console.log(summaryTitle)
-                conversation.summaryTitle = summaryTitle;
-            })
-        )
-    );
+        // Ensure no duplicates and merge messages
+        const uniqueMessages = contextMessages.filter(
+            contextMsg => !conv.messages.some(msg => msg.createdAt.getTime() === contextMsg.createdAt.getTime())
+        );
+
+        conv.messages.push(...uniqueMessages);
+        conv.messages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()); // Sort by time
+    }
 
     return limitedConversations;
 }
 
+// Detect Conversations Logic
 export function detectConversations(
     messages: MessageData[],
-    timeGapInMinutes: number = 5
+    timeGapInMinutes: number = 30
 ): Conversation[] {
     if (messages.length === 0) {
         return [];
     }
 
-    // Sort messages by creation time
-    const sortedMessages = messages.sort(
-        (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
-    );
+    const sortedMessages = messages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
     const conversations: Conversation[] = [];
     let currentConversationMessages: MessageData[] = [sortedMessages[0]];
@@ -78,74 +71,89 @@ export function detectConversations(
     for (let i = 1; i < sortedMessages.length; i++) {
         const currentMessage = sortedMessages[i];
         const previousMessage = sortedMessages[i - 1];
-        const timeDifference =
-            currentMessage.createdAt.getTime() - previousMessage.createdAt.getTime();
+        const timeDifference = currentMessage.createdAt.getTime() - previousMessage.createdAt.getTime();
 
         if (timeDifference <= timeGapInMinutes * 60 * 1000) {
-            // Within the time gap, same conversation
             currentConversationMessages.push(currentMessage);
             conversationEndTime = currentMessage.createdAt;
         } else {
-            // Time gap exceeded, start a new conversation
             conversations.push({
                 startTime: conversationStartTime,
                 endTime: conversationEndTime,
                 messages: currentConversationMessages,
-                summaryTitle: '', // We'll generate this later
             });
-
-            // Start new conversation
             currentConversationMessages = [currentMessage];
             conversationStartTime = currentMessage.createdAt;
             conversationEndTime = currentMessage.createdAt;
         }
     }
 
-    // Add the last conversation
+    // Push last conversation
     conversations.push({
         startTime: conversationStartTime,
         endTime: conversationEndTime,
         messages: currentConversationMessages,
-        summaryTitle: '', // We'll generate this later
     });
 
     return conversations;
 }
 
-export async function generateTitleForConversation(
-    messages: MessageData[]
-): Promise<string> {
-    const convHash = hashMessages(messages);
-    if (titleCache.has(convHash)) {
-        return titleCache.get(convHash)!;
+// Fetch Context Messages from the Channel within a Timeframe
+export async function fetchContextMessages(
+    guild: Guild,
+    channelId: string,
+    startTime: Date,
+    endTime: Date
+): Promise<MessageData[]> {
+    const channel = guild.channels.cache.get(channelId) as TextChannel;
+    if (!channel) throw new Error("Channel not found");
+
+    const messages: MessageData[] = [];
+    let lastMessageId: Snowflake | undefined;
+    let fetchComplete = false;
+
+    while (!fetchComplete) {
+        const fetchedMessages = await channel.messages.fetch({
+            limit: 100,
+            before: lastMessageId,
+        });
+
+        if (fetchedMessages.size === 0) break;
+
+        for (const msg of fetchedMessages.values()) {
+            if (msg.createdAt >= startTime && msg.createdAt <= endTime) {
+                // Attachments (e.g., images, files)
+                const attachments = msg.attachments.map(att => att.url);
+
+                // Embeds (e.g., GIFs, rich media, external links)
+                const embeds = msg.embeds.map(embed => embed.url || embed.description || "Embed Content");
+
+                const content = [
+                    msg.content,
+                    ...attachments,
+                    ...embeds
+                ].filter(Boolean).join('\n');
+
+                messages.push({
+                    content: content,
+                    createdAt: msg.createdAt,
+                    authorId: msg.author.id,
+                    authorUsername: msg.author.username,
+                    channelId: msg.channel.id,
+                    channelName: msg.channel.name,
+                });
+            }
+        }
+
+        lastMessageId = fetchedMessages.last()?.id;
+        fetchComplete = fetchedMessages.size < 100;
     }
 
-    const convText = messages
-        .slice(0, MAX_MESSAGES_PER_CONVERSATION)
-        .map((msg) => `${msg.authorUsername}: ${msg.content}`)
-        .join('\n');
-
-    const prompt = `You are an AI language model that generates concise titles for conversations.
-
-Given the following conversation, provide a short title that summarizes the main topic.
-
-Conversation:
-${convText}
-
-Title:`;
-
-    try {
-        const title = await generateSummaryWithAgent(prompt);
-        titleCache.set(convHash, title.trim());
-        return title.trim();
-    } catch (error) {
-        console.error('Error generating title for conversation:', error);
-        throw new Error('Failed to generate title using Ollama.');
-    }
+    return messages;
 }
 
-function hashMessages(messages: MessageData[]): string {
-    // Implement a hash function, e.g., using a hashing library
-    const content = messages.map((msg) => msg.content).join('|');
-    return content; // For simplicity; replace with actual hash in production
-}
+
+
+
+
+

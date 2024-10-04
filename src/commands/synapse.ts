@@ -1,9 +1,9 @@
-// src/commands/synapse.ts
-
 import { AttachmentBuilder, ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Conversation } from "../types";
 import { collectUserConversations } from "../utils/conversation-utils";
 import { analyzeSentimentWithAgent } from "../utils/agent-utils";
+import * as fs from 'fs';
+import * as path from 'path';
 
 export const data = new SlashCommandBuilder()
     .setName('synapse')
@@ -42,34 +42,35 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             await interaction.editReply('No conversations found involving the specified user.');
             return;
         }
+
         console.log('User Conversations Collected.');
 
-        // Combine all conversation texts into one
-        const allConversationsText = userConversations
-            .map((conv) => {
-                const convText = conv.messages
-                    .map((msg) => `${msg.authorUsername}: ${msg.content}`)
-                    .join('\n');
-
-                console.log(
-                    `Processing conversation "${conv.summaryTitle}" with text length ${convText.length}`
-                );
-
-                // Optionally include the conversation title
-                return `Conversation Title: ${conv.summaryTitle}\n${convText}`;
-            })
-            .join('\n\n');
-
-        console.log('Analyzing Combined Conversations...');
-        const analysisResult = await analyzeSentimentWithAgent(allConversationsText);
-        console.log('Analysis Complete.');
-
-        if (!analysisResult) {
-            await interaction.editReply('No significant conversations found for analysis.');
-            return;
+        // Specify output directory
+        const outputDir = path.join(__dirname, '../../output');
+        // Ensure output directory exists
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
         }
 
-        await sendAnalysisResult(interaction, user.username, analysisResult);
+        const logFilePath = path.join(outputDir, `conversation-log-${user.id}.txt`);
+
+        // Format conversations to a readable JSON format
+        const formattedConversations = userConversations.map(conv => ({
+            startTime: conv.startTime,
+            endTime: conv.endTime,
+            messages: conv.messages.map(msg => ({
+                author: msg.authorUsername,
+                content: msg.content,
+                time: msg.createdAt,
+            })),
+        }));
+
+        // Write formatted conversations to file
+        const logStream = fs.createWriteStream(logFilePath, { flags: 'a' });
+        logStream.write(JSON.stringify(formattedConversations, null, 2)); // `null, 2` formats the JSON with indentation
+        logStream.end();
+
+        await interaction.editReply(`Conversations successfully logged to ${logFilePath}`);
     } catch (error) {
         console.error('Error during analysis:', error);
         await interaction.editReply('There was an error analyzing the sentiment.');

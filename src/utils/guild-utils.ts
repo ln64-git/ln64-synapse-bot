@@ -1,13 +1,4 @@
-// src/utils/guild.ts
-
-import {
-  Guild,
-  TextChannel,
-  ChannelType,
-  Snowflake,
-  PermissionsBitField,
-  User,
-} from 'discord.js';
+import { Guild, TextChannel, ChannelType, Snowflake, PermissionsBitField, User } from 'discord.js';
 import type { MessageData } from '../types';
 import pLimit from 'p-limit';
 
@@ -16,8 +7,7 @@ export async function collectMessagesFromGuild(
   user: User,
   sinceDate?: Date,
   maxMessages: number = 1000,
-  maxMessagesPerChannel: number = 500,
-  maxNoUserMessageBatches: number = 3 // Stop after N batches without user messages
+  maxMessagesPerChannel: number = 500
 ): Promise<MessageData[]> {
   const messages: MessageData[] = [];
   let collectedMessageCount = 0;
@@ -51,7 +41,6 @@ export async function collectMessagesFromGuild(
           let lastMessageId: Snowflake | undefined;
           let fetchComplete = false;
           let channelMessagesFetched = 0;
-          let noUserMessageBatches = 0;
 
           while (
             !fetchComplete &&
@@ -70,10 +59,9 @@ export async function collectMessagesFromGuild(
             }
 
             channelMessagesFetched += fetchedMessages.size;
-            let userMessageFoundInBatch = false;
 
             for (const msg of fetchedMessages.values()) {
-              // Skip messages not from the specified user, without content, or from bots
+              // Only collect messages from the specific user
               if (msg.author.id !== user.id || !msg.content || msg.author.bot) continue;
 
               // Check if the message is within the time frame
@@ -92,22 +80,10 @@ export async function collectMessagesFromGuild(
               });
               collectedMessageCount++;
 
-              userMessageFoundInBatch = true;
               if (collectedMessageCount >= maxMessages) {
                 fetchComplete = true;
                 break;
               }
-            }
-
-            if (!userMessageFoundInBatch) {
-              noUserMessageBatches++;
-              if (noUserMessageBatches >= maxNoUserMessageBatches) {
-                // Stop fetching from this channel if no user messages found after several batches
-                fetchComplete = true;
-                break;
-              }
-            } else {
-              noUserMessageBatches = 0; // Reset counter if a user message is found
             }
 
             lastMessageId = fetchedMessages.last()?.id;
@@ -125,3 +101,4 @@ export async function collectMessagesFromGuild(
   console.log(`Total messages collected from user ${user.username}: ${messages.length}`);
   return messages;
 }
+

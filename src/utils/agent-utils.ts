@@ -30,7 +30,7 @@ Please share the summary below:
 `;
 
     try {
-        const response = await model.call(prompt);
+        const response = await model.invoke(prompt);
         const rawResponse = response.trim();
 
         // Ensure the response does not exceed the character limit
@@ -51,7 +51,7 @@ export async function generateSummaryWithAgent(prompt: string): Promise<string> 
     const MAX_RESPONSE_LENGTH = 200; // Adjust as needed
 
     try {
-        const response = await model.call(prompt);
+        const response = await model.invoke(prompt);
         const rawResponse = response.trim();
         // Ensure the response does not exceed the character limit
         const finalResponse =
