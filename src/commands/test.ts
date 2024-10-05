@@ -1,10 +1,12 @@
 // src/commands/synapse.ts
 
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { ChatInputCommandInteraction } from 'discord.js';
+import { ChatInputCommandInteraction, Message } from 'discord.js';
 import { collectUserList } from '../utils/guild-utils';
 import { saveResultToFile, sendResultToDiscord } from '../utils/output';
 import { GuildMember } from 'discord.js';
+import { Conversation } from '../types';
+import { collectUserConversations, collectUserMentions } from '../utils/conversation-utils';
 
 export const data = new SlashCommandBuilder()
     .setName('test')
@@ -30,12 +32,18 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     try {
         // Step 1: Collect Relevant Data
-        const memberList: GuildMember[] = await collectUserList(guild);
+        // 1.1. Collect Member List
+        // const memberList: GuildMember[] = await collectUserList(guild);
+        // 1.2. Collect User Conversations
+        const userConversations: Conversation[] = await collectUserConversations(guild, user, days);
+        // 1.3. Collect User Mentions
+        // const userMentions: Message[] = await collectUserMentions(
+        //     guild,
+        //     { userId: user.id, username: user.username, },
+        //     days
+        // );
 
-        let outputData = `Collected ${memberList.length} members:\n`;
-        memberList.forEach((member, index) => {
-            outputData += `${index + 1}. / ${member.user.username} / ${member.displayName} / ${member.user.id}\n`;
-        });
+        const outputData = JSON.stringify(userConversations)
 
         await handleTestResult(interaction, user.username, outputData);
     } catch (error) {
