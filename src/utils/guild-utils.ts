@@ -1,5 +1,5 @@
-import { Guild, TextChannel, ChannelType, Snowflake, PermissionsBitField, User } from 'discord.js';
-import type { MessageData } from '../types';
+import { Guild, TextChannel, ChannelType, Snowflake, PermissionsBitField, User, GuildMember } from 'discord.js';
+import type { MessageData, UserData } from '../types';
 import pLimit from 'p-limit';
 
 export async function collectMessagesFromGuild(
@@ -100,5 +100,23 @@ export async function collectMessagesFromGuild(
 
   console.log(`Total messages collected from user ${user.username}: ${messages.length}`);
   return messages;
+}
+
+export async function collectUserList(guild: Guild): Promise<UserData[]> {
+  try {
+    await guild.members.fetch(); // Fetch all members to ensure the cache is populated
+
+    const users: UserData[] = guild.members.cache.map((member: GuildMember) => ({
+      userId: member.user.id,
+      username: member.user.username,
+      nickname: member.nickname || member.user.username, // Use username if nickname is not set
+    }));
+
+    console.log(`Collected ${users.length} users from the guild.`);
+    return users;
+  } catch (error) {
+    console.error('Error collecting user list:', error);
+    throw new Error('Failed to collect user list.');
+  }
 }
 

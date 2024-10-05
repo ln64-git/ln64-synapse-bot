@@ -1,5 +1,3 @@
-// src/utils/agent-utils.ts
-
 import { Ollama } from '@langchain/ollama';
 
 // Initialize the Ollama language model
@@ -9,38 +7,47 @@ const model = new Ollama({
 });
 
 export async function analyzeSentimentWithAgent(text: string): Promise<string> {
-    const MAX_TEXT_LENGTH = 4000; // Adjust as needed based on model limits
+    const MAX_TEXT_LENGTH = 4000; // Limit the text length
     if (text.length > MAX_TEXT_LENGTH) {
         text = text.slice(0, MAX_TEXT_LENGTH);
     }
+    //     const prompt = `You are an AI assistant helping to provide an overview of a user's text conversations on discord to investigate their actions in a given community and determain their intent, when given limited chat context please provide the best possible explaination without overpresuming.
 
-    const prompt = `You are an AI assistant helping to provide an overview of a user's recent conversations in an accessible and conversational manner.
+    // **Instructions:**
+    // - Summarize the user's interactions in an organized direct way while referencing any shocking details.
+    // - Emphasize key topics, interests, and communication habits.
+    // - Write as if you're sharing interesting observations with someone curious about the user.
+    // - Maintain a casual tone without being overly formal.
+    // - !!IMPORTANT!! Response should be equal to or under 2000.
 
-**Instructions:**
-- Summarize the user's interactions in an direct way.
-- Emphasize key topics, interests, and communication habits.
-- Write as if you're sharing interesting observations with someone curious about the user.
-- Maintain a casual tone without being overly formal.
-- !!IMPORTANT!! Response should be equal to or under 2000.
+    // Conversation Logs:
+    // ${text}
 
-Conversation Logs:
+    // Please share the summary below:
+    // `;
+
+    const prompt = `You are an AI language model that analyzes the sentiment of a user in a discord, you are given a list of associates and conversations relating to a given user.
+
+Given the following conversation, provide a detailed sentiment analysis, highlighting key themes and emotions.
+
+**Your analysis should be no more than 1800 characters.**
+
+Conversation:
 ${text}
 
-Please share the summary below:
+Provide your analysis below:
 `;
 
     try {
         const response = await model.invoke(prompt);
         const rawResponse = response.trim();
 
-        // Ensure the response does not exceed the character limit
+        // Limit the response length
         const MAX_RESPONSE_LENGTH = 1800;
-        const finalResponse =
-            rawResponse.length > MAX_RESPONSE_LENGTH
-                ? rawResponse.slice(0, MAX_RESPONSE_LENGTH) + '...'
-                : rawResponse;
+        return rawResponse.length > MAX_RESPONSE_LENGTH
+            ? rawResponse.slice(0, MAX_RESPONSE_LENGTH) + '...'
+            : rawResponse;
 
-        return finalResponse;
     } catch (error) {
         console.error('Error during sentiment analysis:', error);
         throw new Error('Failed to analyze sentiment.');
@@ -48,19 +55,16 @@ Please share the summary below:
 }
 
 export async function generateSummaryWithAgent(prompt: string): Promise<string> {
-    const MAX_RESPONSE_LENGTH = 200; // Adjust as needed
+    const MAX_RESPONSE_LENGTH = 200;
 
     try {
         const response = await model.invoke(prompt);
         const rawResponse = response.trim();
-        // Ensure the response does not exceed the character limit
-        const finalResponse =
-            rawResponse.length > MAX_RESPONSE_LENGTH
-                ? rawResponse.slice(0, MAX_RESPONSE_LENGTH) + '...'
-                : rawResponse;
-        return finalResponse;
+        return rawResponse.length > MAX_RESPONSE_LENGTH
+            ? rawResponse.slice(0, MAX_RESPONSE_LENGTH) + '...'
+            : rawResponse;
     } catch (error) {
         console.error('Error generating summary with agent:', error);
-        throw new Error('Failed to generate summary using agent.');
+        throw new Error('Failed to generate summary.');
     }
 }
