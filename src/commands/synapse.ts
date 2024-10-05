@@ -102,12 +102,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 }
 
-/**
- * Handles the analysis result by sending it to Discord and saving it as a text file.
- * @param interaction The command interaction.
- * @param username The username of the analyzed user.
- * @param analysisResult The sentiment analysis result.
- */
 async function handleAnalysisResult(
     interaction: ChatInputCommandInteraction,
     username: string,

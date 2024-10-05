@@ -4,6 +4,7 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import { ChatInputCommandInteraction } from 'discord.js';
 import type { UserData } from '../types';
 import { collectUserList } from '../utils/guild-utils';
+import { saveResultToFile, sendResultToDiscord } from '../utils/output';
 
 export const data = new SlashCommandBuilder()
     .setName('test')
@@ -37,13 +38,32 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     try {
         // Step 1: Collect Relevant Data
-
         console.log('Collecting User List...');
         const userList: UserData[] = await collectUserList(guild);
         console.log(`Collected ${userList.length} users.`);
 
+        const outputData = ""
+        await handleTestResult(interaction, user.username, outputData)
     } catch (error) {
         console.error('Error during analysis:', error);
         await interaction.editReply('There was an error analyzing the sentiment.');
+    }
+}
+
+
+export async function handleTestResult(
+    interaction: ChatInputCommandInteraction,
+    username: string,
+    outputData: string
+): Promise<void> {
+    try {
+        if (outputData.length <= 2000) {
+            await sendResultToDiscord(interaction, username, outputData);
+        } else {
+            await saveResultToFile(interaction, username, outputData);
+        }
+    } catch (error) {
+        console.error('Error handling report data:', error);
+        await interaction.editReply('There was an error handling the analysis result.');
     }
 }
