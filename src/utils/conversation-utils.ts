@@ -1,5 +1,4 @@
 
-import type { Conversation, MessageData } from '../types';
 import { Guild, PermissionsBitField, Snowflake, TextChannel, User } from 'discord.js';
 import { collectMessagesFromGuild, collectUserList } from './guild-utils';
 import pLimit from 'p-limit';
@@ -16,7 +15,7 @@ export async function collectUserConversations(
         sinceDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     }
 
-    const userMessages: MessageData[] = await collectMessagesFromGuild(guild, user, sinceDate);
+    const userMessages: Message[] = await collectMessagesFromGuild(guild, user, sinceDate);
 
     if (userMessages.length === 0) return [];
 
@@ -41,8 +40,13 @@ export async function collectUserConversations(
 }
 
 
+import { Message } from 'discord.js';
+import { Conversation } from '../types';
+
+
+
 export function detectConversations(
-    messages: MessageData[],
+    messages: Message[],
     timeGapInMinutes: number = 30
 ): Conversation[] {
     if (messages.length === 0) return [];
@@ -50,7 +54,7 @@ export function detectConversations(
     const sortedMessages = messages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
     const conversations: Conversation[] = [];
-    let currentConversation: MessageData[] = [sortedMessages[0]];
+    let currentConversation: Message[] = [sortedMessages[0]];
 
     for (let i = 1; i < sortedMessages.length; i++) {
         const currentMessage = sortedMessages[i];
@@ -68,27 +72,27 @@ export function detectConversations(
         }
     }
 
-    // Add the last conversation
     conversations.push({
         startTime: currentConversation[0].createdAt,
         endTime: currentConversation[currentConversation.length - 1].createdAt,
-        messages: currentConversation
+        messages: currentConversation,
     });
 
     return conversations;
 }
 
-// Fetch Context Messages from the Channel within a Timeframe
+
+
 export async function fetchContextMessages(
     guild: Guild,
     channelId: string,
     startTime: Date,
     endTime: Date
-): Promise<MessageData[]> {
+): Promise<Message[]> {
     const channel = guild.channels.cache.get(channelId) as TextChannel;
     if (!channel) throw new Error("Channel not found");
 
-    const messages: MessageData[] = [];
+    const messages: Message[] = [];
     let lastMessageId: Snowflake | undefined;
     let fetchComplete = false;
 
@@ -102,26 +106,7 @@ export async function fetchContextMessages(
 
         for (const msg of fetchedMessages.values()) {
             if (msg.createdAt >= startTime && msg.createdAt <= endTime) {
-                // Attachments (e.g., images, files)
-                const attachments = msg.attachments.map(att => att.url);
-
-                // Embeds (e.g., GIFs, rich media, external links)
-                const embeds = msg.embeds.map(embed => embed.url || embed.description || "Embed Content");
-
-                const content = [
-                    msg.content,
-                    ...attachments,
-                    ...embeds
-                ].filter(Boolean).join('\n');
-
-                messages.push({
-                    content: content,
-                    createdAt: msg.createdAt,
-                    authorId: msg.author.id,
-                    authorUsername: msg.author.username,
-                    channelId: msg.channel.id,
-                    channelName: msg.channel.name,
-                });
+                messages.push(msg);
             }
         }
 
@@ -134,19 +119,19 @@ export async function fetchContextMessages(
 
 export async function collectUserMentions(
     guild: Guild,
-    user: { userId: string; username: string; },
+    user: { userId: string; username: string },
     days?: number
-): Promise<MessageData[]> {
-    const mentions: MessageData[] = [];
+): Promise<Message[]> {
+    const mentions: Message[] = [];
     let collectedMentionCount = 0;
     const MAX_MENTIONS = 500; // Adjust as needed
     const sinceDate = days ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : undefined;
 
     // Fetch user list to get possible aliases (usernames and nicknames)
-    const userList = await collectUserList(guild);
+    const userList = await collectUserList(guild); // Assuming this returns GuildMembers or Users
     const userAliases = userList
-        .filter(u => u.userId === user.userId)
-        .map(u => u.username.toLowerCase())
+        .filter(u => u.user.id === user.userId)
+        .map(u => u.user.username.toLowerCase())
         .concat(user.username.toLowerCase());
 
     const channels = guild.channels.cache.filter(
@@ -203,14 +188,7 @@ export async function collectUserMentions(
                                     break;
                                 }
 
-                                mentions.push({
-                                    content: msg.content,
-                                    createdAt: msg.createdAt,
-                                    authorId: msg.author.id,
-                                    authorUsername: msg.author.username,
-                                    channelId: msg.channel.id,
-                                    channelName: msg.channel.name,
-                                });
+                                mentions.push(msg); // Push the full Message object
 
                                 collectedMentionCount++;
                                 if (collectedMentionCount >= MAX_MENTIONS) {

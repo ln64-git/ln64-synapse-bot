@@ -1,8 +1,8 @@
 // src/commands/synapse.ts
 
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { AttachmentBuilder, ChatInputCommandInteraction } from 'discord.js';
-import type { Conversation, UserData, MessageData } from '../types';
+import { AttachmentBuilder, ChatInputCommandInteraction, Message } from 'discord.js';
+import type { Conversation } from '../types';
 import { collectUserConversations, collectUserMentions } from '../utils/conversation-utils';
 import { collectUserList } from '../utils/guild-utils';
 import * as fs from 'fs';
@@ -48,8 +48,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
         // 1.1. Collect User List
         console.log('Collecting User List...');
-        const userList: UserData[] = await collectUserList(guild);
-        console.log(`Collected ${userList.length} users.`);
+        // const userList: UserData[] = await collectUserList(guild);
+        // console.log(`Collected ${userList.length} users.`);
 
         // 1.2. Collect User Conversations
         console.log('Collecting User Conversations...');
@@ -62,7 +62,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
         // 1.3. Collect User Mentions
         console.log('Collecting User Mentions...');
-        const userMentions: MessageData[] = await collectUserMentions(
+        const userMentions: Message[] = await collectUserMentions(
             guild,
             { userId: user.id, username: user.username, },
             days
@@ -73,7 +73,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
         console.log('Aggregating Data...');
         // Combine conversations and mentions
-        const aggregatedData: MessageData[] = [
+        const aggregatedData: Message[] = [
             ...userConversations.flatMap(conv => conv.messages),
             ...userMentions,
         ];
@@ -84,7 +84,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
         console.log('Formatting Conversations...');
         const formattedConversationsText = aggregatedData.map(msg => (
-            `[${msg.authorUsername}] ${msg.content}`
+            `[${msg.author.username}] ${msg.content}`
         )).join('\n');
 
         // Step 4: Analyze Sentiment Using the Agent

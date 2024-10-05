@@ -31,13 +31,13 @@ export async function saveResultToFile(
         }
         fs.writeFileSync(filePath, outputData, 'utf-8');  // Updated the variable name
         console.log(`Report saved to ${filePath}`);
-        const attachment = new AttachmentBuilder(filePath, {
-            name: `${username}_analysis.txt`,
-        });
-        await interaction.editReply({
-            content: `Sentiment analysis for ${username} exceeds Discord's character limit. Please find the analysis attached.`,
-            files: [attachment],
-        });
+        // const attachment = new AttachmentBuilder(filePath, {
+        //     name: `${username}_analysis.txt`,
+        // });
+        // await interaction.editReply({
+        //     content: `Sentiment analysis for ${username} exceeds Discord's character limit. Please find the analysis attached.`,
+        //     files: [attachment],
+        // });
     } catch (error) {
         console.error('Error saving report data to file:', error);
         throw new Error('There was an error saving the report data to file.');
