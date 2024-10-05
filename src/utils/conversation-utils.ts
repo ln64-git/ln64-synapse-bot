@@ -16,42 +16,21 @@ export async function collectUserConversations(
     days?: number
 ): Promise<Conversation[]> {
     const logger = new Logger();
-    logger.info('Starting to collect user conversations.');
-
-    // Time tracking for steps
     let start = Date.now();
-
     // Step 1: Calculate the 'sinceDate' based on the number of days
-    logger.info('Calculating sinceDate based on days parameter.');
     let sinceDate: Date | undefined;
     if (days !== undefined) {
         sinceDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     }
-    let timeSinceDateCalculation = Date.now();
-    logger.info(`SinceDate calculation completed in ${timeSinceDateCalculation - start}ms.`);
-
     // Step 2: Collect messages from the guild
-    logger.info('Collecting messages from the guild.');
-    start = Date.now();
     const userMessages: Message[] = await collectMessagesFromGuild(guild, user, sinceDate);
-    let timeAfterMessageCollection = Date.now();
-    logger.info(`Message collection completed in ${timeAfterMessageCollection - start}ms.`);
-    logger.info(`Collected ${userMessages.length} messages.`);
-
     if (userMessages.length === 0) {
         logger.info('No messages found for the user.');
         return [];
     }
-
     // Step 3: Detect conversations from the collected messages
-    logger.info('Detecting conversations from the collected messages.');
-    start = Date.now();
     const conversations = detectConversations(userMessages);
     const limitedConversations = conversations.slice(0, MAX_CONVERSATIONS);
-    let timeAfterConversationDetection = Date.now();
-    logger.info(`Conversation detection completed in ${timeAfterConversationDetection - start}ms.`);
-    logger.info(`Detected ${conversations.length} conversations, limited to ${limitedConversations.length}.`);
-
     // Step 4: Fetch context messages for each conversation with concurrency control
     logger.info('Fetching context messages for each conversation.');
     start = Date.now();
