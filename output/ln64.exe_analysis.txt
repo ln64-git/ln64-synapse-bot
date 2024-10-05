@@ -1,1 +1,1592 @@
-[{"startTime":"2024-06-24T23:00:07.683Z","endTime":"2024-06-24T23:04:22.325Z","messages":[{"channelId":"1254695514226823248","guildId":"1254694808228986912","id":"1254934111303503923","createdTimestamp":1719270007683,"type":0,"system":false,"content":"embed? Shinji, you spend half your day in bed. 👨‍🦽","authorId":"354823920010002432","pinned":false,"tts":false,"nonce":null,"embeds":[],"components":[],"attachments":[],"stickers":[],"position":null,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":null,"mentions":{"everyone":false,"users":[],"roles":[],"crosspostedChannels":[],"repliedUser":null,"members":[],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":null,"interaction":null,"poll":null,"cleanContent":"embed? Shinji, you spend half your day in bed. 👨‍🦽"},{"channelId":"1254695514226823248","guildId":"1254694808228986912","id":"1254934572886655048","createdTimestamp":1719270117733,"type":19,"system":false,"content":"i can not post attachments","authorId":"804569322970284032","pinned":false,"tts":false,"nonce":null,"embeds":[],"components":[],"attachments":[],"stickers":[],"position":0,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":1719270128453,"mentions":{"everyone":false,"users":["354823920010002432"],"roles":[],"crosspostedChannels":[],"repliedUser":"354823920010002432","members":["354823920010002432"],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":{"channelId":"1254695514226823248","guildId":"1254694808228986912","messageId":"1254934111303503923"},"interaction":null,"poll":null,"cleanContent":"i can not post attachments"},{"channelId":"1254695514226823248","guildId":"1254694808228986912","id":"1254934646471262269","createdTimestamp":1719270135277,"type":0,"system":false,"content":"skill issue, get pwnd","authorId":"354823920010002432","pinned":false,"tts":false,"nonce":null,"embeds":[],"components":[],"attachments":[],"stickers":[],"position":null,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":null,"mentions":{"everyone":false,"users":[],"roles":[],"crosspostedChannels":[],"repliedUser":null,"members":[],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":null,"interaction":null,"poll":null,"cleanContent":"skill issue, get pwnd"},{"channelId":"1254695514226823248","guildId":"1254694808228986912","id":"1254934698811985983","createdTimestamp":1719270147756,"type":0,"system":false,"content":"<:emo:1166554034069577779>","authorId":"804569322970284032","pinned":false,"tts":false,"nonce":null,"embeds":[],"components":[],"attachments":[],"stickers":[],"position":null,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":null,"mentions":{"everyone":false,"users":[],"roles":[],"crosspostedChannels":[],"repliedUser":null,"members":[],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":null,"interaction":null,"poll":null,"cleanContent":":emo:"},{"channelId":"1254695514226823248","guildId":"1254694808228986912","id":"1254934752692277420","createdTimestamp":1719270160602,"type":0,"system":false,"content":"try now","authorId":"354823920010002432","pinned":false,"tts":false,"nonce":null,"embeds":[],"components":[],"attachments":[],"stickers":[],"position":null,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":null,"mentions":{"everyone":false,"users":[],"roles":[],"crosspostedChannels":[],"repliedUser":null,"members":[],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":null,"interaction":null,"poll":null,"cleanContent":"try now"},{"channelId":"1254695514226823248","guildId":"1254694808228986912","id":"1254934874633011300","createdTimestamp":1719270189675,"type":0,"system":false,"content":"pic of me","authorId":"804569322970284032","pinned":false,"tts":false,"nonce":null,"embeds":[],"components":[],"attachments":["1254934874406649876"],"stickers":[],"position":null,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":null,"mentions":{"everyone":false,"users":[],"roles":[],"crosspostedChannels":[],"repliedUser":null,"members":[],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":null,"interaction":null,"poll":null,"cleanContent":"pic of me"},{"channelId":"1254695514226823248","guildId":"1254694808228986912","id":"1254935179349200986","createdTimestamp":1719270262325,"type":0,"system":false,"content":"pic of me","authorId":"354823920010002432","pinned":false,"tts":false,"nonce":null,"embeds":[],"components":[],"attachments":["1254935178246095010"],"stickers":[],"position":null,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":null,"mentions":{"everyone":false,"users":[],"roles":[],"crosspostedChannels":[],"repliedUser":null,"members":[],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":null,"interaction":null,"poll":null,"cleanContent":"pic of me"}]},{"startTime":"2024-06-25T05:05:11.241Z","endTime":"2024-06-25T05:05:11.241Z","messages":[{"channelId":"1254726765155455039","guildId":"1254694808228986912","id":"1255025981484433481","createdTimestamp":1719291911241,"type":0,"system":false,"content":"https://www.youtube.com/watch?v=7G-cqAehehA&pp=ygUZbGV3aXMgdGFrZXMgb2ZmIGhpcyBzaGlydA%3D%3D","authorId":"354823920010002432","pinned":false,"tts":false,"nonce":null,"embeds":[{"type":"video","url":"https://www.youtube.com/watch?v=7G-cqAehehA","title":"Owen Pallett - Lewis Takes Off His Shirt (2010)","description":"'Lewis Takes Off His Shirt' from Owen Pallett's new album 'Heartland'. Out now on Domino Records.\n\nhttp://www.dominorecordco.us/usa/news/02-03-10/owen-pallett-unveils-lewis-takes-off-his-shirt-video-orchestral-score-book-and-tour-dates/\n\nDirector/editor: M Blash\n\nCAST:\nAlison Pill\nOwen Pallett\nTom Arsenault\nMorgan Ritter\nDaniel Peterson\nZoe Roll...","color":16711680,"author":{"name":"Domino Recording Co.","url":"https://www.youtube.com/channel/UCA8xMhX1DfxA8UKsfjn9vQg"},"provider":{"name":"YouTube","url":"https://www.youtube.com"},"thumbnail":{"url":"https://i.ytimg.com/vi/7G-cqAehehA/hqdefault.jpg","proxy_url":"https://images-ext-1.discordapp.net/external/tQ2d7SVGEfUNeVMAjgjtiX4UkQI2wxB-JokpjlEeMxA/https/i.ytimg.com/vi/7G-cqAehehA/hqdefault.jpg","width":480,"height":360,"placeholder":"EccJFYSHd4d1h3iAd4iHgll2n3X3","placeholder_version":1},"video":{"url":"https://www.youtube.com/embed/7G-cqAehehA","width":1280,"height":720,"placeholder":"EccJFYSHd4d1h3iAd4iHgll2n3X3","placeholder_version":1}}],"components":[],"attachments":[],"stickers":[],"position":null,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":null,"mentions":{"everyone":false,"users":[],"roles":[],"crosspostedChannels":[],"repliedUser":null,"members":[],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":null,"interaction":null,"poll":null,"cleanContent":"https://www.youtube.com/watch?v=7G-cqAehehA&pp=ygUZbGV3aXMgdGFrZXMgb2ZmIGhpcyBzaGlydA%3D%3D"}]},{"startTime":"2024-06-26T07:28:44.153Z","endTime":"2024-06-26T07:28:44.153Z","messages":[{"channelId":"1254695514226823248","guildId":"1254694808228986912","id":"1255424494521290762","createdTimestamp":1719386924153,"type":19,"system":false,"content":"Ayyyye sims!","authorId":"354823920010002432","pinned":false,"tts":false,"nonce":null,"embeds":[],"components":[],"attachments":[],"stickers":[],"position":0,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":null,"mentions":{"everyone":false,"users":["725102207120310273"],"roles":[],"crosspostedChannels":[],"repliedUser":"725102207120310273","members":[],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":{"channelId":"1254695514226823248","guildId":"1254694808228986912","messageId":"1254989810238488578"},"interaction":null,"poll":null,"cleanContent":"Ayyyye sims!"}]},{"startTime":"2024-07-08T15:56:32.064Z","endTime":"2024-07-08T15:56:32.064Z","messages":[{"channelId":"1254726652705898586","guildId":"1254694808228986912","id":"1259900940589203599","createdTimestamp":1720454192064,"type":19,"system":false,"content":"bro dis you?","authorId":"354823920010002432","pinned":false,"tts":false,"nonce":null,"embeds":[],"components":[],"attachments":[],"stickers":[],"position":0,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":null,"mentions":{"everyone":false,"users":["727327856786538606"],"roles":[],"crosspostedChannels":[],"repliedUser":"727327856786538606","members":[],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":{"channelId":"1254726652705898586","guildId":"1254694808228986912","messageId":"1259480784440397895"},"interaction":null,"poll":null,"cleanContent":"bro dis you?"}]},{"startTime":"2024-07-10T21:28:07.700Z","endTime":"2024-07-10T21:28:07.700Z","messages":[{"channelId":"1254698271914590208","guildId":"1254694808228986912","id":"1260709164666327152","createdTimestamp":1720646887700,"type":0,"system":false,"content":"Hey <@263816368023928834> glad to see ya’","authorId":"354823920010002432","pinned":false,"tts":false,"nonce":null,"embeds":[],"components":[],"attachments":[],"stickers":[],"position":null,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":null,"mentions":{"everyone":false,"users":["263816368023928834"],"roles":[],"crosspostedChannels":[],"repliedUser":null,"members":[],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":null,"interaction":null,"poll":null,"cleanContent":"Hey @shrimpy glad to see ya’"}]},{"startTime":"2024-07-30T09:39:35.534Z","endTime":"2024-07-30T09:39:35.534Z","messages":[{"channelId":"1254696430690635807","guildId":"1254694808228986912","id":"1267778613030289409","createdTimestamp":1722332375534,"type":0,"system":false,"content":"\"<@957858331744161823> <@236707486135091201> I hope you're enjoying your thirties getting rug munched to kokomo and helicoptering to the piña colada song in a hotel room\"","authorId":"354823920010002432","pinned":false,"tts":false,"nonce":null,"embeds":[],"components":[],"attachments":[],"stickers":[],"position":null,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":null,"mentions":{"everyone":false,"users":["236707486135091201","957858331744161823"],"roles":[],"crosspostedChannels":[],"repliedUser":null,"members":["236707486135091201"],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":null,"interaction":null,"poll":null,"cleanContent":"\"@Daphnie @Tip n Daph I hope you're enjoying your thirties getting rug munched to kokomo and helicoptering to the piña colada song in a hotel room\""}]},{"startTime":"2024-08-01T06:54:48.360Z","endTime":"2024-08-01T06:54:48.360Z","messages":[{"channelId":"1254695279311978526","guildId":"1254694808228986912","id":"1268461835548360775","createdTimestamp":1722495268476,"type":0,"system":false,"content":"","authorId":"354823920010002432","pinned":false,"tts":false,"nonce":null,"embeds":[],"components":[],"attachments":["1268461835057631232"],"stickers":[],"position":null,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":null,"mentions":{"everyone":false,"users":[],"roles":[],"crosspostedChannels":[],"repliedUser":null,"members":[],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":null,"interaction":null,"poll":null,"cleanContent":""},{"channelId":"1254695279311978526","guildId":"1254694808228986912","id":"1268461918948036680","createdTimestamp":1722495288360,"type":0,"system":false,"content":"Ayyoo Kim Yeji has the plushie on deck","authorId":"354823920010002432","pinned":false,"tts":false,"nonce":null,"embeds":[],"components":[],"attachments":[],"stickers":[],"position":null,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":null,"mentions":{"everyone":false,"users":[],"roles":[],"crosspostedChannels":[],"repliedUser":null,"members":[],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":null,"interaction":null,"poll":null,"cleanContent":"Ayyoo Kim Yeji has the plushie on deck"}]},{"startTime":"2024-08-01T20:59:14.494Z","endTime":"2024-08-01T20:59:14.494Z","messages":[{"channelId":"1254695279311978526","guildId":"1254694808228986912","id":"1268674428116406324","createdTimestamp":1722545954494,"type":19,"system":false,"content":"<@1073388358107156610>  If you really want to put your CPUs to use I bet you could run the Llama 3.1 model fairly well","authorId":"354823920010002432","pinned":false,"tts":false,"nonce":null,"embeds":[],"components":[],"attachments":["1268674427889909863"],"stickers":[],"position":0,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":1722545966295,"mentions":{"everyone":false,"users":["1073388358107156610"],"roles":[],"crosspostedChannels":[],"repliedUser":"1073388358107156610","members":[],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":{"channelId":"1254695279311978526","guildId":"1254694808228986912","messageId":"1265148461901287615"},"interaction":null,"poll":null,"cleanContent":"@integraL  If you really want to put your CPUs to use I bet you could run the Llama 3.1 model fairly well"}]},{"startTime":"2024-08-02T18:13:16.682Z","endTime":"2024-08-02T18:13:16.682Z","messages":[{"channelId":"1254695279311978526","guildId":"1254694808228986912","id":"1268995049891434628","createdTimestamp":1722622396682,"type":0,"system":false,"content":"WHAT da Heeeelll \nPies got NUKED????","authorId":"354823920010002432","pinned":false,"tts":false,"nonce":null,"embeds":[],"components":[],"attachments":[],"stickers":[],"position":null,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":null,"mentions":{"everyone":false,"users":[],"roles":[],"crosspostedChannels":[],"repliedUser":null,"members":[],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":null,"interaction":null,"poll":null,"cleanContent":"WHAT da Heeeelll \nPies got NUKED????"},{"channelId":"1254695279311978526","guildId":"1254694808228986912","id":"1268995433468924046","createdTimestamp":1722622488134,"type":0,"system":false,"content":"","authorId":"354823920010002432","pinned":false,"tts":false,"nonce":null,"embeds":[],"components":[],"attachments":["1268995433225650186"],"stickers":[],"position":null,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":null,"mentions":{"everyone":false,"users":[],"roles":[],"crosspostedChannels":[],"repliedUser":null,"members":[],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":null,"interaction":null,"poll":null,"cleanContent":""}]},{"startTime":"2024-08-03T18:44:59.389Z","endTime":"2024-08-03T18:44:59.389Z","messages":[{"channelId":"1254695279311978526","guildId":"1254694808228986912","id":"1269365418288746537","createdTimestamp":1722710699389,"type":0,"system":false,"content":"real question, does trump wear a wig?","authorId":"354823920010002432","pinned":false,"tts":false,"nonce":null,"embeds":[],"components":[],"attachments":[],"stickers":[],"position":null,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":null,"mentions":{"everyone":false,"users":[],"roles":[],"crosspostedChannels":[],"repliedUser":null,"members":[],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":null,"interaction":null,"poll":null,"cleanContent":"real question, does trump wear a wig?"},{"channelId":"1254695279311978526","guildId":"1254694808228986912","id":"1269365765002494116","createdTimestamp":1722710782052,"type":0,"system":false,"content":"","authorId":"354823920010002432","pinned":false,"tts":false,"nonce":null,"embeds":[],"components":[],"attachments":["1269365764155244614","1269365764713091204"],"stickers":[],"position":null,"roleSubscriptionData":null,"resolved":null,"editedTimestamp":null,"mentions":{"everyone":false,"users":[],"roles":[],"crosspostedChannels":[],"repliedUser":null,"members":[],"channels":[]},"webhookId":null,"groupActivityApplicationId":null,"applicationId":null,"activity":null,"flags":0,"reference":null,"interaction":null,"poll":null,"cleanContent":""}]}]
+[
+  {
+    "startTime": "2024-06-24T23:00:07.683Z",
+    "endTime": "2024-06-24T23:04:22.325Z",
+    "messages": [
+      {
+        "author": "shinji_ikari5049",
+        "content": "",
+        "timestamp": "2024-06-24T22:56:07.869Z",
+        "channelId": "1254695590369951814"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "embed? Shinji, you spend half your day in bed. 👨‍🦽",
+        "timestamp": "2024-06-24T23:00:07.683Z",
+        "channelId": "1254695514226823248"
+      },
+      {
+        "author": "Welcomer",
+        "content": "",
+        "timestamp": "2024-06-24T23:01:05.797Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "adaam_west",
+        "content": "",
+        "timestamp": "2024-06-24T23:01:06.586Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "shinji_ikari5049",
+        "content": "i can not post attachments",
+        "timestamp": "2024-06-24T23:01:57.733Z",
+        "channelId": "1254695514226823248"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "skill issue, get pwnd",
+        "timestamp": "2024-06-24T23:02:15.277Z",
+        "channelId": "1254695514226823248"
+      },
+      {
+        "author": "shinji_ikari5049",
+        "content": "<:emo:1166554034069577779>",
+        "timestamp": "2024-06-24T23:02:27.756Z",
+        "channelId": "1254695514226823248"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "try now",
+        "timestamp": "2024-06-24T23:02:40.602Z",
+        "channelId": "1254695514226823248"
+      },
+      {
+        "author": "shinji_ikari5049",
+        "content": "pic of me",
+        "timestamp": "2024-06-24T23:03:09.675Z",
+        "channelId": "1254695514226823248"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "pic of me",
+        "timestamp": "2024-06-24T23:04:22.325Z",
+        "channelId": "1254695514226823248"
+      },
+      {
+        "author": "Welcomer",
+        "content": "",
+        "timestamp": "2024-06-24T23:05:34.344Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "koalakiller69",
+        "content": "",
+        "timestamp": "2024-06-24T23:05:40.687Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "",
+        "timestamp": "2024-06-24T23:07:13.180Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "torntorntontotanto",
+        "content": "",
+        "timestamp": "2024-06-24T23:13:06.765Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "Welcomer",
+        "content": "",
+        "timestamp": "2024-06-24T23:13:10.002Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "Welcomer",
+        "content": "",
+        "timestamp": "2024-06-24T23:17:53.177Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "thelaughingphilosopher",
+        "content": "",
+        "timestamp": "2024-06-24T23:17:54.503Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "big_crabba",
+        "content": "",
+        "timestamp": "2024-06-24T23:18:24.590Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "Welcomer",
+        "content": "",
+        "timestamp": "2024-06-24T23:18:25.805Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "big_crabba",
+        "content": "heatmiser lookin ass",
+        "timestamp": "2024-06-24T23:22:18.014Z",
+        "channelId": "1254695514226823248"
+      },
+      {
+        "author": "guccimanelaflare",
+        "content": "",
+        "timestamp": "2024-06-24T23:22:43.241Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "Welcomer",
+        "content": "",
+        "timestamp": "2024-06-24T23:22:47.767Z",
+        "channelId": "1254698271914590208"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-06-25T05:05:11.241Z",
+    "endTime": "2024-06-25T05:05:11.241Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "https://www.youtube.com/watch?v=7G-cqAehehA&pp=ygUZbGV3aXMgdGFrZXMgb2ZmIGhpcyBzaGlydA%3D%3D",
+        "timestamp": "2024-06-25T05:05:11.241Z",
+        "channelId": "1254726765155455039"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-06-26T07:28:44.153Z",
+    "endTime": "2024-06-26T07:28:44.153Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "Ayyyye sims!",
+        "timestamp": "2024-06-26T07:28:44.153Z",
+        "channelId": "1254695514226823248"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-07-08T15:56:32.064Z",
+    "endTime": "2024-07-08T15:56:32.064Z",
+    "messages": [
+      {
+        "author": "brizzlebrando",
+        "content": "Hi!!!",
+        "timestamp": "2024-07-08T15:52:50.492Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "brizzlebrando",
+        "content": "Finally about to head home in a few hours",
+        "timestamp": "2024-07-08T15:53:04.993Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "bro dis you?",
+        "timestamp": "2024-07-08T15:56:32.064Z",
+        "channelId": "1254726652705898586"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-07-10T21:28:07.700Z",
+    "endTime": "2024-07-10T21:28:07.700Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "Hey <@263816368023928834> glad to see ya’",
+        "timestamp": "2024-07-10T21:28:07.700Z",
+        "channelId": "1254698271914590208"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-07-30T09:39:35.534Z",
+    "endTime": "2024-07-30T09:39:35.534Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "\"<@957858331744161823> <@236707486135091201> I hope you're enjoying your thirties getting rug munched to kokomo and helicoptering to the piña colada song in a hotel room\"",
+        "timestamp": "2024-07-30T09:39:35.534Z",
+        "channelId": "1254696430690635807"
+      },
+      {
+        "author": "Sapphire",
+        "content": "Welcome <@829610249891086376> to **Arcados**!",
+        "timestamp": "2024-07-30T09:51:23.798Z",
+        "channelId": "1254698271914590208"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-08-01T06:54:48.360Z",
+    "endTime": "2024-08-01T06:54:48.360Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "",
+        "timestamp": "2024-08-01T06:54:28.476Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "Ayyoo Kim Yeji has the plushie on deck",
+        "timestamp": "2024-08-01T06:54:48.360Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "papatabb69",
+        "content": "Real\n` 31 💀 `  ` 76 🐐` ` 26 ☠️ `  ` 71 😂 `",
+        "timestamp": "2024-08-01T07:10:26.477Z",
+        "channelId": "1254695279311978526"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-08-01T20:59:14.494Z",
+    "endTime": "2024-08-01T20:59:14.494Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "<@1073388358107156610>  If you really want to put your CPUs to use I bet you could run the Llama 3.1 model fairly well",
+        "timestamp": "2024-08-01T20:59:14.494Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "winkuuuu",
+        "content": "https://www.yahoo.com/gma/looking-sharp-italian-gymnastics-silver-085402287.html",
+        "timestamp": "2024-08-01T21:07:18.595Z",
+        "channelId": "1254726652705898586"
+      },
+      {
+        "author": "winkuuuu",
+        "content": "Oooft",
+        "timestamp": "2024-08-01T21:07:29.298Z",
+        "channelId": "1254726652705898586"
+      },
+      {
+        "author": "papatabb69",
+        "content": "She’s sponsored by parmagiano reggiano her instagram is nuts 🙈",
+        "timestamp": "2024-08-01T21:14:33.585Z",
+        "channelId": "1254726652705898586"
+      },
+      {
+        "author": "winkuuuu",
+        "content": "Ye",
+        "timestamp": "2024-08-01T21:16:03.587Z",
+        "channelId": "1254726652705898586"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-08-02T18:13:16.682Z",
+    "endTime": "2024-08-02T18:13:16.682Z",
+    "messages": [
+      {
+        "author": "brizzlebrando",
+        "content": "Ight",
+        "timestamp": "2024-08-02T17:47:43.702Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "brizzlebrando",
+        "content": "I’m gonna nap I need it",
+        "timestamp": "2024-08-02T17:47:50.444Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "WHAT da Heeeelll \nPies got NUKED????",
+        "timestamp": "2024-08-02T18:13:16.682Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "",
+        "timestamp": "2024-08-02T18:14:48.134Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "papatabb69",
+        "content": "this is hilarious knowing that everyones known for years",
+        "timestamp": "2024-08-02T18:39:40.098Z",
+        "channelId": "1254695279311978526"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-08-03T18:44:59.389Z",
+    "endTime": "2024-08-03T18:44:59.389Z",
+    "messages": [
+      {
+        "author": "papatabb69",
+        "content": "I like the neck piece being a stem",
+        "timestamp": "2024-08-03T18:40:45.963Z",
+        "channelId": "1254726652705898586"
+      },
+      {
+        "author": "papatabb69",
+        "content": "I could picture a matching hand pipe where the handle of the spoon is a vines or a bunch coiled up",
+        "timestamp": "2024-08-03T18:41:22.564Z",
+        "channelId": "1254726652705898586"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "real question, does trump wear a wig?",
+        "timestamp": "2024-08-03T18:44:59.389Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "",
+        "timestamp": "2024-08-03T18:46:22.052Z",
+        "channelId": "1254695279311978526"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-08-04T17:16:17.155Z",
+    "endTime": "2024-08-04T17:16:17.155Z",
+    "messages": [
+      {
+        "author": "z0gslop",
+        "content": "that british guy boris johnson had some of the worst hair i’ve ever seen",
+        "timestamp": "2024-08-04T17:14:59.503Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "z0gslop",
+        "content": "",
+        "timestamp": "2024-08-04T17:15:25.273Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "Hahahaha!",
+        "timestamp": "2024-08-04T17:16:17.155Z",
+        "channelId": "1254695279311978526"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-08-04T17:53:16.624Z",
+    "endTime": "2024-08-04T17:53:16.624Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "https://www.freecodecamp.org/news/hacking-cars-a-guide-tutorial-on-how-to-hack-a-car-5eafcfbbb7ec",
+        "timestamp": "2024-08-04T17:53:16.624Z",
+        "channelId": "1254695279311978526"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-08-10T21:50:47.543Z",
+    "endTime": "2024-08-10T21:50:47.543Z",
+    "messages": [
+      {
+        "author": "winkuuuu",
+        "content": "",
+        "timestamp": "2024-08-10T21:48:48.643Z",
+        "channelId": "1254726652705898586"
+      },
+      {
+        "author": "winkuuuu",
+        "content": "<@354823920010002432>",
+        "timestamp": "2024-08-10T21:48:56.023Z",
+        "channelId": "1254726652705898586"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "That looks really good!",
+        "timestamp": "2024-08-10T21:50:47.543Z",
+        "channelId": "1254726652705898586"
+      },
+      {
+        "author": "winkuuuu",
+        "content": "Orecchiette",
+        "timestamp": "2024-08-10T21:55:49.065Z",
+        "channelId": "1254726652705898586"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-08-12T22:03:21.171Z",
+    "endTime": "2024-08-12T22:03:21.171Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "<@773561252907581481>",
+        "timestamp": "2024-08-12T22:03:21.171Z",
+        "channelId": "1254726652705898586"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-08-17T09:29:59.832Z",
+    "endTime": "2024-08-17T09:30:12.019Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "https://npd.pentester.com/search",
+        "timestamp": "2024-08-17T09:29:59.832Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "check if you ssn has been leaked",
+        "timestamp": "2024-08-17T09:30:12.019Z",
+        "channelId": "1254695279311978526"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-08-17T20:42:45.434Z",
+    "endTime": "2024-08-17T20:42:57.464Z",
+    "messages": [
+      {
+        "author": "Sapphire",
+        "content": "User <@997958460014592000> left from **Arcados**",
+        "timestamp": "2024-08-17T20:14:27.371Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "kontentsu5070",
+        "content": "",
+        "timestamp": "2024-08-17T20:29:57.652Z",
+        "channelId": "1254695514226823248"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "<@1220610125287522344> LET US KNOW HOW YOU ARE DOING!!",
+        "timestamp": "2024-08-17T20:42:45.434Z",
+        "channelId": "1255468052724580443"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "tell us about school",
+        "timestamp": "2024-08-17T20:42:57.464Z",
+        "channelId": "1255468052724580443"
+      },
+      {
+        "author": "winkuuuu",
+        "content": "",
+        "timestamp": "2024-08-17T20:43:07.500Z",
+        "channelId": "1254726652705898586"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-08-18T02:46:44.843Z",
+    "endTime": "2024-08-18T02:46:44.843Z",
+    "messages": [
+      {
+        "author": "papatabb69",
+        "content": "<@354543127450615808> <@773561252907581481> <@354823920010002432>",
+        "timestamp": "2024-08-18T02:43:03.485Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "papatabb69",
+        "content": "Invite olli",
+        "timestamp": "2024-08-18T02:43:05.489Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "papatabb69",
+        "content": "He’s alone in vc",
+        "timestamp": "2024-08-18T02:43:09.358Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "he decided to leave, I think he was getting tired of wink",
+        "timestamp": "2024-08-18T02:46:44.843Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "papatabb69",
+        "content": "I see",
+        "timestamp": "2024-08-18T02:46:54.905Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "Sapphire",
+        "content": "Welcome <@1101568680887853097> to **Arcados**!",
+        "timestamp": "2024-08-18T02:48:21.031Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "winkuuuu",
+        "content": "????",
+        "timestamp": "2024-08-18T02:53:02.871Z",
+        "channelId": "1254726652705898586"
+      },
+      {
+        "author": "winkuuuu",
+        "content": "<@1150377370583306320>",
+        "timestamp": "2024-08-18T02:53:06.791Z",
+        "channelId": "1254726652705898586"
+      },
+      {
+        "author": "winkuuuu",
+        "content": "Why do you look like me",
+        "timestamp": "2024-08-18T02:53:18.031Z",
+        "channelId": "1254726652705898586"
+      },
+      {
+        "author": "winkuuuu",
+        "content": "Those brands look weird",
+        "timestamp": "2024-08-18T02:55:02.809Z",
+        "channelId": "1254695279311978526"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-08-18T20:20:14.485Z",
+    "endTime": "2024-08-18T20:20:14.485Z",
+    "messages": [
+      {
+        "author": "underscore0",
+        "content": "My bad for being a dickhead",
+        "timestamp": "2024-08-18T20:12:05.075Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "underscore0",
+        "content": "Hopefully I can be forgiven",
+        "timestamp": "2024-08-18T20:12:12.156Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "Hello @everyone. I was woken up startled and alarmed learn that <@354543127450615808> aka <@727327856786538606> has been arrested on multiple counts of violating international hacking laws. While the exact details and charges remain undisclosed at this time, it appears that wink is accepting the weight of his charges and exploring the possibility of an insanity plea... 🙏",
+        "timestamp": "2024-08-18T20:20:14.485Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "tentallships",
+        "content": "Godspeed wink",
+        "timestamp": "2024-08-18T20:24:40.013Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "kontentsu5070",
+        "content": "WHAT",
+        "timestamp": "2024-08-18T20:28:04.055Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "thewizard.com",
+        "content": "Free my dog wink",
+        "timestamp": "2024-08-18T20:29:41.404Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "shinji_ikari5049",
+        "content": "i told him this was going to happen,",
+        "timestamp": "2024-08-18T20:33:26.637Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "z0gslop",
+        "content": "def a meme",
+        "timestamp": "2024-08-18T20:35:28.220Z",
+        "channelId": "1254695279311978526"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-08-23T02:47:10.160Z",
+    "endTime": "2024-08-23T02:47:10.160Z",
+    "messages": [
+      {
+        "author": "Sapphire",
+        "content": "Welcome <@1013915304188973056> to **Arcados**!",
+        "timestamp": "2024-08-23T02:38:41.339Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "psykopunk",
+        "content": "",
+        "timestamp": "2024-08-23T02:40:08.410Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "https://www.youtube.com/watch?v=Pr4re5DS4BA",
+        "timestamp": "2024-08-23T02:47:10.160Z",
+        "channelId": "1254728795286671443"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-08-23T19:18:10.779Z",
+    "endTime": "2024-08-23T19:39:49.190Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "https://www.instagram.com/reel/C-8UwO0S1s0/?igsh=MW1tMjhnbnFiNTY1NA==",
+        "timestamp": "2024-08-23T19:18:10.779Z",
+        "channelId": "1254695590369951814"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "<@674048145952473088> this one is really funny, it’s the guy from Why? In NYC\n\nhttps://www.instagram.com/reel/C_BcSPwPt7z/?igsh=ZGJ4cTdnaGN3ZHhz",
+        "timestamp": "2024-08-23T19:39:49.190Z",
+        "channelId": "1254695590369951814"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-08-25T21:53:40.175Z",
+    "endTime": "2024-08-25T21:53:40.175Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "Glad to hear you’ve been staying busy, You must be learning a lot.\nI got a job at a sushi restaurant so I’ve been doing well just focusing on that and getting ready to find a new apartment next month",
+        "timestamp": "2024-08-25T21:53:40.175Z",
+        "channelId": "1255468052724580443"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-08-27T01:25:04.425Z",
+    "endTime": "2024-08-27T01:25:04.425Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "<@1241023069879800020>",
+        "timestamp": "2024-08-27T01:25:04.425Z",
+        "channelId": "1254695279311978526"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-08-29T20:05:44.613Z",
+    "endTime": "2024-08-29T20:06:14.383Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "This is so funny!!!!",
+        "timestamp": "2024-08-29T20:05:44.613Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "Hahaha this one is very Fallout",
+        "timestamp": "2024-08-29T20:06:14.383Z",
+        "channelId": "1254695279311978526"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-01T15:02:53.108Z",
+    "endTime": "2024-09-01T15:02:53.108Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "that thing looks disgusting",
+        "timestamp": "2024-09-01T15:02:53.108Z",
+        "channelId": "1254726652705898586"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-04T19:15:48.516Z",
+    "endTime": "2024-09-04T19:17:12.284Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "I never know if psychic stuff is bullshit or not but when I try to “channel” I’ll pull a straight like this, the clarity of the message always surprises me",
+        "timestamp": "2024-09-04T19:15:48.516Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "i found an old tarot deck lying around while cleaning",
+        "timestamp": "2024-09-04T19:17:12.284Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "bitcoindice",
+        "content": "[Intro: Legacy]\nI could fall off today\nStill steal a famous nigga ho\nI'm a young fly nigga fasho\n\n[Chorus: Legacy]\nOkay, now put yo ass, on my dick, and pose on this shit\nOkay now Freak my Shit, freak my shit, freak my shit\nBitch freak my shit\nFreak my shit, freak my shit, freak my shit\nBitch freak my shit",
+        "timestamp": "2024-09-04T19:30:21.930Z",
+        "channelId": "1254726652705898586"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-06T19:45:32.109Z",
+    "endTime": "2024-09-06T20:11:24.157Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "<@221379384890753024> vr chat?",
+        "timestamp": "2024-09-06T19:45:32.109Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "<@674048145952473088>  and I hanging out with Toad",
+        "timestamp": "2024-09-06T20:11:24.157Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "shinji_ikari5049",
+        "content": "just woke up, feeling zxcxzzzxzxcvcxzxzcv",
+        "timestamp": "2024-09-06T20:38:22.111Z",
+        "channelId": "1254695279311978526"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-07T05:33:44.796Z",
+    "endTime": "2024-09-07T05:41:01.342Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "might as well make a blog",
+        "timestamp": "2024-09-07T05:33:44.796Z",
+        "channelId": "1281848335367405609"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "that time Brando and I hung out with Toad in Mario 64 vr",
+        "timestamp": "2024-09-07T05:41:01.342Z",
+        "channelId": "1254696430690635807"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-14T05:00:20.668Z",
+    "endTime": "2024-09-14T05:00:20.668Z",
+    "messages": [
+      {
+        "author": "Sapphire",
+        "content": "User <@426598638215626776> left from **Arcados**",
+        "timestamp": "2024-09-14T04:45:42.570Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "Sapphire",
+        "content": "Welcome <@426598638215626776> to **Arcados**!",
+        "timestamp": "2024-09-14T04:45:46.577Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "Sapphire",
+        "content": "Welcome <@1094154989204680745> to **Arcados**!",
+        "timestamp": "2024-09-14T04:59:29.305Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "shadowboxxxer",
+        "content": "hai",
+        "timestamp": "2024-09-14T04:59:57.015Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "hello!",
+        "timestamp": "2024-09-14T05:00:20.668Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "winkuuuuuuuuuu",
+        "content": "Leave",
+        "timestamp": "2024-09-14T05:11:18.418Z",
+        "channelId": "1254695279311978526"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-14T06:24:41.399Z",
+    "endTime": "2024-09-14T06:24:41.399Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "this actually looks pretty good",
+        "timestamp": "2024-09-14T06:24:41.399Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "thelaughingphilosopher",
+        "content": "not too bad, I give it a 6/10. I got it from the speedway near mason!",
+        "timestamp": "2024-09-14T06:42:51.404Z",
+        "channelId": "1254695279311978526"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-15T07:52:23.918Z",
+    "endTime": "2024-09-15T07:54:04.648Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "https://open.spotify.com/playlist/50tSdOT4mYX4H3kEvtyPbG?si=a8bd0e0887fc49dc",
+        "timestamp": "2024-09-15T07:52:23.918Z",
+        "channelId": "1281848335367405609"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "https://open.spotify.com/playlist/0bE3vQuCjLwuqazFzyvNMZ?si=1a78b7a3fd1e4175",
+        "timestamp": "2024-09-15T07:52:45.179Z",
+        "channelId": "1281848335367405609"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "https://open.spotify.com/playlist/34qrWRUeSM3GDpjD7bghN2?si=c566d2445b7a421e",
+        "timestamp": "2024-09-15T07:54:04.648Z",
+        "channelId": "1281848335367405609"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-16T06:34:51.706Z",
+    "endTime": "2024-09-16T06:34:51.706Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "https://www.emotiv.com/products/insight",
+        "timestamp": "2024-09-16T06:34:51.706Z",
+        "channelId": "1281848335367405609"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-16T22:48:15.461Z",
+    "endTime": "2024-09-16T22:48:15.461Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "is that the guy who tried to assassinate trump?",
+        "timestamp": "2024-09-16T22:48:15.461Z",
+        "channelId": "1254728795286671443"
+      },
+      {
+        "author": "pachycephalosaurus.",
+        "content": "Wink IT trailer",
+        "timestamp": "2024-09-16T23:02:35.576Z",
+        "channelId": "1282052038146130023"
+      },
+      {
+        "author": "pachycephalosaurus.",
+        "content": "",
+        "timestamp": "2024-09-16T23:02:37.470Z",
+        "channelId": "1282052038146130023"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-18T09:01:02.423Z",
+    "endTime": "2024-09-18T09:01:02.423Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "https://m.youtube.com/watch?v=RJLA2_Ho7X0",
+        "timestamp": "2024-09-18T09:01:02.423Z",
+        "channelId": "1281848335367405609"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-18T19:09:18.062Z",
+    "endTime": "2024-09-18T19:09:18.062Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "welcome, <@354543127450615808> that's <@725102207120310273>'s friend",
+        "timestamp": "2024-09-18T19:09:18.062Z",
+        "channelId": "1254698271914590208"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-20T20:20:33.704Z",
+    "endTime": "2024-09-20T20:20:33.704Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "Yes",
+        "timestamp": "2024-09-20T20:20:33.704Z",
+        "channelId": "1254695279311978526"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-21T06:49:54.089Z",
+    "endTime": "2024-09-21T06:49:54.089Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "https://m.youtube.com/watch?v=PHuOUCMNLJ0",
+        "timestamp": "2024-09-21T06:49:54.089Z",
+        "channelId": "1281848335367405609"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-21T19:43:01.989Z",
+    "endTime": "2024-09-21T20:14:17.124Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "https://www.youtube.com/watch?v=pPyDckAD7Iw&t=49s",
+        "timestamp": "2024-09-21T19:43:01.989Z",
+        "channelId": "1282052038146130023"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "",
+        "timestamp": "2024-09-21T19:44:31.520Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "<@354543127450615808>",
+        "timestamp": "2024-09-21T19:44:32.452Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "Sapphire",
+        "content": "User <@1282120752354562092> left from **Arcados**",
+        "timestamp": "2024-09-21T19:51:22.415Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "Sapphire",
+        "content": "Welcome <@1065805187358400523> to **Arcados**!",
+        "timestamp": "2024-09-21T19:54:24.826Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "Sapphire",
+        "content": "Welcome <@1194393963868717147> to **Arcados**!",
+        "timestamp": "2024-09-21T20:05:42.163Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "Sapphire",
+        "content": "User <@1194393963868717147> left from **Arcados**",
+        "timestamp": "2024-09-21T20:05:50.652Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "ram1337",
+        "content": "enjoy my hairy legs",
+        "timestamp": "2024-09-21T20:08:16.999Z",
+        "channelId": "1254695514226823248"
+      },
+      {
+        "author": "Sapphire",
+        "content": "Welcome <@1023636959882661939> to **Arcados**!",
+        "timestamp": "2024-09-21T20:10:40.580Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "ihatebeingfemale.",
+        "content": "yooo",
+        "timestamp": "2024-09-21T20:11:59.155Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ihatebeingfemale.",
+        "content": "what happened?",
+        "timestamp": "2024-09-21T20:12:01.268Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ihatebeingfemale.",
+        "content": "<:AlastorKindSmile:1214293791108894782>",
+        "timestamp": "2024-09-21T20:13:45.848Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "Yoo this is my private server, some of the ppl from Hearth and other places, more of a locked down community",
+        "timestamp": "2024-09-21T20:14:17.124Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ihatebeingfemale.",
+        "content": "ooooh kk",
+        "timestamp": "2024-09-21T20:14:24.284Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ihatebeingfemale.",
+        "content": "😌",
+        "timestamp": "2024-09-21T20:14:27.695Z",
+        "channelId": "1254695279311978526"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-21T21:49:25.034Z",
+    "endTime": "2024-09-21T21:49:25.034Z",
+    "messages": [
+      {
+        "author": "Sapphire",
+        "content": "Welcome <@962106599785254945> to **Arcados**!",
+        "timestamp": "2024-09-21T21:44:38.439Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "purp2121",
+        "content": "<:cathi:1108884169775403038>",
+        "timestamp": "2024-09-21T21:47:35.281Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "<:0013:1189798400472916079>",
+        "timestamp": "2024-09-21T21:49:25.034Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "purp2121",
+        "content": "i've fallen down a <@344287238567231490> rabbit hole and just now regained consciousness",
+        "timestamp": "2024-09-21T21:52:01.840Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": ".trees",
+        "content": "https://tenor.com/view/shagarita-shalymar-shalymar-rivera-shalymarrivera-shalymar-rivera-gonzalez-gif-11950705312910817178",
+        "timestamp": "2024-09-21T21:53:24.222Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "purp2121",
+        "content": "who's the mad hatter? haha",
+        "timestamp": "2024-09-21T21:54:57.489Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": ".trees",
+        "content": "https://tenor.com/view/spider-man-we-one-gif-18212100",
+        "timestamp": "2024-09-21T22:05:01.040Z",
+        "channelId": "1254695279311978526"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-22T07:11:16.002Z",
+    "endTime": "2024-09-22T07:48:04.425Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "https://youtu.be/NlY-x6jkYaI",
+        "timestamp": "2024-09-22T07:11:16.002Z",
+        "channelId": "1281848335367405609"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "",
+        "timestamp": "2024-09-22T07:15:01.820Z",
+        "channelId": "1281848335367405609"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "<@168286894088650752> do you have \"blog\" in Sweeden?",
+        "timestamp": "2024-09-22T07:23:26.852Z",
+        "channelId": "1287313158326845490"
+      },
+      {
+        "author": "Sapphire",
+        "content": "User <@97523223423352832> left from **Arcados**",
+        "timestamp": "2024-09-22T07:29:58.136Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "gambler.",
+        "content": "",
+        "timestamp": "2024-09-22T07:31:41.005Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "gambler.",
+        "content": "<@354823920010002432> I saw that",
+        "timestamp": "2024-09-22T07:33:49.177Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "<@354543127450615808> <@727327856786538606> I gave you a vc so you can ban ppl from there if you want",
+        "timestamp": "2024-09-22T07:42:45.300Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "who do youwant banned?",
+        "timestamp": "2024-09-22T07:42:57.464Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "<@436412266313678858> do you want a blog here?",
+        "timestamp": "2024-09-22T07:48:04.425Z",
+        "channelId": "1287319376462348310"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-22T18:02:08.560Z",
+    "endTime": "2024-09-22T18:02:08.560Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "Ha! I can believe it",
+        "timestamp": "2024-09-22T18:02:08.560Z",
+        "channelId": "1254695279311978526"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-25T05:36:51.726Z",
+    "endTime": "2024-09-25T05:43:30.315Z",
+    "messages": [
+      {
+        "author": "supernachos",
+        "content": "",
+        "timestamp": "2024-09-25T05:34:32.991Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "supernachos",
+        "content": "",
+        "timestamp": "2024-09-25T05:36:27.395Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "is that your car?",
+        "timestamp": "2024-09-25T05:36:51.726Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "supernachos",
+        "content": "naw",
+        "timestamp": "2024-09-25T05:38:06.990Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "supernachos",
+        "content": "why tf would I own a GTR? <:inahodo:1053327030483169330> <a:loadingdots:688815633579638785>",
+        "timestamp": "2024-09-25T05:38:30.351Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "post your ride",
+        "timestamp": "2024-09-25T05:41:56.712Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "supernachos",
+        "content": "naw.",
+        "timestamp": "2024-09-25T05:42:05.157Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "no bueno?",
+        "timestamp": "2024-09-25T05:42:24.765Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "supernachos",
+        "content": "cus no.",
+        "timestamp": "2024-09-25T05:42:35.519Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "post license plate.",
+        "timestamp": "2024-09-25T05:42:58.412Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "supernachos",
+        "content": "post your mom's booty",
+        "timestamp": "2024-09-25T05:43:15.093Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "your momma's bigger",
+        "timestamp": "2024-09-25T05:43:30.315Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "supernachos",
+        "content": "my mom is old my dude",
+        "timestamp": "2024-09-25T05:43:44.656Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "supernachos",
+        "content": "<:710390040177672302:947923631399399444>",
+        "timestamp": "2024-09-25T05:44:10.959Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "pachycephalosaurus.",
+        "content": "",
+        "timestamp": "2024-09-25T05:44:19.201Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "supernachos",
+        "content": "ew cellulite disqualified",
+        "timestamp": "2024-09-25T05:44:55.119Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "pachycephalosaurus.",
+        "content": "https://tenor.com/view/epicstyles-shower-licky-tasty-hot-gif-6306211246772071098",
+        "timestamp": "2024-09-25T05:45:26.147Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "supernachos",
+        "content": "is that you patches?",
+        "timestamp": "2024-09-25T05:46:12.876Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "pachycephalosaurus.",
+        "content": "thats epicstyles",
+        "timestamp": "2024-09-25T05:46:28.317Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "supernachos",
+        "content": "naw",
+        "timestamp": "2024-09-25T05:46:35.225Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "supernachos",
+        "content": "that be you",
+        "timestamp": "2024-09-25T05:46:42.354Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "pachycephalosaurus.",
+        "content": "ye",
+        "timestamp": "2024-09-25T05:46:46.196Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "supernachos",
+        "content": "anyways back to the coom sesh",
+        "timestamp": "2024-09-25T05:47:03.549Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "supernachos",
+        "content": "<a:PepeDontHaveTime:859077261676642354>",
+        "timestamp": "2024-09-25T05:47:12.245Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "pachycephalosaurus.",
+        "content": "Send voice clip saying \"shut up dude\" pls",
+        "timestamp": "2024-09-25T05:47:17.826Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "supernachos",
+        "content": "eventually",
+        "timestamp": "2024-09-25T05:47:32.153Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "supernachos",
+        "content": "wait, shit. <@354823920010002432> did <@221379384890753024> leak your mom's ass? <:Enterprise_Glare:695063030337241158>💨",
+        "timestamp": "2024-09-25T05:52:30.770Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "pachycephalosaurus.",
+        "content": "brap hog",
+        "timestamp": "2024-09-25T05:58:08.584Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "supernachos",
+        "content": "<:SilvervaleSweat:1007946433187549194>",
+        "timestamp": "2024-09-25T06:01:48.867Z",
+        "channelId": "1285748654115917884"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-26T05:27:36.372Z",
+    "endTime": "2024-09-26T05:27:36.372Z",
+    "messages": [
+      {
+        "author": "Sapphire",
+        "content": "Welcome <@1282120752354562092> to **Arcados**!",
+        "timestamp": "2024-09-26T05:05:34.428Z",
+        "channelId": "1254698271914590208"
+      },
+      {
+        "author": "shinji_ikari5049",
+        "content": "<@354823920010002432>",
+        "timestamp": "2024-09-26T05:12:07.984Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "shinji_ikari5049",
+        "content": "<@225430312568487936> https://www.etsy.com/listing/1782636890/green-lightsaber-glass-chillum?ga_order=most_relevant&ga_search_type=all&ga_view_type=gallery&ga_search_query=lightsaber+pipe&ref=sr_gallery-1-14&frs=1&sts=1&content_source=9f1517d64ad59b2794b5b3404c0b1b7c8fbf55ca%253A1782636890&organic_search_click=1",
+        "timestamp": "2024-09-26T05:14:19.091Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "shinji_ikari5049",
+        "content": "",
+        "timestamp": "2024-09-26T05:14:45.086Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "LunaBot 🌙",
+        "content": "<:music:1079555063774728272> Added **The Joker - Steve Miller Band Lyrics (`04:29`)** to begin playing.",
+        "timestamp": "2024-09-26T05:21:40.973Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "LunaBot 🌙",
+        "content": "",
+        "timestamp": "2024-09-26T05:21:43.743Z",
+        "channelId": "1254695279311978526"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "https://www.youtube.com/watch?v=xAl4HiCYnx8",
+        "timestamp": "2024-09-26T05:27:36.372Z",
+        "channelId": "1281848335367405609"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-28T05:05:01.944Z",
+    "endTime": "2024-09-28T05:05:01.944Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "https://www.reddit.com/r/newyorkcity/comments/1fr02k0/crabs_on_the_train/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button",
+        "timestamp": "2024-09-28T05:05:01.944Z",
+        "channelId": "1281848335367405609"
+      },
+      {
+        "author": "themachiavellianlush",
+        "content": "",
+        "timestamp": "2024-09-28T05:28:06.087Z",
+        "channelId": "1254695514226823248"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-28T06:11:20.457Z",
+    "endTime": "2024-09-28T06:11:20.457Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "https://www.youtube.com/watch?v=LhG5WP0sVR0",
+        "timestamp": "2024-09-28T06:11:20.457Z",
+        "channelId": "1281848335367405609"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-28T12:58:34.446Z",
+    "endTime": "2024-09-28T12:58:34.446Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "Hahahaha!",
+        "timestamp": "2024-09-28T12:58:34.446Z",
+        "channelId": "1254726652705898586"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-28T20:47:36.341Z",
+    "endTime": "2024-09-28T20:47:36.341Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "https://youtu.be/TIy4DLIxFSw?si=p8QT59Oq17Kl0Tct",
+        "timestamp": "2024-09-28T20:47:36.341Z",
+        "channelId": "1281848335367405609"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "",
+        "timestamp": "2024-09-28T20:50:55.517Z",
+        "channelId": "1254695590369951814"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-28T21:18:33.275Z",
+    "endTime": "2024-09-28T21:18:33.275Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "",
+        "timestamp": "2024-09-28T20:50:55.517Z",
+        "channelId": "1254695590369951814"
+      },
+      {
+        "author": "sidtheape",
+        "content": "Got a new toy",
+        "timestamp": "2024-09-28T21:17:41.735Z",
+        "channelId": "1254728795286671443"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "nice!",
+        "timestamp": "2024-09-28T21:18:33.275Z",
+        "channelId": "1254728795286671443"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-30T08:26:20.558Z",
+    "endTime": "2024-09-30T08:26:20.558Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "https://github.com/dotzenith/AvatarSay",
+        "timestamp": "2024-09-30T08:26:20.558Z",
+        "channelId": "1281848335367405609"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "",
+        "timestamp": "2024-09-30T08:30:13.689Z",
+        "channelId": "1281848335367405609"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-09-30T20:41:46.332Z",
+    "endTime": "2024-09-30T20:41:46.332Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "Boulevard of Broken Drones 起唔到機 (Hong Kong)",
+        "timestamp": "2024-09-30T20:41:46.332Z",
+        "channelId": "1281848335367405609"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-10-01T03:48:09.086Z",
+    "endTime": "2024-10-01T03:48:09.086Z",
+    "messages": [
+      {
+        "author": "sidtheape",
+        "content": "Is this in cincy?",
+        "timestamp": "2024-10-01T03:37:21.559Z",
+        "channelId": "1281848335367405609"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "Nah this is in Hong Kong",
+        "timestamp": "2024-10-01T03:48:09.086Z",
+        "channelId": "1281848335367405609"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-10-01T07:54:08.567Z",
+    "endTime": "2024-10-01T07:54:08.567Z",
+    "messages": [
+      {
+        "author": "ln64.exe",
+        "content": "https://www.instagram.com/reel/DAbNWOwhP_l/?igsh=MWVhNXF0cm5wNHhlbw==",
+        "timestamp": "2024-10-01T07:54:08.567Z",
+        "channelId": "1282052038146130023"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-10-03T07:06:25.761Z",
+    "endTime": "2024-10-03T07:10:08.546Z",
+    "messages": [
+      {
+        "author": "winkuuuuuuuuuu",
+        "content": "https://www.ebay.com/itm/364602178721?_trkparms=amclksrc%3DITM%26aid%3D1110003%26algo%3DSPLICE.IMAGESIM%26ao%3D1%26asc%3D273637%26meid%3D895b149320d843808a60a4e0ae185925%26pid%3D101877%26rk%3D12%26rkt%3D12%26sd%3D335560965497%26itm%3D364602178721%26pmt%3D1%26noa%3D0%26pg%3D3959035%26algv%3DImageSimLimeV2WithSimv9%26brand%3DUnbranded%26fpg%3D1&_trksid=p3959035.c101877.m1851&itmprp=cksum%3A364602178721895b149320d843808a60a4e0ae185925%7Cenc%3AAQAJAAABAMgl228UKbAZGdAKy2ANq8NlhVpKMeqEDjcu86b0U9vt3E5n7AIbRiW%252FXB1IB3ZTgM3DfiOJPY39HvBrFgIx%252Fj8yypP1vvtnrIPTh6V6uE%252FgVm6%252B1WkGD%252BVyz39bFkW%252BZkcccFfWFY5zRXXchcYhwQl9SWRKvHrXMmNLUXdsI1HT8CGBx5NKa0204IUwO1VCa5m9AlPN1vHI5MyH%252B6LPZ8kFICxDq8hrTnQVoQO8bcc%252Biu9j0Nt2X3KfnA3LKDT4UIN1p4dKgOGSc84dDDdMIm%252BphACjGMv3SGIbNoOjSt6IU79opB2aIugATzQJ7VUxaKBHQWkqh3dmpaXU8d%252BhCNM%253D%7Campid%3APL_CLK%7Cclp%3A3959035&itmmeta=01J98JXYEHJXXWWCQG1WV2Q1VT",
+        "timestamp": "2024-10-03T07:02:19.073Z",
+        "channelId": "1254726652705898586"
+      },
+      {
+        "author": "winkuuuuuuuuuu",
+        "content": "https://www.ebay.com/itm/155672465507?_trkparms=amclksrc%3DITM%26aid%3D1110018%26algo%3DHOMESPLICE.COMPLISTINGS%26ao%3D1%26asc%3D274176%26meid%3D13eab9037cbe493481479ba1e7803a49%26pid%3D101876%26rk%3D4%26rkt%3D12%26sd%3D364602178721%26itm%3D155672465507%26pmt%3D1%26noa%3D0%26pg%3D3959035%26algv%3DCompVINativeV3WithDiversityAndVectorPrime%26brand%3DUnbranded%26fpg%3D0&_trksid=p3959035.c101876.m1851&itmprp=cksum%3A15567246550713eab9037cbe493481479ba1e7803a49%7Cenc%3AAQAJAAABEG3fJx9bO0yknmsTauaAeFyZKmLQPU0P8s8AskyRs5BF9oEWp54rBAEH3%252FB1r0IgmSdy9X36sVejfBWyiunLjtU3%252B7KygNbtTcib08xTN32YbN45O8CkQVxF2EQDStVWyOqD9TN448PJPebyYuUwZggGJpZwcduQ1TFFB1iy6D0ycQdBIHsDzhz9BMZ7gRE7VN4vY7FbJiqNQhtEMfMVPfzvS4Go7FJ4yepNvSt5rlLJXBB8qPN%252B4s--7f8BaY%252B0sAZG3jnGXubhl2qVdQRbdTZPlDIj9JwOdR11Ip%252B9xGHwWexRHi2wrYh4UeJfhhQ9PDKacSOY58jlzouVOx2X7cy8af1GMlp9aOYVb6I%252BwHqT%7Campid%3APL_CLK%7Cclp%3A3959035&itmmeta=01J98K1TVE10850RT3ZJYFZXKZ",
+        "timestamp": "2024-10-03T07:03:56.435Z",
+        "channelId": "1254726652705898586"
+      },
+      {
+        "author": "winkuuuuuuuuuu",
+        "content": "https://www.ebay.com/itm/375610716259?_trkparms=amclksrc%3DITM%26aid%3D1110006%26algo%3DHOMESPLICE.SIM%26ao%3D1%26asc%3D274176%26meid%3D58421128f3bf4f17a05e97f33205e97f%26pid%3D101429%26rk%3D2%26rkt%3D12%26sd%3D375650685479%26itm%3D375610716259%26pmt%3D1%26noa%3D0%26pg%3D2332490%26algv%3DSimPLMWebV1EmbeddedAuctionsCPCAutoManualWithCIIXAIRecallsUpdatedRanker0424NoIMA&_trksid=p2332490.c101429.m2460&itmprp=cksum%3A37561071625958421128f3bf4f17a05e97f33205e97f%7Cenc%3AAQAJAAABMIV5CFHpx8qL94DS2Mo1uCi5RlK%252B6oGF%252Bq%252FvM6onJsyCAS4bVm4MG2DxmngmQBYs7QTou1H5%252BktC9DZbAMWEM%252B%252BdlquESLSCZunJqt41Rd0Jpo%252B961Uv4rJCVp8%252FxvBjYU9ibKhxYc8pHmoLa4aVisoje6U4YGvjRqXO%252BilZlRIr27%252B6cWVeb94rsnl1OPfeNB7vxSna8z08vCj8Bfsn%252B45ej9G7d97Ak%252Ft1e09Fj2yHgIo%252FLtoPSCTW%252B1y3gmuNalInfipTcP1YzM5qgboOHaUY93Ilr3RBNm7twDIvvJGSwmwBiX0%252BFck%252Fjc5QylO46vgY0NzeqTicn73D2VGFGg79rNCpAXOT11HWFQmGhVJLuSbrH2Rig7Dodi8QDMwLD08OiIabuNozcds0RcwmTDc%253D%7Campid%3APL_CLK%7Cclp%3A2332490&itmmeta=01J98K3MNNXWA93P9NAK6MW53J",
+        "timestamp": "2024-10-03T07:05:03.854Z",
+        "channelId": "1254726652705898586"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "https://www.etsy.com/listing/226901917/slipstream-absinthe-fountain-drinking?click_key=3d1a6c9100b3274a9f599898020ba3875ace6e52%3A226901917&click_sum=9cf309f9&ga_order=most_relevant&ga_search_type=all&ga_view_type=gallery&ga_search_query=waterpipe&ref=search_grid-773203-1-1&ret=1&search_preloaded_img=1",
+        "timestamp": "2024-10-03T07:06:25.761Z",
+        "channelId": "1281848335367405609"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "https://www.etsy.com/listing/1520317989/frog-pipe-unique-ceramic-smoking-hand?click_key=d29c0843c037e7f98ab6b7512d66521b3810a982%3A1520317989&click_sum=407014c4&ga_order=most_relevant&ga_search_type=all&ga_view_type=gallery&ga_search_query=waterpipe&ref=search_grid-641947-1-26&pro=1&pop=1&content_source=f236354a835f0986eadf798aa04497350947617e%253A1520317989&search_preloaded_img=1",
+        "timestamp": "2024-10-03T07:08:40.498Z",
+        "channelId": "1254726652705898586"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "\\",
+        "timestamp": "2024-10-03T07:09:06.208Z",
+        "channelId": "1254726652705898586"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "https://www.etsy.com/listing/1358330525/handmade-smoking-pipes-blue-fish-bowl?click_key=752da667d8488dbb112b30d9bfeb819ca9476fb9%3A1358330525&click_sum=73fabdd7&ga_order=most_relevant&ga_search_type=all&ga_view_type=gallery&ga_search_query=waterpipe&ref=search_grid-641947-1-30&cns=1&ret=1&content_source=acb8978c43c6d59bd7c404477f385b3cec37ddf2%253A1358330525&search_preloaded_img=1",
+        "timestamp": "2024-10-03T07:09:18.843Z",
+        "channelId": "1254726652705898586"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "https://www.etsy.com/listing/1660860673/sacred-geometry-glass-smoking-pipe-fumed?click_key=9833638edb9a3dc97096aa7f9b1b584abc52c131%3A1660860673&click_sum=6227e6cc&ga_order=most_relevant&ga_search_type=all&ga_view_type=gallery&ga_search_query=waterpipe&ref=search_grid-532750-2-18&pro=1&frs=1&cns=1&sts=1&content_source=2eaa93e6cfb9cacd7553a985e3a9ed40967f7501%253A1660860673&search_preloaded_img=1\\",
+        "timestamp": "2024-10-03T07:10:08.546Z",
+        "channelId": "1254726652705898586"
+      }
+    ]
+  },
+  {
+    "startTime": "2024-10-03T11:28:22.071Z",
+    "endTime": "2024-10-03T11:28:22.071Z",
+    "messages": [
+      {
+        "author": "ln64-synapse-bot",
+        "content": "Sentiment analysis for winkuuu:\nLet's dive into the fascinating world of Winkuuu's conversations!\n\n**The Menagerie**: It seems our user has an affinity for exotic pets. They've browsed a website featuring a tame female capybara, which suggests they might be interested in unusual animals or even considering getting one as a pet.\n\n**Coffee Conundrum**: Who hasn't had a coffee slump? Winkuuu's expressed frustration with their morning brew not hitting the spot, indicating a desire for that perfect cup to start their day.\n\n**Mental Health Matters**: Unfortunately, Winkuuu's conversations have also touched on struggles with mental health. The use of dark humor and metaphors (like being \"a Snapple cap away from gonking myself\") might be a coping mechanism or an attempt to process difficult emotions.\n\n**The Wink Enigma**: It appears Winkuuu has a fascination with the concept of \"winking.\" They've used this term in various contexts, from good morning greetings to referencing a mysterious link. Perhaps they're exploring themes of positivity, synchronicity, or even trying to create their own inside joke?\n\n**Good Morning Greetings and Disappointment**: On some days, Winkuuu seems to be starting the day on a high note, while others are marked by disappointment (\"Meh\"). This might indicate an emotional rollercoaster or a struggle with finding motivation.\n\n**The Darker Side**: Some conversations have taken a more ominous turn, referencing violent themes (e.g., \"killing that guy\") and even a ransom demand in the cryptocurrency community. These dark topics could be a reflection of deeper concerns or stressors in Winkuuu's life.\n\n**Morning Show Hosts and Cryptocurrency Shenanigans**: It's been a wild ride, folks! Winkuuu has also expressed themselves through humor, hosting their own morning show and making lighthearted...",
+        "timestamp": "2024-10-03T11:08:42.915Z",
+        "channelId": "1254726652705898586"
+      },
+      {
+        "author": "ln64-synapse-bot",
+        "content": "Sentiment analysis for supernachos:\nLet me give you the lowdown on this user's conversations!\n\n**The Concerned Type**: Supernachos seems to be quite concerned about Lucian's departure, showing a flustered reaction. This suggests they value relationships and might get emotional when things don't go as planned.\n\n**The Busy Bee**: They've mentioned having a lot to do today and even cracked open one of their pipes (could be a stress-reliever or a creative outlet). This person appears to lead an active life, possibly juggling multiple tasks at once!\n\n**The Sassy One**: Supernachos has a humorous side, especially when discussing their mom's booty debate. They enjoy poking fun at themselves and others, making light of sensitive topics like cellulite. Don't be surprised if they're always up for a joke or two!\n\n**The Gamified Life**: The presence of emojis like <:SilvervaleSweat:>, <a:PepeDontHaveTime:>, and <a:loadingdots:> implies that Supernachos might be someone who enjoys gaming, online communities, or at least appreciates the lighthearted side of the internet.\n\n**The Adventurous Eater**: This user is surprisingly open to trying new foods, like crickets! They seem to be enthusiastic about exploring different tastes and experiences. Who knows? Maybe they'll even introduce you to some unusual snacks!\n\n**The Conversationalist**: Supernachos engages with a variety of topics, from supernatural fan theories to alien invasions. This indicates that they're curious, enjoy learning new things, and value intellectual discussions.\n\nOverall, Supernachos comes across as a multifaceted person who's always up for an interesting conversation. They might be your go-to buddy for debates, laughter, or even some weird food recommendations!",
+        "timestamp": "2024-10-03T11:14:49.663Z",
+        "channelId": "1285748654115917884"
+      },
+      {
+        "author": "ln64.exe",
+        "content": "I told it to talk like Steve Irwin",
+        "timestamp": "2024-10-03T11:28:22.071Z",
+        "channelId": "1254726652705898586"
+      }
+    ]
+  }
+]

@@ -4,7 +4,6 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import { AttachmentBuilder, ChatInputCommandInteraction, Message } from 'discord.js';
 import type { Conversation } from '../types';
 import { collectUserConversations, collectUserMentions } from '../utils/conversation-utils';
-import { collectUserList } from '../utils/guild-utils';
 import * as fs from 'fs';
 import * as path from 'path';
 import { analyzeSentimentWithAgent } from '../utils/agent-utils';

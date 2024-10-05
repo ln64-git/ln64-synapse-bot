@@ -1,12 +1,8 @@
-// src/commands/synapse.ts
-
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { ChatInputCommandInteraction, Message } from 'discord.js';
-import { collectUserList } from '../utils/guild-utils';
 import { saveResultToFile, sendResultToDiscord } from '../utils/output';
-import { GuildMember } from 'discord.js';
 import { Conversation } from '../types';
-import { collectUserConversations, collectUserMentions } from '../utils/conversation-utils';
+import { collectUserConversations } from '../utils/conversation-utils';
 
 export const data = new SlashCommandBuilder()
     .setName('test')
@@ -31,20 +27,25 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     console.log(`Analyzing messages for user: ${user.tag} (${user.id})`);
 
     try {
-        // Step 1: Collect Relevant Data
-        // 1.1. Collect Member List
-        // const memberList: GuildMember[] = await collectUserList(guild);
-        // 1.2. Collect User Conversations
+        // Step 1: Collect User Conversations
         const userConversations: Conversation[] = await collectUserConversations(guild, user, days);
-        // 1.3. Collect User Mentions
-        // const userMentions: Message[] = await collectUserMentions(
-        //     guild,
-        //     { userId: user.id, username: user.username, },
-        //     days
-        // );
 
-        const outputData = JSON.stringify(userConversations)
+        // Step 2: Clean up and format the output
+        const formattedConversations = userConversations.map(conv => ({
+            startTime: conv.startTime,
+            endTime: conv.endTime,
+            messages: conv.messages.map(msg => ({
+                author: msg.author.username,
+                content: msg.content,
+                timestamp: msg.createdAt.toISOString(),
+                channelId: msg.channelId,
+            })),
+        }));
 
+        // Step 3: Convert the output to a readable JSON string
+        const outputData = JSON.stringify(formattedConversations, null, 2); // Pretty-print JSON with 2-space indentation
+        console.log(outputData)
+        // Step 4: Send or save the result based on its size
         await handleTestResult(interaction, user.username, outputData);
     } catch (error) {
         console.error('Error during analysis:', error);
@@ -68,17 +69,21 @@ async function validateInteraction(
     return { guild, user, days };
 }
 
-
 export async function handleTestResult(
     interaction: ChatInputCommandInteraction,
     username: string,
     outputData: string
 ): Promise<void> {
     try {
+        // Discord messages have a 2000 character limit, check the size
         if (outputData.length <= 2000) {
-            // await sendResultToDiscord(interaction, username, outputData);
-        } else { }
-        await saveResultToFile(interaction, username, outputData);
+            await sendResultToDiscord(interaction, username, outputData);
+        } else {
+            await saveResultToFile(interaction, username, outputData);
+            await interaction.editReply(
+                `Sentiment analysis for ${username} exceeds Discord's character limit. The analysis has been saved to a file.`
+            );
+        }
     } catch (error) {
         console.error('Error handling report data:', error);
         await interaction.editReply('There was an error handling the analysis result.');

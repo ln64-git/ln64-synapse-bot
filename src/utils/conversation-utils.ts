@@ -1,89 +1,46 @@
-
-import { Guild, PermissionsBitField, Snowflake, TextChannel, User } from 'discord.js';
-import { collectMessagesFromGuild, collectUserList } from './guild-utils';
-import pLimit from 'p-limit';
-import { Message } from 'discord.js';
-import { Conversation } from '../types';
+import { Guild, TextChannel, Message, Snowflake, PermissionsBitField, User } from 'discord.js';
 import Logger from '@ptkdev/logger';
-
-const MAX_CONVERSATIONS = 10;
-const MAX_CONCURRENT_FETCHES = 5; // Adjust concurrency level as needed
-const limit = pLimit(MAX_CONCURRENT_FETCHES);
+import pLimit from 'p-limit';
+import { Conversation } from '../types';
+import { collectMessagesFromGuild, collectUserList } from './guild-utils';
 
 export async function collectUserConversations(
     guild: Guild,
     user: User,
     days?: number
 ): Promise<Conversation[]> {
-    const logger = new Logger();
-    let start = Date.now();
-    // Step 1: Calculate the 'sinceDate' based on the number of days
     let sinceDate: Date | undefined;
     if (days !== undefined) {
         sinceDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     }
-    // Step 2: Collect messages from the guild
+
     const userMessages: Message[] = await collectMessagesFromGuild(guild, user, sinceDate);
-    if (userMessages.length === 0) {
-        logger.info('No messages found for the user.');
-        return [];
-    }
-    // Step 3: Detect conversations from the collected messages
-    const conversations = detectConversations(userMessages);
-    const limitedConversations = conversations.slice(0, MAX_CONVERSATIONS);
-    // Step 4: Fetch context messages for each conversation with concurrency control
-    logger.info('Fetching context messages for each conversation.');
-    start = Date.now();
-    const contextFetches = limitedConversations.map(conv =>
-        limit(async () => {
-            // Reduce context fetch window to 2 minutes before and after the conversation
-            const contextStart = new Date(conv.startTime.getTime() - 2 * 60 * 1000);
-            const contextEnd = new Date(conv.endTime.getTime() + 2 * 60 * 1000);
 
-            const contextMessages = await fetchContextMessages(
-                guild, conv.messages[0].channelId, contextStart, contextEnd
-            );
+    // Detect conversations and automatically fetch context messages
+    const conversations = await detectConversations(userMessages, guild);
 
-            // Create a Set of message creation times for faster uniqueness checks
-            const messageTimes = new Set(conv.messages.map(msg => msg.createdAt.getTime()));
-
-            // Filter and add unique context messages
-            const uniqueMessages = contextMessages.filter(ctxMsg =>
-                !messageTimes.has(ctxMsg.createdAt.getTime())
-            );
-
-            conv.messages.push(...uniqueMessages);
-            // Sort only once after all messages are fetched
-        })
-    );
-
-    // Wait for all context fetches to complete
-    await Promise.all(contextFetches);
-    let timeAfterContextFetch = Date.now();
-    logger.info(`Context message fetching completed in ${timeAfterContextFetch - start}ms.`);
-
-    // Sort all conversation messages only once
-    limitedConversations.forEach(conv => {
-        conv.messages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-    });
-
-    // Step 5: Final logging and returning the limited conversations
-    logger.info('Returning collected conversations.');
-    return limitedConversations;
+    return conversations;
 }
 
-
-export function detectConversations(
+export async function detectConversations(
     messages: Message[],
-    timeGapInMinutes: number = 30
-): Conversation[] {
+    guild: Guild,
+    timeGapInMinutes: number = 30,
+    contextWindowInMinutes: number = 5
+): Promise<Conversation[]> {
     if (messages.length === 0) return [];
+    const logger = new Logger();
 
+    logger.info(`Starting conversation detection with ${messages.length} messages...`);
+    const totalStart = performance.now();
+
+    // Sort messages by timestamp
     const sortedMessages = messages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
     const conversations: Conversation[] = [];
     let currentConversation: Message[] = [sortedMessages[0]];
 
+    // Group messages into conversations based on time gaps
     for (let i = 1; i < sortedMessages.length; i++) {
         const currentMessage = sortedMessages[i];
         const previousMessage = sortedMessages[i - 1];
@@ -100,24 +57,63 @@ export function detectConversations(
         }
     }
 
-    conversations.push({
-        startTime: currentConversation[0].createdAt,
-        endTime: currentConversation[currentConversation.length - 1].createdAt,
-        messages: currentConversation,
-    });
+    if (currentConversation.length > 0) {
+        conversations.push({
+            startTime: currentConversation[0].createdAt,
+            endTime: currentConversation[currentConversation.length - 1].createdAt,
+            messages: currentConversation,
+        });
+    }
+
+    // Step 2: Batch fetch context messages for all conversations at once
+    logger.info(`Fetching context messages in batch for all conversations...`);
+    const contextMessages = await fetchContextMessagesInBatch(guild, conversations, contextWindowInMinutes);
+
+    // Step 3: Append context messages to the conversations
+    appendContextMessagesToConversations(conversations, contextMessages);
+
+    // End timing and log
+    const totalEnd = performance.now();
+    const totalDurationSeconds = ((totalEnd - totalStart) / 1000).toFixed(2);
+    logger.info(`Finished detecting conversations in ${totalDurationSeconds} seconds.`);
 
     return conversations;
 }
 
-export async function fetchContextMessages(
+async function fetchContextMessagesInBatch(
     guild: Guild,
-    channelId: string,
+    conversations: Conversation[],
+    contextWindowInMinutes: number
+): Promise<Message[]> {
+    const logger = new Logger();
+    const allChannels = new Set(conversations.map(conv => conv.messages[0].channelId));
+    const contextMessages: Message[] = [];
+
+    await Promise.all(
+        Array.from(allChannels).map(async (channelId) => {
+            const channel = guild.channels.cache.get(channelId) as TextChannel;
+            if (!channel) return;
+
+            const contextStart = new Date(Math.min(...conversations.map(conv => conv.startTime.getTime())) - contextWindowInMinutes * 60 * 1000);
+            const contextEnd = new Date(Math.max(...conversations.map(conv => conv.endTime.getTime())) + contextWindowInMinutes * 60 * 1000);
+
+            try {
+                const fetchedMessages = await fetchMessagesInRange(channel, contextStart, contextEnd);
+                contextMessages.push(...fetchedMessages);
+            } catch (error: any) {
+                logger.error(`Error fetching context messages for channel ${channelId}: ${error.message}`);
+            }
+        })
+    );
+
+    return contextMessages;
+}
+
+async function fetchMessagesInRange(
+    channel: TextChannel,
     startTime: Date,
     endTime: Date
 ): Promise<Message[]> {
-    const channel = guild.channels.cache.get(channelId) as TextChannel;
-    if (!channel) throw new Error("Channel not found");
-
     const messages: Message[] = [];
     let lastMessageId: Snowflake | undefined;
     let fetchComplete = false;
@@ -130,17 +126,33 @@ export async function fetchContextMessages(
 
         if (fetchedMessages.size === 0) break;
 
-        for (const msg of fetchedMessages.values()) {
+        fetchedMessages.forEach(msg => {
             if (msg.createdAt >= startTime && msg.createdAt <= endTime) {
                 messages.push(msg);
             }
-        }
+        });
 
         lastMessageId = fetchedMessages.last()?.id;
         fetchComplete = fetchedMessages.size < 100;
     }
 
     return messages;
+}
+
+function appendContextMessagesToConversations(conversations: Conversation[], contextMessages: Message[]): void {
+    conversations.forEach(conv => {
+        const relevantContext = contextMessages.filter(ctxMsg =>
+            ctxMsg.createdAt >= new Date(conv.startTime.getTime() - 30 * 60 * 1000) &&
+            ctxMsg.createdAt <= new Date(conv.endTime.getTime() + 30 * 60 * 1000)
+        );
+
+        const uniqueMessages = relevantContext.filter(ctxMsg =>
+            !conv.messages.some(msg => msg.createdAt.getTime() === ctxMsg.createdAt.getTime())
+        );
+
+        conv.messages.push(...uniqueMessages);
+        conv.messages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    });
 }
 
 export async function collectUserMentions(
