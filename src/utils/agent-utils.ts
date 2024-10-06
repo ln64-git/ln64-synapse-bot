@@ -12,7 +12,7 @@ export async function analyzeSentimentWithAgent(text: string): Promise<string> {
     if (text.length > MAX_TEXT_LENGTH) {
         text = text.slice(0, MAX_TEXT_LENGTH);
     }
-
+// Scathing Criteque
     const prompt = `You are an AI language model that analyzes the sentiment of a user in a discord, you are given a list of associates and conversations relating to a given user.
 
 Given the following conversation, provide a detailed sentiment analysis, highlighting key themes and emotions.

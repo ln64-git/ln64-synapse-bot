@@ -30,15 +30,15 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         const logger = new Logger();
 
         // Collect user conversations and mentions (arrays of messages)
-        const userConversations: Message[] = await collectUserConversations(guild, user, days);
-        logger.info(`Collected ${userConversations.length} user messages.`);
+        // const userConversations: Message[] = await collectUserConversations(guild, user, days);
+        // logger.info(`Collected ${userConversations.length} user messages.`);
 
         logger.info('Collecting User Mentions...');
         const userMentions: Message[] = await collectUserMentions(guild, user, days);
         logger.info(`Collected ${userMentions.length} messages mentioning the user.`);
 
         const aggregatedMessages = [
-            ...userConversations,   // These are individual messages
+            // ...userConversations,   // These are individual messages
             ...userMentions         // These are individual messages
         ]
             .map(msg => ({
@@ -84,14 +84,14 @@ export async function handleTestResult(
     outputData: string
 ): Promise<void> {
     try {
-        if (outputData.length <= 2000) {
-            await sendResultToDiscord(interaction, username, outputData);
-        } else {
-            await saveResultToFile(interaction, username, outputData);
-            await interaction.editReply(
-                `Sentiment analysis for ${username} exceeds Discord's character limit. The analysis has been saved to a file.`
-            );
-        }
+        // if (outputData.length <= 2000) {
+        //     await sendResultToDiscord(interaction, username, outputData);
+        // } else {
+        //     await interaction.editReply(
+        //         `Sentiment analysis for ${username} exceeds Discord's character limit. The analysis has been saved to a file.`
+        //     );
+        // }
+        await saveResultToFile(interaction, username, outputData);
     } catch (error) {
         console.error('Error handling report data:', error);
         await interaction.editReply('There was an error handling the analysis result.');

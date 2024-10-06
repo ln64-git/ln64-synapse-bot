@@ -164,7 +164,13 @@ export async function collectUserMentions(
     }
 
     const sinceDate = days ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : undefined;
+
+    // Create aliases using the display name and username in lowercase
     const aliases = [user.displayName.toLowerCase(), user.user.username?.toLowerCase() || ''];
+
+    // I need to find a better way to find people's nicknames
+    // Log the aliases for debugging
+    console.log('Aliases:', aliases);
 
     // Check if we have a valid username before proceeding
     if (!user.user.username) {
@@ -172,6 +178,7 @@ export async function collectUserMentions(
         return [];
     }
 
+    // Fetch mentions of the user based on the display name and username
     const mentions = await fetchMessagesFromGuild(
         guild,
         sinceDate,
