@@ -159,8 +159,18 @@ export async function collectUserMentions(
     user: GuildMember,
     days?: number
 ): Promise<Message[]> {
+    if (!user || !user.user) {
+        throw new Error('Invalid user object');
+    }
+
     const sinceDate = days ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : undefined;
-    const aliases = [user.displayName.toLowerCase(), user.user.username.toLowerCase()];
+    const aliases = [user.displayName.toLowerCase(), user.user.username?.toLowerCase() || ''];
+
+    // Check if we have a valid username before proceeding
+    if (!user.user.username) {
+        console.error(`No valid username for the user: ${user.displayName}`);
+        return [];
+    }
 
     const mentions = await fetchMessagesFromGuild(
         guild,

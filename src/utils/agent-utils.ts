@@ -4,6 +4,7 @@ import { Ollama } from '@langchain/ollama';
 const model = new Ollama({
     baseUrl: 'http://localhost:11434',
     model: 'llama3.1',
+    // model: 'llama2-uncensored',
 });
 
 export async function analyzeSentimentWithAgent(text: string): Promise<string> {
@@ -11,20 +12,6 @@ export async function analyzeSentimentWithAgent(text: string): Promise<string> {
     if (text.length > MAX_TEXT_LENGTH) {
         text = text.slice(0, MAX_TEXT_LENGTH);
     }
-    //     const prompt = `You are an AI assistant helping to provide an overview of a user's text conversations on discord to investigate their actions in a given community and determain their intent, when given limited chat context please provide the best possible explaination without overpresuming.
-
-    // **Instructions:**
-    // - Summarize the user's interactions in an organized direct way while referencing any shocking details.
-    // - Emphasize key topics, interests, and communication habits.
-    // - Write as if you're sharing interesting observations with someone curious about the user.
-    // - Maintain a casual tone without being overly formal.
-    // - !!IMPORTANT!! Response should be equal to or under 2000.
-
-    // Conversation Logs:
-    // ${text}
-
-    // Please share the summary below:
-    // `;
 
     const prompt = `You are an AI language model that analyzes the sentiment of a user in a discord, you are given a list of associates and conversations relating to a given user.
 

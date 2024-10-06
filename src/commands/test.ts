@@ -52,7 +52,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         const jsonOutput = JSON.stringify(aggregatedMessages, null, 2); // Pretty print JSON with indentation
 
         // Send or save the JSON output
-        await handleTestResult(interaction, user.displayName, jsonOutput);
+        await handleTestResult(interaction, user, jsonOutput);
 
     } catch (error) {
         console.error('Error during analysis:', error);
@@ -80,7 +80,7 @@ async function validateInteraction(
 
 export async function handleTestResult(
     interaction: ChatInputCommandInteraction,
-    username: string,
+    username: GuildMember,
     outputData: string
 ): Promise<void> {
     try {

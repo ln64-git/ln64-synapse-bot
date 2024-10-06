@@ -1,16 +1,16 @@
-import { ChatInputCommandInteraction } from 'discord.js';
+import { ChatInputCommandInteraction, GuildMember } from 'discord.js';
 import path from 'path';
 import fs from 'fs';
 import { AttachmentBuilder } from 'discord.js';
 
 export async function sendResultToDiscord(
     interaction: ChatInputCommandInteraction,
-    username: string,
+    user: GuildMember,
     outputData: string
 ): Promise<void> {
     try {
         await interaction.editReply(
-            `**Sentiment analysis for ${username}:**\n${outputData}`
+            `**Sentiment analysis for ${user}:**\n${outputData}`
         );
     } catch (error) {
         console.error('Error sending report data to Discord:', error);
@@ -20,12 +20,12 @@ export async function sendResultToDiscord(
 
 export async function saveResultToFile(
     interaction: ChatInputCommandInteraction,
-    username: string,
+    user: GuildMember,
     outputData: string
 ): Promise<void> {
     try {
         const outputDir = path.resolve(__dirname, '../../output');
-        const filePath = path.join(outputDir, `${username}_analysis.txt`);
+        const filePath = path.join(outputDir, `${user}_analysis.txt`);
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
         }
