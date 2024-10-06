@@ -1,8 +1,8 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { ChatInputCommandInteraction, Message } from 'discord.js';
+import { ChatInputCommandInteraction, GuildMember, Message } from 'discord.js';
 import { saveResultToFile, sendResultToDiscord } from '../utils/output';
-import { Conversation } from '../types';
-import { collectUserConversations } from '../utils/conversation-utils';
+import { collectUserConversations, collectUserMentions } from '../utils/conversation-utils';
+import Logger from '@ptkdev/logger';
 
 export const data = new SlashCommandBuilder()
     .setName('test')
@@ -24,29 +24,36 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         return await interaction.editReply(validationResponse);
     }
     const { guild, user, days } = validationResponse;
-    console.log(`Analyzing messages for user: ${user.tag} (${user.id})`);
+    console.log(`Analyzing messages for user: ${user.displayName} (${user.id})`);
 
     try {
-        // Step 1: Collect User Conversations
-        const userConversations: Conversation[] = await collectUserConversations(guild, user, days);
+        const logger = new Logger();
 
-        // Step 2: Clean up and format the output
-        const formattedConversations = userConversations.map(conv => ({
-            startTime: conv.startTime,
-            endTime: conv.endTime,
-            messages: conv.messages.map(msg => ({
+        // Collect user conversations and mentions (arrays of messages)
+        const userConversations: Message[] = await collectUserConversations(guild, user, days);
+        logger.info(`Collected ${userConversations.length} user messages.`);
+
+        logger.info('Collecting User Mentions...');
+        const userMentions: Message[] = await collectUserMentions(guild, user, days);
+        logger.info(`Collected ${userMentions.length} messages mentioning the user.`);
+
+        const aggregatedMessages = [
+            ...userConversations,   // These are individual messages
+            ...userMentions         // These are individual messages
+        ]
+            .map(msg => ({
                 author: msg.author.username,
                 content: msg.content,
-                timestamp: msg.createdAt.toISOString(),
-                channelId: msg.channelId,
-            })),
-        }));
+                timestamp: msg.createdAt
+            }))
+            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()); // Sort by timestamp
 
-        // Step 3: Convert the output to a readable JSON string
-        const outputData = JSON.stringify(formattedConversations, null, 2); // Pretty-print JSON with 2-space indentation
-        console.log(outputData)
-        // Step 4: Send or save the result based on its size
-        await handleTestResult(interaction, user.username, outputData);
+        // Convert the sorted messages to JSON format
+        const jsonOutput = JSON.stringify(aggregatedMessages, null, 2); // Pretty print JSON with indentation
+
+        // Send or save the JSON output
+        await handleTestResult(interaction, user.displayName, jsonOutput);
+
     } catch (error) {
         console.error('Error during analysis:', error);
         await interaction.editReply('There was an error analyzing the sentiment.');
@@ -55,17 +62,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
 async function validateInteraction(
     interaction: ChatInputCommandInteraction
-): Promise<{ guild: any, user: any, days: number | undefined } | string> {
+): Promise<{ guild: any, user: GuildMember, days: number | undefined } | string> {
     const guild = interaction.guild;
     if (!guild) {
         return 'This command can only be used in a server.';
     }
-    const user = interaction.options.getUser('user', true);
-    if (user.bot) {
+
+    // Use `getMember` instead of `getUser` to retrieve the GuildMember object.
+    const user = interaction.options.getMember('user') as GuildMember;
+    if (!user || user.user.bot) {
         return 'Cannot analyze messages from bots.';
     }
-    const days = interaction.options.getInteger('days') ?? undefined;
 
+    const days = interaction.options.getInteger('days') ?? undefined;
     return { guild, user, days };
 }
 
@@ -75,7 +84,6 @@ export async function handleTestResult(
     outputData: string
 ): Promise<void> {
     try {
-        // Discord messages have a 2000 character limit, check the size
         if (outputData.length <= 2000) {
             await sendResultToDiscord(interaction, username, outputData);
         } else {

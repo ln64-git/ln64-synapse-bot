@@ -1,82 +1,73 @@
 import { Guild, TextChannel, ChannelType, Snowflake, PermissionsBitField, User, GuildMember, Message } from 'discord.js';
 import pLimit from 'p-limit';
 
-export async function collectMessagesFromGuild(
+// Utility function to check channel permissions
+async function checkChannelPermissions(textChannel: TextChannel, guild: Guild): Promise<boolean> {
+  const permissions = textChannel.permissionsFor(guild.members.me!);
+  return permissions?.has(PermissionsBitField.Flags.ViewChannel) && permissions.has(PermissionsBitField.Flags.ReadMessageHistory);
+}
+
+// Utility function to fetch messages from a guild
+export async function fetchMessagesFromGuild(
   guild: Guild,
-  user: User,
-  sinceDate?: Date,
+  sinceDate: Date | undefined,
+  filterFn: (msg: Message) => boolean,
   maxMessages: number = 1000,
   maxMessagesPerChannel: number = 500
 ): Promise<Message[]> {
   const messages: Message[] = [];
   let collectedMessageCount = 0;
 
-  const channels = guild.channels.cache.filter(
-    (channel) => channel.type === ChannelType.GuildText
-  );
+  // Fetch all text-based channels
+  const channels = guild.channels.cache.filter(channel => channel.type === ChannelType.GuildText);
 
   // Limit concurrency to prevent hitting rate limits
   const limit = pLimit(5);
 
   await Promise.all(
-    channels.map((channel) =>
+    channels.map(channel =>
       limit(async () => {
-        if (collectedMessageCount >= maxMessages) return;
-
         const textChannel = channel as TextChannel;
-        const permissions = textChannel.permissionsFor(guild.members.me!);
-        if (!permissions?.has('ViewChannel') || !permissions.has('ReadMessageHistory')) {
+        const hasPermission = await checkChannelPermissions(textChannel, guild);
+        if (!hasPermission) {
           console.error(`Skipping channel ${textChannel.name}: Missing permissions`);
           return;
         }
 
-        try {
-          let lastMessageId: Snowflake | undefined;
-          let fetchComplete = false;
-          let channelMessagesFetched = 0;
+        let lastMessageId: Snowflake | undefined;
+        let fetchComplete = false;
+        let channelMessagesFetched = 0;
 
-          while (
-            !fetchComplete &&
-            collectedMessageCount < maxMessages &&
-            channelMessagesFetched < maxMessagesPerChannel
-          ) {
-            const options = { limit: 100 } as { limit: number; before?: Snowflake };
-            if (lastMessageId) options.before = lastMessageId;
+        while (!fetchComplete && collectedMessageCount < maxMessages && channelMessagesFetched < maxMessagesPerChannel) {
+          const options = { limit: 100, before: lastMessageId };
+          const fetchedMessages = await textChannel.messages.fetch(options);
 
-            const fetchedMessages = await textChannel.messages.fetch(options);
-            if (fetchedMessages.size === 0) break;
+          if (fetchedMessages.size === 0) break;
+          channelMessagesFetched += fetchedMessages.size;
 
-            channelMessagesFetched += fetchedMessages.size;
-
-            for (const msg of fetchedMessages.values()) {
-              if (msg.author.id !== user.id || !msg.content || msg.author.bot) continue;
-              if (sinceDate && msg.createdAt < sinceDate) {
-                fetchComplete = true;
-                break;
-              }
-
-              messages.push(msg);
-              collectedMessageCount++;
-              if (collectedMessageCount >= maxMessages) {
-                fetchComplete = true;
-                break;
-              }
+          for (const msg of fetchedMessages.values()) {
+            // Apply the filtering function (e.g., user-specific, mention-specific)
+            if (!filterFn(msg)) continue;
+            if (sinceDate && msg.createdAt < sinceDate) {
+              fetchComplete = true;
+              break;
             }
-
-            lastMessageId = fetchedMessages.last()?.id;
-            if (fetchedMessages.size < 100) break;
+            messages.push(msg);
+            collectedMessageCount++;
+            if (collectedMessageCount >= maxMessages) {
+              fetchComplete = true;
+              break;
+            }
           }
-        } catch (error) {
-          console.error(`Error fetching messages from channel ${textChannel.name}:`, error);
+          lastMessageId = fetchedMessages.last()?.id;
+          if (fetchedMessages.size < 100) break;
         }
       })
     )
   );
 
-  console.log(`Total messages collected from user ${user.username}: ${messages.length}`);
   return messages;
 }
-
 
 export async function collectUserList(guild: Guild): Promise<GuildMember[]> {
   try {

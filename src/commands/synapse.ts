@@ -1,12 +1,13 @@
 // src/commands/synapse.ts
 
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { AttachmentBuilder, ChatInputCommandInteraction, Message } from 'discord.js';
+import { ChatInputCommandInteraction, GuildMember, Message } from 'discord.js';
 import type { Conversation } from '../types';
-import { collectUserConversations, collectUserMentions } from '../utils/conversation-utils';
-import * as fs from 'fs';
-import * as path from 'path';
+import { collectUserConversations } from '../utils/conversation-utils';
 import { analyzeSentimentWithAgent } from '../utils/agent-utils';
+import { saveResultToFile, sendResultToDiscord } from '../utils/output';
+import Logger from '@ptkdev/logger';
+import { collectUserList } from '../utils/guild-utils';
 
 export const data = new SlashCommandBuilder()
     .setName('synapse')
@@ -21,120 +22,101 @@ export const data = new SlashCommandBuilder()
             .setRequired(false)
     );
 
-/**
- * Executes the /synapse command.
- * @param interaction The command interaction.
- */
+
 export async function execute(interaction: ChatInputCommandInteraction) {
-    await interaction.deferReply(); // Defer reply as this operation may take time
-    const guild = interaction.guild;
-    if (!guild) {
-        await interaction.editReply('This command can only be used in a server.');
-        return;
+    await interaction.deferReply();
+    const validationResponse = await validateInteraction(interaction);
+    if (typeof validationResponse === 'string') {
+        return await interaction.editReply(validationResponse);
     }
-    const user = interaction.options.getUser('user', true);
-    if (user.bot) {
-        await interaction.editReply('Cannot analyze messages from bots.');
-        return;
-    }
-
-    const days = interaction.options.getInteger('days') ?? undefined;
-
+    const { guild, user, days } = validationResponse;
     console.log(`Analyzing messages for user: ${user.tag} (${user.id})`);
 
     try {
-        // Step 1: Collect Relevant Data
+        const logger = new Logger();
 
-        // 1.1. Collect User List
-        console.log('Collecting User List...');
-        // const userList: UserData[] = await collectUserList(guild);
-        // console.log(`Collected ${userList.length} users.`);
+        // Step 1: Collect User List (if needed elsewhere)
+        const userList: GuildMember[] = await collectUserList(guild);
 
-        // 1.2. Collect User Conversations
-        console.log('Collecting User Conversations...');
-        const userConversations: Conversation[] = await collectUserConversations(guild, user, days);
-        if (userConversations.length === 0) {
-            await interaction.editReply('No conversations found involving the specified user.');
-            return;
-        }
-        console.log('User Conversations Collected.');
+        // Step 2: Collect User Conversations
+        logger.info('Collecting User Conversations...');
+        // const userConversations: Conversation[] = await collectUserConversations(guild, user, days);
+        // logger.info(`Collected ${userConversations.length} user conversations.`);
 
-        // 1.3. Collect User Mentions
-        console.log('Collecting User Mentions...');
-        const userMentions: Message[] = await collectUserMentions(
-            guild,
-            { userId: user.id, username: user.username, },
-            days
-        );
-        console.log(`Collected ${userMentions.length} mentions.`);
+        // Step 3: Collect User Mentions (Uncomment if needed)
+        // logger.info('Collecting User Mentions...');
+        // const userMentionsConversations: Conversation[] = await collectUserMentions(
+        //     guild,
+        //     { userId: user.id, username: user.username },
+        //     days
+        // );
+        // logger.info(`Collected ${userMentionsConversations.length} mention conversations.`);
 
-        // Step 2: Aggregate Data Appropriately
+        // Step 4: Aggregate Data
+        // Uncomment the following lines if using mentions
+        // console.log('Aggregating Data...');
+        // const aggregatedData: Message<boolean>[] = [
+        //     ...userConversations.flatMap(conv => conv.messages),
+        //     ...userMentionsConversations.flatMap(conv => conv.messages),
+        // ];
 
+        // Since userMentionsConversations is commented out, only use userConversations
         console.log('Aggregating Data...');
-        // Combine conversations and mentions
-        const aggregatedData: Message[] = [
-            ...userConversations.flatMap(conv => conv.messages),
-            ...userMentions,
-        ];
+        // const aggregatedData: Message<boolean>[] = userConversations.flatMap(conv => conv.messages);
+        // logger.info(`Total aggregated messages: ${aggregatedData.length}`);
 
-        console.log(`Total aggregated messages: ${aggregatedData.length}`);
-
-        // Step 3: Format Conversations to Readable Text
-
+        // Step 5: Format Conversations
         console.log('Formatting Conversations...');
-        const formattedConversationsText = aggregatedData.map(msg => (
-            `[${msg.author.username}] ${msg.content}`
-        )).join('\n');
+        // const formattedConversationsText = aggregatedData.map(msg => (
+        //     `[${msg.author.username}] ${msg.content}`
+        // )).join('\n');
 
-        // Step 4: Analyze Sentiment Using the Agent
-
+        // Step 6: Analyze Sentiment Using the Agent
         console.log('Analyzing Sentiment...');
-        const analysisResult = await analyzeSentimentWithAgent(formattedConversationsText);
+        // const analysisResult = await analyzeSentimentWithAgent(formattedConversationsText);
 
-        // Step 5: Handle the Result
-
-        console.log('Handling Analysis Result...');
-        await handleAnalysisResult(interaction, user.username, analysisResult);
+        // Step 7: Handle Results (Send to Discord and Save as TXT)
+        console.log('Handling Analysis Results...');
+        // await handleTestResult(interaction, user.username, analysisResult);
     } catch (error) {
         console.error('Error during analysis:', error);
         await interaction.editReply('There was an error analyzing the sentiment.');
     }
 }
 
-async function handleAnalysisResult(
+async function validateInteraction(
+    interaction: ChatInputCommandInteraction
+): Promise<{ guild: any, user: any, days: number | undefined } | string> {
+    const guild = interaction.guild;
+    if (!guild) {
+        return 'This command can only be used in a server.';
+    }
+    const user = interaction.options.getUser('user', true);
+    if (user.bot) {
+        return 'Cannot analyze messages from bots.';
+    }
+    const days = interaction.options.getInteger('days') ?? undefined;
+
+    return { guild, user, days };
+}
+
+export async function handleTestResult(
     interaction: ChatInputCommandInteraction,
     username: string,
-    analysisResult: string
+    outputData: string
 ): Promise<void> {
     try {
-        // Send the analysis result to Discord
-        if (analysisResult.length <= 2000) {
-            await interaction.editReply(
-                `**Sentiment analysis for ${username}:**\n${analysisResult}`
-            );
+        // Discord messages have a 2000 character limit, check the size
+        if (outputData.length <= 2000) {
+            await sendResultToDiscord(interaction, username, outputData);
         } else {
-            // Save the analysis as a text file
-            const outputDir = path.resolve(__dirname, '../../output');
-            if (!fs.existsSync(outputDir)) {
-                fs.mkdirSync(outputDir, { recursive: true });
-            }
-
-            const filePath = path.join(outputDir, `${username}_analysis.txt`);
-            fs.writeFileSync(filePath, analysisResult, 'utf-8');
-            console.log(`Analysis saved to ${filePath}`);
-
-            // Send the file to Discord
-            const attachment = new AttachmentBuilder(filePath, {
-                name: `${username}_analysis.txt`,
-            });
-
-            await interaction.editReply({
-                content: `Sentiment analysis for ${username} exceeds Discord's character limit. Please find the analysis attached.`,
-                files: [attachment],
-            });
+            await saveResultToFile(interaction, username, outputData);
+            await interaction.editReply(
+                `Sentiment analysis for ${username} exceeds Discord's character limit. The analysis has been saved to a file.`
+            );
         }
     } catch (error) {
-        console.error('Error handling analysis result:', error);
-        await interaction.editReply('There was an error sending the analysis result.');
+        console.error('Error handling report data:', error);
+        await interaction.editReply('There was an error handling the analysis result.');
     }
 }

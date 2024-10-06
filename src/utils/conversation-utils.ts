@@ -1,26 +1,8 @@
-import { Guild, TextChannel, Message, Snowflake, PermissionsBitField, User } from 'discord.js';
+import { Guild, TextChannel, Message, Snowflake, PermissionsBitField, User, GuildMember, ChannelType } from 'discord.js';
 import Logger from '@ptkdev/logger';
-import pLimit from 'p-limit';
 import { Conversation } from '../types';
-import { collectMessagesFromGuild, collectUserList } from './guild-utils';
+import { fetchMessagesFromGuild } from './guild-utils';
 
-export async function collectUserConversations(
-    guild: Guild,
-    user: User,
-    days?: number
-): Promise<Conversation[]> {
-    let sinceDate: Date | undefined;
-    if (days !== undefined) {
-        sinceDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    }
-
-    const userMessages: Message[] = await collectMessagesFromGuild(guild, user, sinceDate);
-
-    // Detect conversations and automatically fetch context messages
-    const conversations = await detectConversations(userMessages, guild);
-
-    return conversations;
-}
 
 export async function detectConversations(
     messages: Message[],
@@ -155,99 +137,41 @@ function appendContextMessagesToConversations(conversations: Conversation[], con
     });
 }
 
-export async function collectUserMentions(
+export async function collectUserConversations(
     guild: Guild,
-    user: { userId: string; username: string },
+    user: GuildMember,
     days?: number
 ): Promise<Message[]> {
-    const mentions: Message[] = [];
-    let collectedMentionCount = 0;
-    const MAX_MENTIONS = 500; // Adjust as needed
     const sinceDate = days ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : undefined;
 
-    // Fetch user list to get possible aliases (usernames and nicknames)
-    const userList = await collectUserList(guild); // Assuming this returns GuildMembers or Users
-    const userAliases = userList
-        .filter(u => u.user.id === user.userId)
-        .map(u => u.user.username.toLowerCase())
-        .concat(user.username.toLowerCase());
-
-    const channels = guild.channels.cache.filter(
-        (channel) => channel.type === 0 // Guild Text Channels
+    const userMessages = await fetchMessagesFromGuild(
+        guild,
+        sinceDate,
+        msg => msg.author.id === user.id,  // Filter by messages from the user
     );
 
-    const limit = pLimit(5); // Adjust concurrency as needed
+    return userMessages;
+}
 
-    await Promise.all(
-        channels.map((channel) =>
-            limit(async () => {
-                if (collectedMentionCount >= MAX_MENTIONS) return;
+// Collect mentions of a user
+export async function collectUserMentions(
+    guild: Guild,
+    user: GuildMember,
+    days?: number
+): Promise<Message[]> {
+    const sinceDate = days ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : undefined;
+    const aliases = [user.displayName.toLowerCase(), user.user.username.toLowerCase()];
 
-                const textChannel = channel as TextChannel;
-                const permissions = textChannel.permissionsFor(guild.members.me!);
-                if (
-                    !permissions?.has(PermissionsBitField.Flags.ViewChannel) ||
-                    !permissions.has(PermissionsBitField.Flags.ReadMessageHistory)
-                ) {
-                    console.error(`Skipping channel ${textChannel.name}: Missing permissions`);
-                    return;
-                }
-
-                try {
-                    let lastMessageId: Snowflake | undefined;
-                    let fetchComplete = false;
-
-                    while (!fetchComplete && collectedMentionCount < MAX_MENTIONS) {
-                        const options = { limit: 100 } as { limit: number; before?: Snowflake };
-                        if (lastMessageId) {
-                            options.before = lastMessageId;
-                        }
-
-                        const fetchedMessages = await textChannel.messages.fetch(options);
-                        if (fetchedMessages.size === 0) break;
-
-                        for (const msg of fetchedMessages.values()) {
-                            // Skip if the message author is the target user
-                            if (msg.author.id === user.userId) continue;
-
-                            // Check for direct mentions
-                            const hasDirectMention = msg.mentions.users.has(user.userId);
-
-                            // Check for indirect mentions by username or nickname
-                            const messageContentLower = msg.content.toLowerCase();
-                            const hasIndirectMention = userAliases.some(alias =>
-                                messageContentLower.includes(alias)
-                            );
-
-                            if (hasDirectMention || hasIndirectMention) {
-                                // Check if the message is within the time frame
-                                if (sinceDate && msg.createdAt < sinceDate) {
-                                    fetchComplete = true;
-                                    break;
-                                }
-
-                                mentions.push(msg); // Push the full Message object
-
-                                collectedMentionCount++;
-                                if (collectedMentionCount >= MAX_MENTIONS) {
-                                    fetchComplete = true;
-                                    break;
-                                }
-                            }
-                        }
-
-                        lastMessageId = fetchedMessages.last()?.id;
-                        if (fetchedMessages.size < 100) {
-                            break;
-                        }
-                    }
-                } catch (error) {
-                    console.error(`Error fetching messages from channel ${textChannel.name}:`, error);
-                }
-            })
-        )
+    const mentions = await fetchMessagesFromGuild(
+        guild,
+        sinceDate,
+        msg => {
+            const contentLower = msg.content.toLowerCase();
+            const hasDirectMention = msg.mentions.users.has(user.id);
+            const hasIndirectMention = aliases.some(alias => contentLower.includes(alias));
+            return hasDirectMention || hasIndirectMention;
+        }
     );
 
-    console.log(`Total mentions collected for user ${user.username}: ${mentions.length}`);
     return mentions;
 }
