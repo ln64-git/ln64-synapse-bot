@@ -1,11 +1,13 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
-import { ChatInputCommandInteraction, GuildMember, Message } from "discord.js";
+import { ChatInputCommandInteraction, GuildMember } from "discord.js";
 import { saveResultToFile, sendResultToDiscord } from "../utils/output";
-import {
-    collectUserConversations,
-    getUserMentions,
-} from "../utils/conversation-utils";
+import { analyzeConversationWithAgent } from "../langchain/agents";
 import Logger from "@ptkdev/logger";
+import { validateInteraction } from "../discord/guild-utils";
+import { assembleBackground } from "../function/assemble-background";
+
+// Initialize the logger
+const logger = new Logger();
 
 export const data = new SlashCommandBuilder()
     .setName("test")
@@ -30,90 +32,66 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         return await interaction.editReply(validationResponse);
     }
     const { guild, user, days } = validationResponse;
-    console.log(
+    logger.info(
         `Analyzing messages for user: ${user.displayName} (${user.id})`,
     );
 
     try {
-        const logger = new Logger();
+        const startTime = Date.now();
 
-        // Collect user conversations and mentions (arrays of messages)
-        // const userConversations: Message[] = await collectUserConversations(guild, user, days);
-        // logger.info(`Collected ${userConversations.length} user messages.`);
+        // Aggregate conversations
+        const conversations = await assembleBackground(guild, user, days);
 
-        logger.info("Collecting User Mentions...");
-        const userMentions: Message[] = await getUserMentions(
-            guild,
-            user,
-            days,
+        // Format the aggregated conversations into a string for sentiment analysis
+        const aggregatedMessages = conversations
+            .map((conversation) =>
+                conversation.messages
+                    .map((msg) =>
+                        `${msg.author.username}: ${msg.content} [${msg.createdAt.toISOString()}]`
+                    )
+                    .join("\n")
+            )
+            .join("\n\n"); // Separate conversations with double newlines
+
+        // Step 6: Analyze Sentiment Using the Agent
+        logger.info("Analyzing Sentiment...");
+        const analysisResult = await analyzeConversationWithAgent(
+            aggregatedMessages,
         );
+
+        const endTime = Date.now();
         logger.info(
-            `Collected ${userMentions.length} messages mentioning the user.`,
+            `Sentiment analysis completed in ${endTime - startTime} ms`,
         );
 
-        const aggregatedMessages = [
-            // ...userConversations,   // These are individual messages
-            ...userMentions, // These are individual messages
-        ]
-            .map((msg) => ({
-                author: msg.author.username,
-                content: msg.content,
-                timestamp: msg.createdAt,
-            }))
-            .sort((a, b) =>
-                new Date(a.timestamp).getTime() -
-                new Date(b.timestamp).getTime()
-            ); // Sort by timestamp
-
-        // Convert the sorted messages to JSON format
-        const jsonOutput = JSON.stringify(aggregatedMessages, null, 2); // Pretty print JSON with indentation
-
-        // Send or save the JSON output
-        await handleTestResult(interaction, user, jsonOutput);
+        // Step 7: Handle Results (Send to Discord and Save as TXT)
+        logger.info("Handling Analysis Results...");
+        await handleTestResult(interaction, user, analysisResult);
     } catch (error) {
-        console.error("Error during analysis:", error);
+        logger.error("Error during analysis:", String(error));
         await interaction.editReply(
             "There was an error analyzing the sentiment.",
         );
     }
 }
 
-async function validateInteraction(
-    interaction: ChatInputCommandInteraction,
-): Promise<
-    { guild: any; user: GuildMember; days: number | undefined } | string
-> {
-    const guild = interaction.guild;
-    if (!guild) {
-        return "This command can only be used in a server.";
-    }
-
-    // Use `getMember` instead of `getUser` to retrieve the GuildMember object.
-    const user = interaction.options.getMember("user") as GuildMember;
-    if (!user || user.user.bot) {
-        return "Cannot analyze messages from bots.";
-    }
-
-    const days = interaction.options.getInteger("days") ?? undefined;
-    return { guild, user, days };
-}
-
 export async function handleTestResult(
     interaction: ChatInputCommandInteraction,
-    username: GuildMember,
+    user: GuildMember,
     outputData: string,
 ): Promise<void> {
     try {
+        // Discord messages have a 2000 character limit, check the size
         // if (outputData.length <= 2000) {
-        //     await sendResultToDiscord(interaction, username, outputData);
+        //     await sendResultToDiscord(interaction, user, outputData);
         // } else {
-        //     await interaction.editReply(
-        //         `Sentiment analysis for ${username} exceeds Discord's character limit. The analysis has been saved to a file.`
-        //     );
         // }
-        await saveResultToFile(interaction, username, outputData);
+        await saveResultToFile(interaction, user, outputData);
+        await interaction.editReply(
+            `Sentiment analysis for ${user} exceeds Discord's character limit. The analysis has been saved to a file.`,
+        );
     } catch (error) {
-        console.error("Error handling report data:", error);
+        logger.error("Error handling report data:", String(error));
         await interaction.editReply(
             "There was an error handling the analysis result.",
         );

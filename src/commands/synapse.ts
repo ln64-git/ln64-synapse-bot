@@ -7,14 +7,14 @@ import {
     GuildMember,
     Message,
 } from "discord.js";
-import { assembleConversations } from "../utils/conversation-utils";
 import { saveResultToFile, sendResultToDiscord } from "../utils/output";
 import Logger from "@ptkdev/logger";
 import {
-    fetchMentionsFromGuild,
-    fetchMessagesFromGuild,
+    fetchAllMessagesFromGuild,
+    fetchMemberMentionsFromGuild,
 } from "../discord/guild-utils";
 import { analyzeConversationWithAgent } from "../langchain/agents";
+import { assembleConversations } from "../utils/conversation-utils";
 
 export const data = new SlashCommandBuilder()
     .setName("synapse")
@@ -47,18 +47,22 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         const logger = new Logger();
 
         // Collect user conversations and mentions (arrays of messages)
-        const userConversations: Message[] = await fetchMessagesFromGuild(
+        const userConversations: Message[] = await fetchAllMessagesFromGuild(
             guild,
-            user,
-            days,
+            days
+                ? new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+                : undefined,
+            (msg) => msg.author.id === user.id,
         );
         logger.info(`Collected ${userConversations.length} user messages.`);
 
         logger.info("Collecting User Mentions...");
-        const userMentions: Message[] = await fetchMentionsFromGuild(
+        const userMentions: Message[] = await fetchMemberMentionsFromGuild(
             guild,
-            user,
-            days,
+            user.id,
+            days
+                ? new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+                : undefined,
         );
         logger.info(
             `Collected ${userMentions.length} messages mentioning the user.`,
@@ -66,19 +70,20 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
         console.log("Aggregating Data...");
 
-        // Format the aggregated messages into a string for sentiment analysis
-        const aggregatedMessages = [
-            ...userConversations, // These are individual messages
-            ...userMentions, // These are individual messages
-        ]
-            .map((msg) =>
-                `${msg.author.username}: ${msg.content} [${msg.createdAt.toISOString()}]`
+        // Aggregate conversations
+        const allMessages = [...userConversations, ...userMentions];
+        const conversations = await assembleConversations(allMessages);
+
+        // Format the aggregated conversations into a string for sentiment analysis
+        const aggregatedMessages = conversations
+            .map((conversation) =>
+                conversation.messages
+                    .map((msg) =>
+                        `${msg.author.username}: ${msg.content} [${msg.createdAt.toISOString()}]`
+                    )
+                    .join("\n")
             )
-            .sort((a, b) =>
-                new Date(a.split("[")[1]).getTime() -
-                new Date(b.split("[")[1]).getTime()
-            ) // Sort by timestamp
-            .join("\n"); // Join the messages into a single string
+            .join("\n\n"); // Separate conversations with double newlines
 
         // Step 6: Analyze Sentiment Using the Agent
         console.log("Analyzing Sentiment...");
