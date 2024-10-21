@@ -1,6 +1,8 @@
 import {
+  Channel,
   ChannelType,
   ChatInputCommandInteraction,
+  Collection,
   Guild,
   GuildMember,
   Message,
@@ -16,119 +18,50 @@ const logger = new Logger();
 // Utility function to check channel permissions
 async function checkChannelPermissions(
   textChannel: TextChannel,
-  guild: Guild,
+  guild: Guild, // guild is used to fetch user channels
 ): Promise<boolean> {
   const permissions = textChannel.permissionsFor(guild.members.me!);
   return permissions?.has(PermissionsBitField.Flags.ViewChannel) &&
     permissions.has(PermissionsBitField.Flags.ReadMessageHistory);
 }
 
-// Utility function to fetch messages from a specific channel
+// Utility function to fetch all messages from a specific channel
 export async function fetchMessagesFromGuildChannel(
-  textChannel: TextChannel,
-  sinceDate: Date | undefined,
-  filterFn: (msg: Message) => boolean,
-  maxMessages: number = 500,
+  channel: Channel,
 ): Promise<Message[]> {
-  const messages: Message[] = [];
-  let lastMessageId: Snowflake | undefined;
-  let collectedMessageCount = 0;
-  const limit = pLimit(10); // Increase concurrency limit
-
-  while (collectedMessageCount < maxMessages) {
-    const options = { limit: 100, before: lastMessageId };
-    const fetchedMessages = await textChannel.messages.fetch(options);
-
-    if (fetchedMessages.size === 0) break;
-
-    const filteredMessages = await Promise.all(
-      fetchedMessages.map((msg) =>
-        limit(async () => {
-          if (!filterFn(msg)) return null;
-          if (sinceDate && msg.createdAt < sinceDate) return null;
-          return msg;
-        })
-      ),
-    );
-
-    for (const msg of filteredMessages) {
-      if (msg) {
-        messages.push(msg);
-        collectedMessageCount++;
-        if (collectedMessageCount >= maxMessages) {
-          return messages;
-        }
-      }
-    }
-
-    lastMessageId = fetchedMessages.last()?.id;
-    if (fetchedMessages.size < 100) break;
+  if (!channel || !(channel instanceof TextChannel)) {
+    throw new Error("Invalid channel or not a text channel");
   }
 
-  return messages;
-}
+  let allMessages: Message[] = [];
+  let lastMessageId: string | undefined;
 
-// Utility function to fetch channels where the user has messages
-export async function fetchUserChannels(
-  guild: Guild,
-  userId: Snowflake,
-  sinceDate?: Date,
-): Promise<TextChannel[]> {
-  const textChannels = guild.channels.cache.filter(
-    (channel) => channel.type === ChannelType.GuildText,
-  ) as Map<Snowflake, TextChannel>;
-
-  const userChannels: TextChannel[] = [];
-
-  await Promise.all(
-    Array.from(textChannels.values()).map(async (textChannel) => {
-      if (await checkChannelPermissions(textChannel, guild)) {
-        const messages = await textChannel.messages.fetch({ limit: 1 });
-        if (
-          messages.some((msg) =>
-            msg.author.id === userId &&
-            (!sinceDate || msg.createdAt >= sinceDate)
-          )
-        ) {
-          userChannels.push(textChannel);
-        }
-      }
-    }),
-  );
-
-  return userChannels;
-}
-
-// Utility function to fetch all messages from channels where the user has sent messages
-export async function fetchAllMessagesFromUserChannels(
-  guild: Guild,
-  userId: Snowflake,
-  sinceDate?: Date,
-  maxMessages: number = 500,
-): Promise<Message[]> {
-  const start = process.hrtime.bigint();
-  const userChannels = await fetchUserChannels(guild, userId, sinceDate);
-  const allMessages: Message[] = [];
-
-  await Promise.all(
-    userChannels.map((textChannel: TextChannel) =>
-      fetchMessagesFromGuildChannel(
-        textChannel,
-        sinceDate,
-        (msg) => msg.author.id === userId,
-        maxMessages,
-      ).then((messages) => {
-        if (messages.length > 0) {
-          logger.info(`User messages found in channel: ${textChannel.name}`);
-        }
-        allMessages.push(...messages);
-      })
-    ),
-  );
-
-  const end = process.hrtime.bigint();
+  while (true) {
+    logger.info(
+      `Fetching messages from channel ${channel.name} before message ID ${lastMessageId}`,
+    );
+    // Fetch messages in batches of 100
+    const messages: Collection<string, Message> = await channel.messages.fetch({
+      limit: 100,
+      before: lastMessageId,
+    });
+    allMessages = allMessages.concat(Array.from(messages.values()));
+    logger.info(
+      `Fetched ${messages.size} messages from channel ${channel.name}`,
+    );
+    logger.info(
+      `Messages processed: ${allMessages.length}, Messages left to process: ${messages.size}`,
+    );
+    if (messages.size < 100) {
+      // No more messages to fetch
+      logger.info(`No more messages to fetch from channel ${channel.name}`);
+      break;
+    }
+    // Set the last message ID to fetch the next batch
+    lastMessageId = messages.last()?.id;
+  }
   logger.info(
-    `fetchAllMessagesFromUserChannels took ${(end - start) / BigInt(1e6)} ms`,
+    `Total messages fetched from channel ${channel.name}: ${allMessages.length}`,
   );
   return allMessages;
 }
@@ -176,12 +109,9 @@ export async function fetchMemberFromGuild(
 // Utility function to fetch all mentions of a specific member from a guild
 export async function fetchMemberMentionsFromGuild(
   guild: Guild,
-  userId: Snowflake,
-  sinceDate?: Date,
-  maxMessages: number = 500,
 ): Promise<Message[]> {
   const start = process.hrtime.bigint();
-  const limit = pLimit(20); // Increase concurrency limit to 20
+  const limit = pLimit(5);
   const textChannels = guild.channels.cache.filter(
     (channel) => channel.type === ChannelType.GuildText,
   ) as Map<Snowflake, TextChannel>;
@@ -191,17 +121,24 @@ export async function fetchMemberMentionsFromGuild(
   await Promise.all(
     Array.from(textChannels.values()).map((textChannel: TextChannel) =>
       limit(async () => {
-        if (await checkChannelPermissions(textChannel, guild)) {
-          const messages = await fetchMessagesFromGuildChannel(
-            textChannel,
-            sinceDate,
-            (msg) => msg.mentions.has(userId),
-            maxMessages,
-          );
-          if (messages.length > 0) {
-            logger.info(`Mentions found in channel: ${textChannel.name}`);
+        logger.info(
+          `fetching messages from channel ${textChannel.name}... `,
+        );
+
+        try {
+          if (await checkChannelPermissions(textChannel, guild)) {
+            const messages = await fetchMessagesFromGuildChannel(
+              textChannel,
+            );
+            if (messages.length > 0) {
+              logger.info(`Mentions found in channel: ${textChannel.name}`);
+            }
+            allMessages.push(...messages);
           }
-          allMessages.push(...messages);
+        } catch (error) {
+          logger.error(
+            `Error fetching messages from channel ${textChannel.name}: ${error}`,
+          );
         }
       })
     ),
@@ -219,7 +156,6 @@ export async function validateInteraction(
 ): Promise<
   { guild: any; user: GuildMember; days: number | undefined } | string
 > {
-  const start = performance.now();
   const guild = interaction.guild;
   if (!guild) {
     return "This command can only be used in a server.";
@@ -235,8 +171,6 @@ export async function validateInteraction(
     return "Cannot analyze messages from bots.";
   }
   const days = interaction.options.getInteger("days") ?? undefined;
-  const end = performance.now();
-  logger.info(`validateInteraction took ${end - start} ms`);
   return { guild, user, days };
 }
 
@@ -255,17 +189,21 @@ export async function fetchAllMessagesFromGuild(
 
   const allMessages: Message[] = [];
 
-  await Promise.all(
+  await Promise.allSettled(
     Array.from(textChannels.values()).map((textChannel: TextChannel) =>
       limit(async () => {
-        if (await checkChannelPermissions(textChannel, guild)) {
-          const messages = await fetchMessagesFromGuildChannel(
-            textChannel,
-            sinceDate,
-            filterFn,
-            maxMessages,
+        logger.info(`Fetching messages from channel ${textChannel.name}...`);
+        try {
+          if (await checkChannelPermissions(textChannel, guild)) {
+            const messages = await fetchMessagesFromGuildChannel(
+              textChannel,
+            );
+            allMessages.push(...messages);
+          }
+        } catch (error) {
+          logger.error(
+            `Error fetching messages from channel ${textChannel.name}: ${error}`,
           );
-          allMessages.push(...messages);
         }
       })
     ),
