@@ -16,7 +16,7 @@ import Logger from "@ptkdev/logger";
 const logger = new Logger();
 
 // Utility function to check channel permissions
-async function checkChannelPermissions(
+export async function checkChannelPermissions(
   textChannel: TextChannel,
   guild: Guild, // guild is used to fetch user channels
 ): Promise<boolean> {
@@ -37,7 +37,7 @@ export async function fetchMessagesFromGuildChannel(
   let lastMessageId: string | undefined;
 
   while (true) {
-    logger.info(
+    console.log(
       `Fetching messages from channel ${channel.name} before message ID ${lastMessageId}`,
     );
     // Fetch messages in batches of 100
@@ -46,21 +46,21 @@ export async function fetchMessagesFromGuildChannel(
       before: lastMessageId,
     });
     allMessages = allMessages.concat(Array.from(messages.values()));
-    logger.info(
+    console.log(
       `Fetched ${messages.size} messages from channel ${channel.name}`,
     );
-    logger.info(
+    console.log(
       `Messages processed: ${allMessages.length}, Messages left to process: ${messages.size}`,
     );
     if (messages.size < 100) {
       // No more messages to fetch
-      logger.info(`No more messages to fetch from channel ${channel.name}`);
+      console.log(`No more messages to fetch from channel ${channel.name}`);
       break;
     }
     // Set the last message ID to fetch the next batch
     lastMessageId = messages.last()?.id;
   }
-  logger.info(
+  console.log(
     `Total messages fetched from channel ${channel.name}: ${allMessages.length}`,
   );
   return allMessages;
@@ -73,19 +73,56 @@ export async function fetchAllMembersFromGuild(
   const start = performance.now();
   const members: GuildMember[] = [];
   let lastMemberId: Snowflake | undefined;
+  let batchCount = 1;
+
+  // Keep track of the previous lastMemberId to detect if we're stuck in a loop
+  let previousLastMemberId: Snowflake | undefined;
 
   while (true) {
+    console.log(`Fetching batch ${batchCount} of members...`);
     const options = { limit: 1000, after: lastMemberId };
     const fetchedMembers = await guild.members.fetch(options);
 
-    if (fetchedMembers.size === 0) break;
+    console.log(
+      `Fetched ${fetchedMembers.size} members in batch ${batchCount}.`,
+    );
 
+    // If no members are fetched, exit the loop
+    if (fetchedMembers.size === 0) {
+      console.log(`No more members to fetch. Exiting at batch ${batchCount}.`);
+      break;
+    }
+
+    // Add the fetched members to the list
     members.push(...fetchedMembers.values());
+
+    // Update lastMemberId for the next batch
     lastMemberId = fetchedMembers.last()?.id;
+
+    // Check if lastMemberId hasn't changed (indicating we might be in a loop)
+    if (lastMemberId === previousLastMemberId) {
+      console.log(
+        `Warning: lastMemberId has not changed. Stopping to prevent infinite loop.`,
+      );
+      break;
+    }
+
+    // Update the previous lastMemberId to track changes in the next loop iteration
+    previousLastMemberId = lastMemberId;
+
+    // If lastMemberId is undefined, break to prevent infinite loop
+    if (!lastMemberId) {
+      console.log("Reached the end of member list.");
+      break;
+    }
+
+    // Increment the batch count
+    batchCount++;
   }
 
   const end = performance.now();
   logger.info(`fetchAllMembersFromGuild took ${end - start} ms`);
+  console.log(`Total members fetched: ${members.length}`);
   return members;
 }
 
