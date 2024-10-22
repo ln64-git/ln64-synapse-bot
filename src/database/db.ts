@@ -1,4 +1,4 @@
-import { Channel, Guild, GuildChannel, GuildMember, Message } from "discord.js";
+import { Client, Guild, GuildChannel, Message } from "discord.js";
 
 import { PrismaClient } from "@prisma/client";
 
@@ -10,6 +10,150 @@ export async function connectToDatabase() {
         console.log("Connected to the database");
     } catch (err) {
         console.error("Error connecting to the database:", err);
+        throw err;
+    }
+}
+
+export async function nukeDatabase() {
+    try {
+        await prisma.message.deleteMany({});
+        await prisma.channel.deleteMany({});
+        await prisma.member.deleteMany({});
+        await prisma.guild.deleteMany({});
+        console.log("Database nuked successfully.");
+    } catch (err) {
+        console.error("Error nuking the database:", err);
+        throw err;
+    }
+}
+
+export async function getChannelByMessageId(messageId: string) {
+    try {
+        const message = await prisma.message.findUnique({
+            where: { id: messageId },
+            include: { channel: true },
+        });
+        if (message) {
+            console.log(`Found channel: ${message.channel.name}`);
+        } else {
+            console.log(`Channel for message with ID ${messageId} not found.`);
+        }
+        return message?.channel;
+    } catch (err) {
+        console.error(
+            `Error fetching channel for message ID ${messageId}:`,
+            err,
+        );
+        throw err;
+    }
+}
+
+function mapToMessage(data: any): any {
+    return {
+        id: data.id,
+        channelId: data.channelId,
+        authorId: data.authorId,
+        content: data.content,
+        timestamp: data.timestamp,
+        editedTimestamp: data.editedTimestamp,
+        tts: data.tts,
+        mentionEveryone: data.mentionEveryone,
+    };
+}
+
+export async function getMessagesBeforeMessageId(
+    channelId: string,
+    messageId: string,
+    limit: number,
+): Promise<Message[]> {
+    try {
+        const messages = await prisma.message.findMany({
+            where: {
+                channelId: channelId,
+                id: {
+                    lt: messageId,
+                },
+            },
+            orderBy: {
+                id: "desc",
+            },
+            take: limit,
+        });
+        return Promise.all(messages.map(mapToMessage));
+    } catch (err) {
+        console.error(
+            `Error fetching messages before message ID ${messageId}:`,
+            err,
+        );
+        throw err;
+    }
+}
+
+export async function getMessagesAfterMessageId(
+    channelId: string,
+    messageId: string,
+    limit: number,
+): Promise<Message[]> {
+    try {
+        const messages = await prisma.message.findMany({
+            where: {
+                channelId: channelId,
+                id: {
+                    gt: messageId,
+                },
+            },
+            orderBy: {
+                id: "asc",
+            },
+            take: limit,
+        });
+        return Promise.all(messages.map(mapToMessage));
+    } catch (err) {
+        console.error(
+            `Error fetching messages after message ID ${messageId}:`,
+            err,
+        );
+        throw err;
+    }
+}
+
+export async function getMessagesByAuthorId(
+    authorId: string,
+): Promise<Message[]> {
+    try {
+        const messages = await prisma.message.findMany({
+            where: { authorId: authorId },
+        });
+        console.log(
+            `Found ${messages.length} message(s) by author ID ${authorId}.`,
+        );
+        return await Promise.all(messages.map(mapToMessage));
+    } catch (err) {
+        console.error(`Error fetching messages by author ID ${authorId}:`, err);
+        throw err;
+    }
+}
+
+export async function getMessagesByMentionedUserId(
+    userId: string,
+): Promise<Message[]> {
+    try {
+        const messages = await prisma.message.findMany({
+            where: {
+                content: {
+                    contains: `<@${userId}>`,
+                },
+            },
+        });
+        console.log(
+            `Found ${messages.length} message(s) mentioning user ID ${userId}.`,
+        );
+        return await Promise.all(messages.map(mapToMessage));
+    } catch (err) {
+        console.error(
+            `Error fetching messages mentioning user ID ${userId}:`,
+            err,
+        );
         throw err;
     }
 }
@@ -141,29 +285,15 @@ export async function getMessagesByChannelId(channelId: string) {
     }
 }
 
-export async function getMessagesByAuthorId(authorId: string) {
-    try {
-        const messages = await prisma.message.findMany({
-            where: { authorId: authorId },
-        });
-        console.log(
-            `Found ${messages.length} message(s) from author ID ${authorId}.`,
-        );
-        return messages;
-    } catch (err) {
-        console.error(
-            `Error fetching messages from author ID ${authorId}:`,
-            err,
-        );
-        throw err;
-    }
-}
-
 export async function insertGuild(guild: Guild) {
     try {
+        // Use upsert to either update or create the guild if it doesn't exist
         await prisma.guild.upsert({
             where: { id: guild.id },
-            update: {},
+            update: {
+                name: guild.name,
+                ownerId: guild.ownerId,
+            },
             create: {
                 id: guild.id,
                 name: guild.name,
@@ -172,104 +302,163 @@ export async function insertGuild(guild: Guild) {
         });
         console.log(`Inserted or updated guild: ${guild.name}`);
     } catch (err) {
-        console.error("Error inserting guild:", err);
+        console.error("Error inserting or updating guild:", err);
     }
 }
 
 export async function insertChannel(channel: GuildChannel, guildId: string) {
     try {
         const position = channel.position !== undefined ? channel.position : 0; // Provide a default value
-        // Log the position to verify it's a valid integer
-        console.log("Channel Position: ", channel.position);
 
+        // Use upsert to ensure the channel is inserted if not found
         await prisma.channel.upsert({
-            where: {
-                id: channel.id, // Channel ID
-            },
-            update: {},
-            create: {
-                id: channel.id, // Channel ID
-                guildId: guildId, // Guild ID
-                name: channel.name, // Channel name
-                type: channel.type.toString(), // Ensure type is string
+            where: { id: channel.id },
+            update: {
+                name: channel.name,
+                type: channel.type.toString(),
                 position: position,
+                guildId: guildId,
+            },
+            create: {
+                id: channel.id,
+                name: channel.name,
+                type: channel.type.toString(),
+                position: position,
+                guildId: guildId,
             },
         });
-        console.log(
-            `Channel ${channel.name} inserted/updated in the database.`,
-        );
+        console.log(`Channel ${channel.name} inserted or updated.`);
     } catch (err) {
-        console.error("Error inserting channel:", err);
+        console.error("Error inserting or updating channel:", err);
     }
 }
 
-export async function insertMember(member: GuildMember) {
+export async function insertMember(author: any, guildId: string) {
     try {
         await prisma.member.upsert({
-            where: { id: member.id },
+            where: { id: author.id },
             update: {},
             create: {
-                id: member.id,
-                guildId: member.guild.id,
-                username: member.user.username,
-                discriminator: member.user.discriminator,
-                nickname: member.nickname,
-                joinedAt: member.joinedAt ?? new Date(), // Default to current date if `joinedAt` is null
+                id: author.id,
+                guildId: guildId,
+                username: author.username,
+                discriminator: author.discriminator,
+                nickname: author.nickname || null,
+                joinedAt: new Date(),
             },
         });
-        console.log(`Inserted or updated member: ${member.user.username}`);
+        console.log(`Inserted or updated member: ${author.username}`);
     } catch (err) {
-        console.error("Error inserting member:", err);
+        if ((err as any).code === "P2003") {
+            console.error(
+                `Failed to insert member with ID ${author.id}: Foreign key violation`,
+            );
+        } else {
+            console.error(`Error inserting member ${author.id}`, err);
+        }
     }
 }
 
-export async function insertMessage(message: Message) {
-    try {
-        await prisma.message.upsert({
-            where: { id: message.id },
-            update: {},
-            create: {
-                id: message.id,
-                channelId: message.channel.id,
-                authorId: message.author.id,
-                content: message.content,
-                timestamp: new Date(message.createdTimestamp),
-                editedTimestamp: message.editedTimestamp
-                    ? new Date(message.editedTimestamp)
-                    : null,
-                tts: message.tts,
-                mentionEveryone: message.mentions.everyone,
-            },
-        });
-        console.log(`Inserted or updated message: ${message.id}`);
-    } catch (err) {
-        console.error("Error inserting message:", err);
+export async function insertMessages(messages: Message[], guildId: string) {
+    for (const message of messages) {
+        let authorId = message.author?.id || null; // Set to null if no author
+
+        try {
+            if (authorId) {
+                const memberExists = await prisma.member.findUnique({
+                    where: { id: authorId },
+                });
+
+                if (!memberExists) {
+                    // Attempt to insert the member
+                    await insertMember(message.author, guildId);
+                }
+            }
+        } catch (err) {
+            console.error(
+                `Failed to insert member with ID ${authorId}, setting authorId to null`,
+                err,
+            );
+            // Set authorId to null if insertion fails
+            authorId = null;
+        }
+
+        // Now insert the message with either the real authorId or null
+        try {
+            await prisma.message.upsert({
+                where: { id: message.id },
+                update: {},
+                create: {
+                    id: message.id,
+                    content: message.content,
+                    timestamp: new Date(message.createdTimestamp),
+                    editedTimestamp: message.editedTimestamp
+                        ? new Date(message.editedTimestamp)
+                        : null,
+                    tts: message.tts,
+                    mentionEveryone: message.mentions.everyone,
+                    channelId: message.channelId,
+                    authorId: authorId, // This can now be null
+                },
+            });
+        } catch (err) {
+            console.error(`Failed to insert message: ${message.id}`, err);
+        }
     }
 }
 
-export async function insertMessages(messages: Message[]) {
+export async function insertUnknownMember(guildId: string) {
     try {
-        const messageData = messages.map((message) => ({
-            id: message.id,
-            channelId: message.channel.id,
-            authorId: message.author.id,
-            content: message.content,
-            timestamp: new Date(message.createdTimestamp),
-            editedTimestamp: message.editedTimestamp
-                ? new Date(message.editedTimestamp)
-                : null,
-            tts: message.tts,
-            mentionEveryone: message.mentions.everyone,
-        }));
+        await prisma.member.upsert({
+            where: { id: "unknown" },
+            update: {},
+            create: {
+                id: "unknown",
+                guildId: guildId,
+                username: "Unknown",
+                discriminator: "0000",
+                nickname: null,
+                joinedAt: new Date(),
+            },
+        });
+        console.log(`Inserted or updated "unknown" member`);
+    } catch (err) {
+        console.error(`Error inserting "unknown" member`, err);
+    }
+}
 
-        // Batch insert messages using createMany
-        await prisma.message.createMany({
-            data: messageData,
-            skipDuplicates: true, // Skip duplicates to avoid conflicts
+export async function insertMembersFromMessages(
+    messages: Message[],
+    guildId: string,
+    client: Client,
+) {
+    const uniqueAuthorIds = [
+        ...new Set(messages.map((message) => message.author.id)),
+    ];
+
+    for (const authorId of uniqueAuthorIds) {
+        let memberExists = await prisma.member.findUnique({
+            where: { id: authorId },
         });
 
-        console.log(`Inserted ${messages.length} messages successfully.`);
-    } catch (err) {
-        console.error("Error inserting messages:", err);
+        if (!memberExists) {
+            // Attempt to fetch member details from Discord
+            const discordGuild = await client.guilds.fetch(guildId);
+            const discordMember = await discordGuild.members.fetch(authorId)
+                .catch((err) => {
+                    console.error(
+                        `Unable to fetch member with ID ${authorId}`,
+                        err,
+                    );
+                });
+
+            if (discordMember) {
+                await insertMember(discordMember.user, guildId);
+            } else {
+                console.error(
+                    `Failed to fetch or insert member with ID ${authorId}`,
+                );
+            }
+        }
     }
 }

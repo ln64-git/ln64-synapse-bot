@@ -1,68 +1,40 @@
-import {
-    ChannelType,
-    Guild,
-    GuildMember,
-    Message,
-    TextChannel,
-} from "discord.js";
+import { GuildMember } from "discord.js";
 import Logger from "@ptkdev/logger";
 import { assembleConversations } from "../utils/conversation-utils";
 import { Conversation } from "../types";
 import {
-    fetchAllMessagesFromGuild,
-    fetchMemberMentionsFromGuild,
-    fetchMessagesFromGuildChannel,
-} from "../discord/guild-utils";
+    getMessagesByAuthorId,
+    getMessagesByMentionedUserId,
+} from "../database/db";
 
 const logger = new Logger();
 
 export async function assembleBackground(
-    guild: Guild,
     user: GuildMember,
-    days?: number,
 ): Promise<Conversation[]> {
-    const firesideChatChannel = guild.channels.cache.find((channel) =>
-        channel.name === "fireside-chat" &&
-        channel.type === ChannelType.GuildText
-    ) as TextChannel | undefined;
-    if (!firesideChatChannel) {
-        return logger.error(
-            "Fireside chat channel not found or is not a text channel.",
-        ),
-            [];
-    }
-    console.log(`Fetching messages from channel ID: ${firesideChatChannel.id}...`);
+    logger.info(`Starting to assemble background for user: ${user.user.tag}`);
 
-    const firesideChatMessages = await fetchMessagesFromGuildChannel(
-        firesideChatChannel,
-    );
-    firesideChatMessages.forEach((message) => {
-        console.log(`[${message.author.username}]: ${message.content}`);
-    });
+    // Fetch user messages from the database
+    logger.info(`Fetching messages authored by user: ${user.user.tag}`);
+    const userMessages = await getMessagesByAuthorId(user.id);
     logger.info(
-        `Collected ${firesideChatMessages.length} messages from fireside-chat channel.`,
+        `Fetched ${userMessages.length} messages authored by user: ${user.user.tag}`,
     );
 
-    // const userConversations: Message[] = await fetchAllMessagesFromGuild(
-    //     guild,
-    //     days ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : undefined,
-    // );
-    // logger.info("Collecting User Mentions...");
-    // const userMentions: Message[] = await fetchMemberMentionsFromGuild(
-    //     guild,
-    //     user.id,
-    //     days ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : undefined,
-    // );
-    // logger.info(
-    //     `Collected ${userMentions.length} messages mentioning the user.`,
-    // );
-
-    console.log("Aggregating Data...");
+    // Fetch messages mentioning the user from the database
+    logger.info(`Fetching messages mentioning user: ${user.user.tag}`);
+    const userMentions = await getMessagesByMentionedUserId(user.id);
+    logger.info(
+        `Fetched ${userMentions.length} messages mentioning user: ${user.user.tag}`,
+    );
 
     // Aggregate conversations
-    const allMessages = [...firesideChatMessages];
-    // const allMessages = [...userConversations, ...userMentions];
+    logger.info(`Aggregating conversations for user: ${user.user.tag}`);
+    const allMessages = [...userMessages, ...userMentions];
     const conversations = await assembleConversations(allMessages);
+    logger.info(
+        `Assembled ${conversations.length} conversations for user: ${user.user.tag}`,
+    );
 
     return conversations;
 }

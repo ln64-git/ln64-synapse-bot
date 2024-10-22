@@ -3,12 +3,8 @@ import {
     SlashCommandBuilder,
     TextChannel,
 } from "discord.js";
-import {
-    connectToDatabase,
-    getChannelsByGuildId,
-    getMessagesByChannelId,
-} from "../database/db";
-import { exportGuildData } from "../function/export-guild-data";
+import { connectToDatabase } from "../database/db";
+import { exportChannelData } from "../function/export-guild-data";
 
 export const data = new SlashCommandBuilder()
     .setName("test")
@@ -28,40 +24,21 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         // Connect to the database
         await connectToDatabase();
 
-        const channels = await getChannelsByGuildId(guild.id);
+        // Find the channel named "Gaming"
+        const gamingChannel = guild.channels.cache.find(
+            (channel) =>
+                channel.name === "gaming" && channel instanceof TextChannel,
+        ) as TextChannel | undefined;
 
-        for (const channel of channels) {
-            // Replace the channel ID string below with the ID of the channel you want to check
-            if (channel.id === "1004111008337502270") {
-                console.log(`Processing channel: ${channel.name}`);
-
-                // Fetch messages from the database instead of Discord
-                const messages = await getMessagesByChannelId(channel.id);
-
-                console.log(
-                    `Fetched ${messages.length} messages from channel: ${channel.name}`,
-                );
-
-                for (const message of messages) {
-                    const user = await interaction.client.users.fetch(
-                        message.authorId,
-                    );
-                    console.log(
-                        `Message from ${user.username}: ${message.content}`,
-                    );
-                }
-            } else {
-            }
+        if (!gamingChannel) {
+            return await interaction.editReply("Channel 'Gaming' not found.");
         }
-        // Dump guild data
-        // await exportGuildData(guild);
-        // console.log("Guild data dumped.");
 
-        // const channels = await getChannelsByGuildId(guild.id);
-        // console.log("Channels:", channels);
+        // Export the channel data
+        await exportChannelData(guild.client, gamingChannel, guild.id);
 
         await interaction.editReply(
-            "Successfully mapped all guilds, channels, members, and messages to the database.",
+            "Channel 'Gaming' data has been exported successfully.",
         );
     } catch (error) {
         console.error("Error mapping data to the database:", error);
