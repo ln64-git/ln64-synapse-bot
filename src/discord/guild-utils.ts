@@ -214,7 +214,6 @@ export async function validateInteraction(
 // Utility function to fetch all messages from a guild
 export async function fetchAllMessagesFromGuild(
   guild: Guild,
-  sinceDate?: Date,
   filterFn: (msg: Message) => boolean = () => true,
   maxMessages: number = 500,
 ): Promise<Message[]> {
@@ -229,7 +228,6 @@ export async function fetchAllMessagesFromGuild(
   await Promise.allSettled(
     Array.from(textChannels.values()).map((textChannel: TextChannel) =>
       limit(async () => {
-        logger.info(`Fetching messages from channel ${textChannel.name}...`);
         try {
           if (await checkChannelPermissions(textChannel, guild)) {
             const messages = await fetchMessagesFromGuildChannel(

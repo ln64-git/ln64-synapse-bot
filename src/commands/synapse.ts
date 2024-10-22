@@ -1,15 +1,12 @@
 // src/commands/synapse.ts
-
 import { SlashCommandBuilder } from "@discordjs/builders";
-import { ChatInputCommandInteraction, Message } from "discord.js";
-import { handleResult } from "../utils/output";
-import Logger from "@ptkdev/logger";
+import { ChatInputCommandInteraction } from "discord.js";
+import { GuildMember } from "discord.js";
+import { Conversation } from "../types";
 import {
-    fetchAllMessagesFromGuild,
-    fetchMemberMentionsFromGuild,
-    validateInteraction,
-} from "../discord/guild-utils";
-import { analyzeConversationWithAgent } from "../langchain/agents";
+    getMessagesByAuthorId,
+    getMessagesByMentionedUserId,
+} from "../database/db";
 import { assembleConversations } from "../utils/conversation-utils";
 
 export const data = new SlashCommandBuilder()
@@ -20,76 +17,68 @@ export const data = new SlashCommandBuilder()
     .addUserOption((option) =>
         option.setName("user").setDescription("The user to analyze")
             .setRequired(true)
-    )
-    .addIntegerOption((option) =>
-        option
-            .setName("days")
-            .setDescription("Number of days to look back from today")
-            .setRequired(false)
     );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
     await interaction.deferReply();
-    const validationResponse = await validateInteraction(interaction);
-    if (typeof validationResponse === "string") {
-        return await interaction.editReply(validationResponse);
-    }
-    const { guild, user, days } = validationResponse;
-    console.log(
-        `Analyzing messages for user: ${user.displayName} (${user.id})`,
-    );
+    if (!interaction.guild) throw new Error("Guild is null.");
+    const user = interaction.options.getMember("user") as GuildMember;
 
     try {
-        const logger = new Logger();
+        // Step 1: Collect Messages from the User
 
-        // Collect user conversations and mentions (arrays of messages)
-        const userConversations: Message[] = await fetchAllMessagesFromGuild(
-            guild,
-            days
-                ? new Date(Date.now() - days * 24 * 60 * 60 * 1000)
-                : undefined,
-            (msg) => msg.author.id === user.id,
-        );
-        logger.info(`Collected ${userConversations.length} user messages.`);
+        // Step 2: Collect Mentions of the User
 
-        logger.info("Collecting User Mentions...");
-        const userMentions: Message[] = await fetchMemberMentionsFromGuild(
-            guild,
-        );
-        logger.info(
-            `Collected ${userMentions.length} messages mentioning the user.`,
-        );
+        // Step 3: Collect indirect mentions of the user
 
-        console.log("Aggregating Data...");
+        // Step 4: Build Conversations
 
-        // Aggregate conversations
-        const allMessages = [...userConversations, ...userMentions];
-        const conversations = await assembleConversations(allMessages);
-
-        // Format the aggregated conversations into a string for sentiment analysis
-        const aggregatedMessages = conversations
-            .map((conversation) =>
-                conversation.messages
-                    .map((msg) =>
-                        `${msg.author.username}: ${msg.content} [${msg.createdAt.toISOString()}]`
-                    )
-                    .join("\n")
-            )
-            .join("\n\n"); // Separate conversations with double newlines
+        // Step 5: Concotenate Conversations
 
         // Step 6: Analyze Sentiment Using the Agent
-        console.log("Analyzing Sentiment...");
-        const analysisResult = await analyzeConversationWithAgent(
-            aggregatedMessages,
-        ); // Pass the formatted conversation
 
         // Step 7: Handle Results (Send to Discord and Save as TXT)
-        console.log("Handling Analysis Results...");
-        await handleResult(interaction, user, analysisResult);
-    } catch (error) {
-        console.error("Error during analysis:", error);
+
+        console.info(`Handling results for user: ${user.user.username}`);
         await interaction.editReply(
-            "There was an error analyzing the sentiment.",
+            `Analysis complete for user: ${user.user.tag}`,
+        );
+    } catch (error) {
+        console.error(
+            `Error during synapse analysis: ${(error as Error).message}`,
+        );
+        await interaction.editReply(
+            "An error occurred during synapse analysis.",
         );
     }
+}
+
+export async function assembleSynapse(
+    user: GuildMember,
+): Promise<Conversation[]> {
+    console.info(`Starting to assemble background for user: ${user.user.tag}`);
+
+    // Fetch user messages from the database
+    console.info(`Fetching messages authored by user: ${user.user.tag}`);
+    const userMessages = await getMessagesByAuthorId(user.id);
+    console.info(
+        `Fetched ${userMessages.length} messages authored by user: ${user.user.tag}`,
+    );
+
+    // Fetch messages mentioning the user from the database
+    console.info(`Fetching messages mentioning user: ${user.user.tag}`);
+    const userMentions = await getMessagesByMentionedUserId(user.id);
+    console.info(
+        `Fetched ${userMentions.length} messages mentioning user: ${user.user.tag}`,
+    );
+
+    // Aggregate conversations
+    console.info(`Aggregating conversations for user: ${user.user.tag}`);
+    const allMessages = [...userMessages, ...userMentions];
+    const conversations = await assembleConversations(allMessages);
+    console.info(
+        `Assembled ${conversations.length} conversations for user: ${user.user.tag}`,
+    );
+
+    return conversations;
 }
