@@ -4,7 +4,10 @@ import {
     TextChannel,
 } from "discord.js";
 import { connectToDatabase } from "../database/db";
-import { exportChannelData } from "../function/export-guild-data";
+import {
+    exportChannelData,
+    exportGuildData,
+} from "../function/export-guild-data";
 
 export const data = new SlashCommandBuilder()
     .setName("test")
@@ -24,21 +27,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         // Connect to the database
         await connectToDatabase();
 
-        // Find the channel named "Gaming"
-        const gamingChannel = guild.channels.cache.find(
-            (channel) =>
-                channel.name === "gaming" && channel instanceof TextChannel,
-        ) as TextChannel | undefined;
-
-        if (!gamingChannel) {
-            return await interaction.editReply("Channel 'Gaming' not found.");
-        }
-
         // Export the channel data
-        await exportChannelData(guild.client, gamingChannel, guild.id);
+        await exportGuildData(guild);
 
         await interaction.editReply(
-            "Channel 'Gaming' data has been exported successfully.",
+            "Guild has been exported successfully.",
         );
     } catch (error) {
         console.error("Error mapping data to the database:", error);

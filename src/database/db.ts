@@ -1,4 +1,4 @@
-import { Client, Guild, GuildChannel, Message } from "discord.js";
+import { Client, Guild, GuildChannel, GuildMember, Message } from "discord.js";
 import { Pool } from "pg";
 
 const db = new Pool({
@@ -47,6 +47,22 @@ export async function getChannelByMessageId(messageId: string) {
             err,
         );
         throw err;
+    }
+}
+
+export async function insertPlaceholderGuild(guildId: string) {
+    try {
+        await db.query(
+            `INSERT INTO "Guild" ("id", "name", "ownerId") VALUES ($1, 'Unknown', 'unknown')
+             ON CONFLICT ("id") DO NOTHING`,
+            [guildId],
+        );
+        console.log(`Inserted placeholder guild with ID ${guildId}`);
+    } catch (err) {
+        console.error(
+            `Error inserting placeholder guild with ID ${guildId}`,
+            err,
+        );
     }
 }
 
@@ -314,33 +330,69 @@ export async function insertChannel(channel: GuildChannel, guildId: string) {
     }
 }
 
-export async function insertMember(author: any, guildId: string) {
+export async function insertMember(member: GuildMember, guildId: string) {
     try {
+        // Ensure the guild exists before inserting the member
+        const guildRes = await db.query(
+            'SELECT 1 FROM "Guild" WHERE "id" = $1',
+            [guildId],
+        );
+        if (guildRes.rows.length === 0) {
+            console.error(`Guild with ID ${guildId} does not exist.`);
+            return;
+        }
+
+        // If the nickname is undefined or null, handle it properly
+        const nickname = member.displayName || null;
+
         await db.query(
             `INSERT INTO \"Member\" (\"id\", \"username\", \"discriminator\", \"nickname\", \"joinedAt\", \"guildId\") VALUES ($1, $2, $3, $4, $5, $6)
              ON CONFLICT (\"id\") DO UPDATE SET \"username\" = EXCLUDED.\"username\", \"discriminator\" = EXCLUDED.\"discriminator\", \"nickname\" = EXCLUDED.\"nickname\", \"joinedAt\" = EXCLUDED.\"joinedAt\", \"guildId\" = EXCLUDED.\"guildId\"`,
             [
-                author.id,
-                author.username,
-                author.discriminator,
-                author.nickname || null,
+                member.id,
+                member.user.username,
+                member.user.discriminator,
+                nickname, // Insert null if no nickname is provided
                 new Date(),
                 guildId,
             ],
         );
-        console.log(`Inserted or updated member: ${author.username}`);
     } catch (err) {
         if ((err as any).code === "23503") { // Foreign key violation
             console.error(
-                `Failed to insert member with ID ${author.id}: Foreign key violation`,
+                `Failed to insert member with ID ${member.id}: Foreign key violation`,
             );
         } else {
-            console.error(`Error inserting member ${author.id}`, err);
+            console.error(`Error inserting member ${member.id}`, err);
         }
     }
 }
-
 export async function insertMessages(messages: Message[], guildId: string) {
+    console.log(`Starting to insert messages for guild ID ${guildId}`);
+
+    // Ensure the guild exists before inserting messages
+    let guildRes = await db.query(
+        'SELECT 1 FROM "Guild" WHERE "id" = $1',
+        [guildId],
+    );
+    if (guildRes.rows.length === 0) {
+        console.warn(
+            `Guild with ID ${guildId} does not exist. Inserting placeholder guild.`,
+        );
+        await insertPlaceholderGuild(guildId);
+        // Re-check if the guild now exists
+        guildRes = await db.query(
+            'SELECT 1 FROM "Guild" WHERE "id" = $1',
+            [guildId],
+        );
+        if (guildRes.rows.length === 0) {
+            console.error(
+                `Failed to insert placeholder guild with ID ${guildId}.`,
+            );
+            return;
+        }
+    }
+
     for (const message of messages) {
         let authorId = message.author?.id || null; // Set to null if no author
 
@@ -353,23 +405,32 @@ export async function insertMessages(messages: Message[], guildId: string) {
 
                 if (res.rows.length === 0) {
                     // Attempt to insert the member
-                    await insertMember(message.author, guildId);
+                    if (message.guild) {
+                        const guildMember = await message.guild.members.fetch(
+                            authorId,
+                        );
+                        await insertMember(guildMember, guildId);
+                    } else {
+                        console.error(
+                            `Message guild is null for message ID ${message.id}`,
+                        );
+                    }
                 }
             }
         } catch (err) {
-            console.error(
-                `Failed to insert member with ID ${authorId}, setting authorId to null`,
-                err,
-            );
-            // Set authorId to null if insertion fails
-            authorId = null;
+            // console.error(
+            // `Failed to insert member with ID ${authorId}, setting authorId to unknown`,
+            // err,
+            // );
+            // Set authorId to "unknown" if insertion fails
+            authorId = "unknown";
         }
 
-        // Now insert the message with either the real authorId or null
+        // Now insert the message with either the real authorId or "unknown"
         try {
             await db.query(
-                `INSERT INTO \"Message\" (\"id\", \"content\", \"timestamp\", \"editedTimestamp\", \"tts\", \"mentionEveryone\", \"channelId\", \"authorId\") VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                 ON CONFLICT (\"id\") DO UPDATE SET \"content\" = EXCLUDED.\"content\", \"timestamp\" = EXCLUDED.\"timestamp\", \"editedTimestamp\" = EXCLUDED.\"editedTimestamp\", \"tts\" = EXCLUDED.\"tts\", \"mentionEveryone\" = EXCLUDED.\"mentionEveryone\", \"channelId\" = EXCLUDED.\"channelId\", \"authorId\" = EXCLUDED.\"authorId\"`,
+                `INSERT INTO "Message" ("id", "content", "timestamp", "editedTimestamp", "tts", "mentionEveryone", "channelId", "authorId") VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                 ON CONFLICT ("id") DO UPDATE SET "content" = EXCLUDED."content", "timestamp" = EXCLUDED."timestamp", "editedTimestamp" = EXCLUDED."editedTimestamp", "tts" = EXCLUDED."tts", "mentionEveryone" = EXCLUDED."mentionEveryone", "channelId" = EXCLUDED."channelId", "authorId" = EXCLUDED."authorId"`,
                 [
                     message.id,
                     message.content,
@@ -387,6 +448,8 @@ export async function insertMessages(messages: Message[], guildId: string) {
             console.error(`Failed to insert message: ${message.id}`, err);
         }
     }
+
+    console.log(`Finished inserting messages for guild ID ${guildId}`);
 }
 
 export async function insertUnknownMember(guildId: string) {
@@ -407,6 +470,16 @@ export async function insertMembersFromMessages(
     guildId: string,
     client: Client,
 ) {
+    // Ensure the guild exists before inserting members
+    const guildRes = await db.query(
+        'SELECT 1 FROM "Guild" WHERE "id" = $1',
+        [guildId],
+    );
+    if (guildRes.rows.length === 0) {
+        console.error(`Guild with ID ${guildId} does not exist.`);
+        return;
+    }
+
     const uniqueAuthorIds = [
         ...new Set(messages.map((message) => message.author.id)),
     ];
@@ -421,15 +494,27 @@ export async function insertMembersFromMessages(
             // Attempt to fetch member details from Discord
             const discordGuild = await client.guilds.fetch(guildId);
             const discordMember = await discordGuild.members.fetch(authorId)
-                .catch((err) => {
-                    console.error(
-                        `Unable to fetch member with ID ${authorId}`,
-                        err,
-                    );
+                .catch(async (err) => {
+                    if (err.code === 10007) { // Unknown Member
+                        console.error(
+                            `Unknown member with ID ${authorId}, inserting as unknown`,
+                        );
+                        await insertUnknownMember(guildId);
+                        // Set authorId to 'unknown' for messages with this authorId
+                        await db.query(
+                            'UPDATE "Message" SET "authorId" = $1 WHERE "authorId" = $2',
+                            ["unknown", authorId],
+                        );
+                    } else {
+                        console.error(
+                            `Unable to fetch member with ID ${authorId}`,
+                            err,
+                        );
+                    }
                 });
 
             if (discordMember) {
-                await insertMember(discordMember.user, guildId);
+                await insertMember(discordMember, guildId);
             } else {
                 console.error(
                     `Failed to fetch or insert member with ID ${authorId}`,
@@ -438,4 +523,3 @@ export async function insertMembersFromMessages(
         }
     }
 }
-

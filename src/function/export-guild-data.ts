@@ -1,9 +1,10 @@
-import { Client, Guild, TextChannel } from "discord.js";
+import { Client, Guild, GuildChannel, TextChannel } from "discord.js";
 import {
     checkChannelPermissions,
     fetchMessagesFromGuildChannel,
 } from "../discord/guild-utils";
 import {
+    getChannelsByGuildId,
     insertChannel,
     insertGuild,
     insertMember,
@@ -27,17 +28,38 @@ export async function exportGuildData(guild: Guild) {
         `Members of guild ${guild.name} inserted/updated in the database.`,
     );
 
-    // Process all text channels in the guild
+    // Process all channels in the guild
     const channels = guild.channels.cache;
     for (const [channelId, channel] of channels) {
-        if (channel.isTextBased()) {
-            await exportChannelData(guild.client, channel as TextChannel, guild.id);
+        // Check if the channel is already in the database
+        const existingChannels = await getChannelsByGuildId(guild.id);
+        const channelExists = existingChannels.some(
+            (ch: any) => ch.id === channelId,
+        );
+
+        // Insert the channel if it does not exist
+        if (!channelExists) {
+            if (channel instanceof GuildChannel) {
+                await insertChannel(channel, guild.id);
+                console.log(
+                    `Channel ${channel.name} inserted in the database.`,
+                );
+            }
+            console.log(`Channel ${channel.name} inserted in the database.`);
+        }
+
+        // Export channel data if it is text-based and not named "fireside-chat"
+        if (channel.isTextBased() && channel.name !== "fireside-chat") {
+            await exportChannelData(
+                guild.client,
+                channel as TextChannel,
+                guild.id,
+            );
         }
     }
 
     console.log(`Export completed for guild: ${guild.name} (ID: ${guild.id})`);
 }
-
 export async function exportChannelData(
     client: Client,
     channel: TextChannel,
@@ -48,7 +70,12 @@ export async function exportChannelData(
     );
 
     // Ensure the guild is inserted before the channel to avoid foreign key violation
-    await insertGuild(channel.guild);
+    if (channel instanceof GuildChannel) {
+        await insertChannel(channel, guildId);
+        console.log(
+            `Channel ${channel.name} inserted/updated in the database.`,
+        );
+    }
 
     // Insert or update the channel
     await insertChannel(channel, guildId);
@@ -113,7 +140,11 @@ export async function exportGuildMemberData(guild: Guild, memberId: string) {
     const channels = guild.channels.cache;
     for (const [channelId, channel] of channels) {
         if (channel.isTextBased()) {
-            await exportChannelData(guild.client, channel as TextChannel, guild.id);
+            await exportChannelData(
+                guild.client,
+                channel as TextChannel,
+                guild.id,
+            );
         }
     }
 
