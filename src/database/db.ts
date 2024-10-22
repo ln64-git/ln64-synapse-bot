@@ -1,12 +1,13 @@
 import { Client, Guild, GuildChannel, Message } from "discord.js";
+import { Pool } from "pg";
 
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+const db = new Pool({
+    connectionString: process.env.DATABASE_URL,
+});
 
 export async function connectToDatabase() {
     try {
-        await prisma.$connect();
+        await db.connect();
         console.log("Connected to the database");
     } catch (err) {
         console.error("Error connecting to the database:", err);
@@ -16,10 +17,10 @@ export async function connectToDatabase() {
 
 export async function nukeDatabase() {
     try {
-        await prisma.message.deleteMany({});
-        await prisma.channel.deleteMany({});
-        await prisma.member.deleteMany({});
-        await prisma.guild.deleteMany({});
+        await db.query('DELETE FROM "Message"');
+        await db.query('DELETE FROM "Channel"');
+        await db.query('DELETE FROM "Member"');
+        await db.query('DELETE FROM "Guild"');
         console.log("Database nuked successfully.");
     } catch (err) {
         console.error("Error nuking the database:", err);
@@ -29,16 +30,17 @@ export async function nukeDatabase() {
 
 export async function getChannelByMessageId(messageId: string) {
     try {
-        const message = await prisma.message.findUnique({
-            where: { id: messageId },
-            include: { channel: true },
-        });
-        if (message) {
-            console.log(`Found channel: ${message.channel.name}`);
+        const res = await db.query(
+            'SELECT "Channel".* FROM "Message" JOIN "Channel" ON "Message"."channelId" = "Channel"."id" WHERE "Message"."id" = $1',
+            [messageId],
+        );
+        if (res.rows.length > 0) {
+            console.log(`Found channel: ${res.rows[0].name}`);
+            return res.rows[0];
         } else {
             console.log(`Channel for message with ID ${messageId} not found.`);
+            return null;
         }
-        return message?.channel;
     } catch (err) {
         console.error(
             `Error fetching channel for message ID ${messageId}:`,
@@ -67,19 +69,11 @@ export async function getMessagesBeforeMessageId(
     limit: number,
 ): Promise<Message[]> {
     try {
-        const messages = await prisma.message.findMany({
-            where: {
-                channelId: channelId,
-                id: {
-                    lt: messageId,
-                },
-            },
-            orderBy: {
-                id: "desc",
-            },
-            take: limit,
-        });
-        return Promise.all(messages.map(mapToMessage));
+        const res = await db.query(
+            'SELECT * FROM "Message" WHERE "channelId" = $1 AND "id" < $2 ORDER BY "id" DESC LIMIT $3',
+            [channelId, messageId, limit],
+        );
+        return res.rows.map(mapToMessage);
     } catch (err) {
         console.error(
             `Error fetching messages before message ID ${messageId}:`,
@@ -95,19 +89,11 @@ export async function getMessagesAfterMessageId(
     limit: number,
 ): Promise<Message[]> {
     try {
-        const messages = await prisma.message.findMany({
-            where: {
-                channelId: channelId,
-                id: {
-                    gt: messageId,
-                },
-            },
-            orderBy: {
-                id: "asc",
-            },
-            take: limit,
-        });
-        return Promise.all(messages.map(mapToMessage));
+        const res = await db.query(
+            'SELECT * FROM "Message" WHERE "channelId" = $1 AND "id" > $2 ORDER BY "id" ASC LIMIT $3',
+            [channelId, messageId, limit],
+        );
+        return res.rows.map(mapToMessage);
     } catch (err) {
         console.error(
             `Error fetching messages after message ID ${messageId}:`,
@@ -121,13 +107,14 @@ export async function getMessagesByAuthorId(
     authorId: string,
 ): Promise<Message[]> {
     try {
-        const messages = await prisma.message.findMany({
-            where: { authorId: authorId },
-        });
-        console.log(
-            `Found ${messages.length} message(s) by author ID ${authorId}.`,
+        const res = await db.query(
+            'SELECT * FROM "Message" WHERE "authorId" = $1',
+            [authorId],
         );
-        return await Promise.all(messages.map(mapToMessage));
+        console.log(
+            `Found ${res.rows.length} message(s) by author ID ${authorId}.`,
+        );
+        return res.rows.map(mapToMessage);
     } catch (err) {
         console.error(`Error fetching messages by author ID ${authorId}:`, err);
         throw err;
@@ -138,17 +125,14 @@ export async function getMessagesByMentionedUserId(
     userId: string,
 ): Promise<Message[]> {
     try {
-        const messages = await prisma.message.findMany({
-            where: {
-                content: {
-                    contains: `<@${userId}>`,
-                },
-            },
-        });
-        console.log(
-            `Found ${messages.length} message(s) mentioning user ID ${userId}.`,
+        const res = await db.query(
+            'SELECT * FROM "Message" WHERE "content" LIKE $1',
+            [`%<@${userId}>%`],
         );
-        return await Promise.all(messages.map(mapToMessage));
+        console.log(
+            `Found ${res.rows.length} message(s) mentioning user ID ${userId}.`,
+        );
+        return res.rows.map(mapToMessage);
     } catch (err) {
         console.error(
             `Error fetching messages mentioning user ID ${userId}:`,
@@ -160,15 +144,17 @@ export async function getMessagesByMentionedUserId(
 
 export async function getGuildById(guildId: string) {
     try {
-        const guild = await prisma.guild.findUnique({
-            where: { id: guildId },
-        });
-        if (guild) {
-            console.log(`Found guild: ${guild.name}`);
+        const res = await db.query(
+            'SELECT * FROM "Guild" WHERE "id" = $1',
+            [guildId],
+        );
+        if (res.rows.length > 0) {
+            console.log(`Found guild: ${res.rows[0].name}`);
+            return res.rows[0];
         } else {
             console.log(`Guild with ID ${guildId} not found.`);
+            return null;
         }
-        return guild;
     } catch (err) {
         console.error(`Error fetching guild with ID ${guildId}:`, err);
         throw err;
@@ -177,9 +163,9 @@ export async function getGuildById(guildId: string) {
 
 export async function getAllGuilds() {
     try {
-        const guilds = await prisma.guild.findMany();
-        console.log(`Found ${guilds.length} guild(s).`);
-        return guilds;
+        const res = await db.query('SELECT * FROM "Guild"');
+        console.log(`Found ${res.rows.length} guild(s).`);
+        return res.rows;
     } catch (err) {
         console.error("Error fetching all guilds:", err);
         throw err;
@@ -188,15 +174,17 @@ export async function getAllGuilds() {
 
 export async function getChannelById(channelId: string) {
     try {
-        const channel = await prisma.channel.findUnique({
-            where: { id: channelId },
-        });
-        if (channel) {
-            console.log(`Found channel: ${channel.name}`);
+        const res = await db.query(
+            'SELECT * FROM "Channel" WHERE "id" = $1',
+            [channelId],
+        );
+        if (res.rows.length > 0) {
+            console.log(`Found channel: ${res.rows[0].name}`);
+            return res.rows[0];
         } else {
             console.log(`Channel with ID ${channelId} not found.`);
+            return null;
         }
-        return channel;
     } catch (err) {
         console.error(`Error fetching channel with ID ${channelId}:`, err);
         throw err;
@@ -205,13 +193,14 @@ export async function getChannelById(channelId: string) {
 
 export async function getChannelsByGuildId(guildId: string) {
     try {
-        const channels = await prisma.channel.findMany({
-            where: { guildId: guildId },
-        });
-        console.log(
-            `Found ${channels.length} channel(s) for guild ID ${guildId}.`,
+        const res = await db.query(
+            'SELECT * FROM "Channel" WHERE "guildId" = $1',
+            [guildId],
         );
-        return channels;
+        console.log(
+            `Found ${res.rows.length} channel(s) for guild ID ${guildId}.`,
+        );
+        return res.rows;
     } catch (err) {
         console.error(`Error fetching channels for guild ID ${guildId}:`, err);
         throw err;
@@ -220,15 +209,17 @@ export async function getChannelsByGuildId(guildId: string) {
 
 export async function getMemberById(memberId: string) {
     try {
-        const member = await prisma.member.findUnique({
-            where: { id: memberId },
-        });
-        if (member) {
-            console.log(`Found member: ${member.username}`);
+        const res = await db.query(
+            'SELECT * FROM "Member" WHERE "id" = $1',
+            [memberId],
+        );
+        if (res.rows.length > 0) {
+            console.log(`Found member: ${res.rows[0].username}`);
+            return res.rows[0];
         } else {
             console.log(`Member with ID ${memberId} not found.`);
+            return null;
         }
-        return member;
     } catch (err) {
         console.error(`Error fetching member with ID ${memberId}:`, err);
         throw err;
@@ -237,13 +228,14 @@ export async function getMemberById(memberId: string) {
 
 export async function getMembersByGuildId(guildId: string) {
     try {
-        const members = await prisma.member.findMany({
-            where: { guildId: guildId },
-        });
-        console.log(
-            `Found ${members.length} member(s) for guild ID ${guildId}.`,
+        const res = await db.query(
+            'SELECT * FROM "Member" WHERE "guildId" = $1',
+            [guildId],
         );
-        return members;
+        console.log(
+            `Found ${res.rows.length} member(s) for guild ID ${guildId}.`,
+        );
+        return res.rows;
     } catch (err) {
         console.error(`Error fetching members for guild ID ${guildId}:`, err);
         throw err;
@@ -252,15 +244,17 @@ export async function getMembersByGuildId(guildId: string) {
 
 export async function getMessageById(messageId: string) {
     try {
-        const message = await prisma.message.findUnique({
-            where: { id: messageId },
-        });
-        if (message) {
-            console.log(`Found message: ${message.content}`);
+        const res = await db.query(
+            'SELECT * FROM "Message" WHERE "id" = $1',
+            [messageId],
+        );
+        if (res.rows.length > 0) {
+            console.log(`Found message: ${res.rows[0].content}`);
+            return res.rows[0];
         } else {
             console.log(`Message with ID ${messageId} not found.`);
+            return null;
         }
-        return message;
     } catch (err) {
         console.error(`Error fetching message with ID ${messageId}:`, err);
         throw err;
@@ -269,13 +263,14 @@ export async function getMessageById(messageId: string) {
 
 export async function getMessagesByChannelId(channelId: string) {
     try {
-        const messages = await prisma.message.findMany({
-            where: { channelId: channelId },
-        });
-        console.log(
-            `Found ${messages.length} message(s) for channel ID ${channelId}.`,
+        const res = await db.query(
+            'SELECT * FROM "Message" WHERE "channelId" = $1',
+            [channelId],
         );
-        return messages;
+        console.log(
+            `Found ${res.rows.length} message(s) for channel ID ${channelId}.`,
+        );
+        return res.rows;
     } catch (err) {
         console.error(
             `Error fetching messages for channel ID ${channelId}:`,
@@ -287,19 +282,11 @@ export async function getMessagesByChannelId(channelId: string) {
 
 export async function insertGuild(guild: Guild) {
     try {
-        // Use upsert to either update or create the guild if it doesn't exist
-        await prisma.guild.upsert({
-            where: { id: guild.id },
-            update: {
-                name: guild.name,
-                ownerId: guild.ownerId,
-            },
-            create: {
-                id: guild.id,
-                name: guild.name,
-                ownerId: guild.ownerId,
-            },
-        });
+        await db.query(
+            `INSERT INTO \"Guild\" (\"id\", \"name\", \"ownerId\") VALUES ($1, $2, $3)
+             ON CONFLICT (\"id\") DO UPDATE SET \"name\" = EXCLUDED.\"name\", \"ownerId\" = EXCLUDED.\"ownerId\"`,
+            [guild.id, guild.name, guild.ownerId],
+        );
         console.log(`Inserted or updated guild: ${guild.name}`);
     } catch (err) {
         console.error("Error inserting or updating guild:", err);
@@ -310,23 +297,17 @@ export async function insertChannel(channel: GuildChannel, guildId: string) {
     try {
         const position = channel.position !== undefined ? channel.position : 0; // Provide a default value
 
-        // Use upsert to ensure the channel is inserted if not found
-        await prisma.channel.upsert({
-            where: { id: channel.id },
-            update: {
-                name: channel.name,
-                type: channel.type.toString(),
-                position: position,
-                guildId: guildId,
-            },
-            create: {
-                id: channel.id,
-                name: channel.name,
-                type: channel.type.toString(),
-                position: position,
-                guildId: guildId,
-            },
-        });
+        await db.query(
+            `INSERT INTO \"Channel\" (\"id\", \"name\", \"type\", \"position\", \"guildId\") VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (\"id\") DO UPDATE SET \"name\" = EXCLUDED.\"name\", \"type\" = EXCLUDED.\"type\", \"position\" = EXCLUDED.\"position\", \"guildId\" = EXCLUDED.\"guildId\"`,
+            [
+                channel.id,
+                channel.name,
+                channel.type.toString(),
+                position,
+                guildId,
+            ],
+        );
         console.log(`Channel ${channel.name} inserted or updated.`);
     } catch (err) {
         console.error("Error inserting or updating channel:", err);
@@ -335,21 +316,21 @@ export async function insertChannel(channel: GuildChannel, guildId: string) {
 
 export async function insertMember(author: any, guildId: string) {
     try {
-        await prisma.member.upsert({
-            where: { id: author.id },
-            update: {},
-            create: {
-                id: author.id,
-                guildId: guildId,
-                username: author.username,
-                discriminator: author.discriminator,
-                nickname: author.nickname || null,
-                joinedAt: new Date(),
-            },
-        });
+        await db.query(
+            `INSERT INTO \"Member\" (\"id\", \"username\", \"discriminator\", \"nickname\", \"joinedAt\", \"guildId\") VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (\"id\") DO UPDATE SET \"username\" = EXCLUDED.\"username\", \"discriminator\" = EXCLUDED.\"discriminator\", \"nickname\" = EXCLUDED.\"nickname\", \"joinedAt\" = EXCLUDED.\"joinedAt\", \"guildId\" = EXCLUDED.\"guildId\"`,
+            [
+                author.id,
+                author.username,
+                author.discriminator,
+                author.nickname || null,
+                new Date(),
+                guildId,
+            ],
+        );
         console.log(`Inserted or updated member: ${author.username}`);
     } catch (err) {
-        if ((err as any).code === "P2003") {
+        if ((err as any).code === "23503") { // Foreign key violation
             console.error(
                 `Failed to insert member with ID ${author.id}: Foreign key violation`,
             );
@@ -365,11 +346,12 @@ export async function insertMessages(messages: Message[], guildId: string) {
 
         try {
             if (authorId) {
-                const memberExists = await prisma.member.findUnique({
-                    where: { id: authorId },
-                });
+                const res = await db.query(
+                    'SELECT 1 FROM "Member" WHERE "id" = $1',
+                    [authorId],
+                );
 
-                if (!memberExists) {
+                if (res.rows.length === 0) {
                     // Attempt to insert the member
                     await insertMember(message.author, guildId);
                 }
@@ -385,22 +367,22 @@ export async function insertMessages(messages: Message[], guildId: string) {
 
         // Now insert the message with either the real authorId or null
         try {
-            await prisma.message.upsert({
-                where: { id: message.id },
-                update: {},
-                create: {
-                    id: message.id,
-                    content: message.content,
-                    timestamp: new Date(message.createdTimestamp),
-                    editedTimestamp: message.editedTimestamp
+            await db.query(
+                `INSERT INTO \"Message\" (\"id\", \"content\", \"timestamp\", \"editedTimestamp\", \"tts\", \"mentionEveryone\", \"channelId\", \"authorId\") VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                 ON CONFLICT (\"id\") DO UPDATE SET \"content\" = EXCLUDED.\"content\", \"timestamp\" = EXCLUDED.\"timestamp\", \"editedTimestamp\" = EXCLUDED.\"editedTimestamp\", \"tts\" = EXCLUDED.\"tts\", \"mentionEveryone\" = EXCLUDED.\"mentionEveryone\", \"channelId\" = EXCLUDED.\"channelId\", \"authorId\" = EXCLUDED.\"authorId\"`,
+                [
+                    message.id,
+                    message.content,
+                    new Date(message.createdTimestamp),
+                    message.editedTimestamp
                         ? new Date(message.editedTimestamp)
                         : null,
-                    tts: message.tts,
-                    mentionEveryone: message.mentions.everyone,
-                    channelId: message.channelId,
-                    authorId: authorId, // This can now be null
-                },
-            });
+                    message.tts,
+                    message.mentions.everyone,
+                    message.channelId,
+                    authorId,
+                ],
+            );
         } catch (err) {
             console.error(`Failed to insert message: ${message.id}`, err);
         }
@@ -409,18 +391,11 @@ export async function insertMessages(messages: Message[], guildId: string) {
 
 export async function insertUnknownMember(guildId: string) {
     try {
-        await prisma.member.upsert({
-            where: { id: "unknown" },
-            update: {},
-            create: {
-                id: "unknown",
-                guildId: guildId,
-                username: "Unknown",
-                discriminator: "0000",
-                nickname: null,
-                joinedAt: new Date(),
-            },
-        });
+        await db.query(
+            `INSERT INTO \"Member\" (\"id\", \"username\", \"discriminator\", \"nickname\", \"joinedAt\", \"guildId\") VALUES ('unknown', 'Unknown', '0000', NULL, $1, $2)
+             ON CONFLICT (\"id\") DO UPDATE SET \"username\" = EXCLUDED.\"username\", \"discriminator\" = EXCLUDED.\"discriminator\", \"nickname\" = EXCLUDED.\"nickname\", \"joinedAt\" = EXCLUDED.\"joinedAt\", \"guildId\" = EXCLUDED.\"guildId\"`,
+            [new Date(), guildId],
+        );
         console.log(`Inserted or updated "unknown" member`);
     } catch (err) {
         console.error(`Error inserting "unknown" member`, err);
@@ -437,11 +412,12 @@ export async function insertMembersFromMessages(
     ];
 
     for (const authorId of uniqueAuthorIds) {
-        let memberExists = await prisma.member.findUnique({
-            where: { id: authorId },
-        });
+        let res = await db.query(
+            'SELECT 1 FROM "Member" WHERE "id" = $1',
+            [authorId],
+        );
 
-        if (!memberExists) {
+        if (res.rows.length === 0) {
             // Attempt to fetch member details from Discord
             const discordGuild = await client.guilds.fetch(guildId);
             const discordMember = await discordGuild.members.fetch(authorId)
@@ -462,3 +438,4 @@ export async function insertMembersFromMessages(
         }
     }
 }
+
