@@ -523,3 +523,232 @@ export async function insertMembersFromMessages(
         }
     }
 }
+
+// Batch Insert Guilds
+export async function batchInsertGuilds(guilds: Guild[]) {
+    if (guilds.length === 0) return;
+    const values = guilds.map((guild) => [
+        guild.id,
+        guild.name,
+        guild.ownerId,
+    ]);
+
+    const query = `
+        INSERT INTO "Guild" ("id", "name", "ownerId")
+        SELECT * FROM UNNEST ($1::text[], $2::text[], $3::text[])
+        ON CONFLICT ("id") DO UPDATE SET
+            "name" = EXCLUDED."name",
+            "ownerId" = EXCLUDED."ownerId";
+    `;
+
+    const columns = [
+        values.map((v) => v[0]),
+        values.map((v) => v[1]),
+        values.map((v) => v[2]),
+    ];
+
+    try {
+        await db.query(query, columns);
+        console.log(`Inserted or updated ${guilds.length} guild(s).`);
+    } catch (err) {
+        console.error("Error batch inserting guilds:", err);
+        throw err;
+    }
+}
+
+// Batch Insert Members
+export async function batchInsertMembers(
+    membersData: { member: GuildMember; guildId: string }[],
+) {
+    if (membersData.length === 0) return;
+
+    const values = membersData.map(({ member, guildId }) => [
+        member.id,
+        member.user.username,
+        member.user.discriminator,
+        member.displayName || null,
+        member.joinedAt || new Date(),
+        guildId,
+    ]);
+
+    const query = `
+        INSERT INTO "Member" ("id", "username", "discriminator", "nickname", "joinedAt", "guildId")
+        SELECT * FROM UNNEST (
+            $1::text[],
+            $2::text[],
+            $3::text[],
+            $4::text[],
+            $5::timestamptz[],
+            $6::text[]
+        )
+        ON CONFLICT ("id") DO UPDATE SET
+            "username" = EXCLUDED."username",
+            "discriminator" = EXCLUDED."discriminator",
+            "nickname" = EXCLUDED."nickname",
+            "joinedAt" = EXCLUDED."joinedAt",
+            "guildId" = EXCLUDED."guildId";
+    `;
+
+    const columns = [
+        values.map((v) => v[0]),
+        values.map((v) => v[1]),
+        values.map((v) => v[2]),
+        values.map((v) => v[3]),
+        values.map((v) => v[4]),
+        values.map((v) => v[5]),
+    ];
+
+    try {
+        await db.query(query, columns);
+        console.log(`Inserted or updated ${membersData.length} member(s).`);
+    } catch (err) {
+        console.error("Error batch inserting members:", err);
+        throw err;
+    }
+}
+
+// Batch Insert Channels
+export async function batchInsertChannels(
+    channelsData: { channel: GuildChannel; guildId: string }[],
+) {
+    if (channelsData.length === 0) return;
+
+    const values = channelsData.map(({ channel, guildId }) => [
+        channel.id,
+        channel.name,
+        channel.type.toString(),
+        channel.position || 0,
+        guildId,
+    ]);
+
+    const query = `
+        INSERT INTO "Channel" ("id", "name", "type", "position", "guildId")
+        SELECT * FROM UNNEST (
+            $1::text[],
+            $2::text[],
+            $3::text[],
+            $4::int[],
+            $5::text[]
+        )
+        ON CONFLICT ("id") DO UPDATE SET
+            "name" = EXCLUDED."name",
+            "type" = EXCLUDED."type",
+            "position" = EXCLUDED."position",
+            "guildId" = EXCLUDED."guildId";
+    `;
+
+    const columns = [
+        values.map((v) => v[0]),
+        values.map((v) => v[1]),
+        values.map((v) => v[2]),
+        values.map((v) => v[3]),
+        values.map((v) => v[4]),
+    ];
+
+    try {
+        await db.query(query, columns);
+        console.log(`Inserted or updated ${channelsData.length} channel(s).`);
+    } catch (err) {
+        console.error("Error batch inserting channels:", err);
+        throw err;
+    }
+}
+
+// Batch Insert Messages and Authors
+export async function batchInsertMessages(
+    messages: Message[],
+    guildId: string,
+    client: Client,
+) {
+    if (messages.length === 0) return;
+
+    // Get unique authors
+    const uniqueAuthors = Array.from(
+        new Set(messages.map((msg) => msg.author?.id).filter(Boolean)),
+    );
+
+    // Fetch existing members from the database
+    const existingMembersRes = await db.query(
+        'SELECT "id" FROM "Member" WHERE "id" = ANY($1)',
+        [uniqueAuthors],
+    );
+    const existingMemberIds = existingMembersRes.rows.map((row) => row.id);
+
+    // Filter out authors that need to be inserted
+    const newAuthors = uniqueAuthors.filter(
+        (id) => !existingMemberIds.includes(id),
+    );
+
+    // Fetch and batch insert new members
+    if (newAuthors.length > 0) {
+        const guild = await client.guilds.fetch(guildId);
+        const membersToInsert = [];
+
+        for (const authorId of newAuthors) {
+            try {
+                const member = await guild.members.fetch(authorId);
+                membersToInsert.push({ member, guildId });
+            } catch {
+                // Handle unknown member
+                console.warn(`Member with ID ${authorId} not found in guild.`);
+            }
+        }
+
+        if (membersToInsert.length > 0) {
+            await batchInsertMembers(membersToInsert);
+        }
+    }
+
+    // Prepare message data
+    const values = messages.map((message) => [
+        message.id,
+        message.content,
+        new Date(message.createdTimestamp),
+        message.editedTimestamp ? new Date(message.editedTimestamp) : null,
+        message.tts,
+        message.mentions.everyone,
+        message.channelId,
+        message.author?.id || "unknown",
+    ]);
+
+    const query = `
+        INSERT INTO "Message" ("id", "content", "timestamp", "editedTimestamp", "tts", "mentionEveryone", "channelId", "authorId")
+        SELECT * FROM UNNEST (
+            $1::text[],
+            $2::text[],
+            $3::timestamptz[],
+            $4::timestamptz[],
+            $5::boolean[],
+            $6::boolean[],
+            $7::text[],
+            $8::text[]
+        )
+        ON CONFLICT ("id") DO UPDATE SET
+            "content" = EXCLUDED."content",
+            "timestamp" = EXCLUDED."timestamp",
+            "editedTimestamp" = EXCLUDED."editedTimestamp",
+            "tts" = EXCLUDED."tts",
+            "mentionEveryone" = EXCLUDED."mentionEveryone",
+            "channelId" = EXCLUDED."channelId",
+            "authorId" = EXCLUDED."authorId";
+    `;
+
+    const columns = [
+        values.map((v) => v[0]),
+        values.map((v) => v[1]),
+        values.map((v) => v[2]),
+        values.map((v) => v[3]),
+        values.map((v) => v[4]),
+        values.map((v) => v[5]),
+        values.map((v) => v[6]),
+        values.map((v) => v[7]),
+    ];
+
+    try {
+        await db.query(query, columns);
+        console.log(`Inserted or updated ${messages.length} message(s).`);
+    } catch (err) {
+        console.error("Error batch inserting messages:", err);
+        throw err;
+    }
+}
