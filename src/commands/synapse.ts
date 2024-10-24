@@ -6,7 +6,7 @@ import { Conversation } from "../types";
 import {
     getMessagesByAuthorId,
     getMessagesByMentionedUserId,
-} from "../database/db";
+} from "../postgres/db";
 import { assembleConversations } from "../utils/conversation-utils";
 
 export const data = new SlashCommandBuilder()

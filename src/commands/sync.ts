@@ -3,7 +3,6 @@ import {
     ChatInputCommandInteraction,
     Guild,
     GuildChannel,
-    GuildMember,
     SlashCommandBuilder,
     TextChannel,
 } from "discord.js";
@@ -13,7 +12,7 @@ import {
     batchInsertMembers,
     batchInsertMessages,
     connectToDatabase,
-} from "../database/db";
+} from "../postgres/db";
 import {
     checkChannelPermissions,
     fetchMessagesFromGuildChannel,

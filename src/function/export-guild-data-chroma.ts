@@ -10,7 +10,7 @@ import {
     insertMember,
     insertMembersFromMessages,
     insertMessages,
-} from "../database/db";
+} from "../postgres/db";
 
 export async function exportGuildData(guild: Guild) {
     console.log(`Starting export for guild: ${guild.name} (ID: ${guild.id})`);

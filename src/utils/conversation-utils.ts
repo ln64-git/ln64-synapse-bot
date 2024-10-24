@@ -3,7 +3,7 @@ import { Conversation } from "../types";
 import {
     getMessagesAfterMessageId,
     getMessagesBeforeMessageId,
-} from "../database/db";
+} from "../postgres/db";
 
 export async function assembleConversations(
     messages: Message[],
