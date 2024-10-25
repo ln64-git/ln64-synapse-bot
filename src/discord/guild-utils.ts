@@ -28,6 +28,7 @@ export async function checkChannelPermissions(
 // Utility function to fetch all messages from a specific channel
 export async function fetchMessagesFromGuildChannel(
   channel: Channel,
+  count?: number,
 ): Promise<Message[]> {
   if (!channel || !(channel instanceof TextChannel)) {
     throw new Error("Invalid channel or not a text channel");
@@ -45,21 +46,34 @@ export async function fetchMessagesFromGuildChannel(
       limit: 100,
       before: lastMessageId,
     });
+
     allMessages = allMessages.concat(Array.from(messages.values()));
+
     console.log(
       `Fetched ${messages.size} messages from channel ${channel.name}`,
     );
     console.log(
       `Messages processed: ${allMessages.length}, Messages left to process: ${messages.size}`,
     );
-    if (messages.size < 100) {
-      // No more messages to fetch
+
+    if (messages.size < 100 || (count && allMessages.length >= count)) {
+      // No more messages to fetch or reached the message count limit
       console.log(`No more messages to fetch from channel ${channel.name}`);
       break;
     }
+
     // Set the last message ID to fetch the next batch
     lastMessageId = messages.last()?.id;
   }
+
+  // If messageCount is specified, slice the array to the required length
+  if (count) {
+    allMessages = allMessages.slice(0, count);
+  }
+
+  // Reverse the order of messages to be from oldest to newest
+  allMessages.reverse();
+
   console.log(
     `Total messages fetched from channel ${channel.name}: ${allMessages.length}`,
   );
