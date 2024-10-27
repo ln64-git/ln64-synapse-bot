@@ -7,13 +7,11 @@ export const data = new SlashCommandBuilder()
     .setDescription("Sync Mongo Database");
 
 export async function execute(interaction: ChatInputCommandInteraction) {
+    await interaction.deferReply({ ephemeral: true });
     const mongoUri = Deno.env.get("MONGO_URI") || "";
     const client = new MongoClient(mongoUri);
 
     try {
-        // Acknowledge the interaction immediately
-        await interaction.deferReply();
-
         await client.connect();
         const db = client.db("sample_mflix");
         const collection = db.collection("movies");
@@ -22,7 +20,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         const documents = await collection.find({}).toArray();
         console.log("Documents:", documents);
 
-        // Edit the reply with the result
+        // Edit the reply with the result, without setting `ephemeral`
         await interaction.editReply("Documents retrieved successfully!");
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
