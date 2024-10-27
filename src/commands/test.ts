@@ -40,10 +40,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         );
     });
 
-    // 3. Convert the content into vector embeddings using Pinecone.
+    // 2. Convert the content into vector embeddings using Pinecone.
     const embeddings = await generateEmbeddings(messages);
 
-    // 4. Store the vectors in a vector database like Pinecone.
+    // 3. Store the vectors in a vector database like Pinecone.
 
     // await interaction.reply("Test command executed successfully!");
 }
