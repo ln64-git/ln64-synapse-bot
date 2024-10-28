@@ -15,30 +15,6 @@ if (!botToken || !clientId || !guildId) {
   );
 }
 
-async function registerCommands() {
-  const commands: RESTPostAPIApplicationCommandsJSONBody[] = [];
-  const commandFiles = walk(join(Deno.cwd(), "src/commands"), {
-    exts: [".ts"],
-    includeDirs: false,
-  });
-  for await (const entry of commandFiles) {
-    const { data } = await import(
-      `./${relative(join(Deno.cwd(), "src"), entry.path).replace(/\\/g, "/")}`
-    );
-    commands.push(data.toJSON());
-  }
-  const rest = new REST({ version: "9" }).setToken(botToken);
-  try {
-    console.log("Started refreshing application (/) commands.");
-    await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
-      body: commands,
-    });
-    console.log("Successfully reloaded application (/) commands.");
-  } catch (error) {
-    console.error("Error registering commands:", error);
-  }
-}
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -80,5 +56,29 @@ client.on("interactionCreate", async (interaction) => {
       : await interaction.reply(replyContent);
   }
 });
+
+async function registerCommands() {
+  const commands: RESTPostAPIApplicationCommandsJSONBody[] = [];
+  const commandFiles = walk(join(Deno.cwd(), "src/commands"), {
+    exts: [".ts"],
+    includeDirs: false,
+  });
+  for await (const entry of commandFiles) {
+    const { data } = await import(
+      `./${relative(join(Deno.cwd(), "src"), entry.path).replace(/\\/g, "/")}`
+    );
+    commands.push(data.toJSON());
+  }
+  const rest = new REST({ version: "9" }).setToken(botToken);
+  try {
+    console.log("Started refreshing application (/) commands.");
+    await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
+      body: commands,
+    });
+    console.log("Successfully reloaded application (/) commands.");
+  } catch (error) {
+    console.error("Error registering commands:", error);
+  }
+}
 
 registerCommands().then(() => client.login(botToken));

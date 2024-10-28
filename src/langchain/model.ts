@@ -1,4 +1,4 @@
-import { Ollama } from "@langchain/ollama";
+import { Ollama } from "npm:@langchain/ollama";
 
 export async function callModel(
     // model: string,
@@ -11,7 +11,7 @@ export async function callModel(
         if (error instanceof Error) {
             throw new Error(`Failed to call model: ${error.message}`);
         } else {
-            throw new Error('Failed to call model: Unknown error');
+            throw new Error("Failed to call model: Unknown error");
         }
     }
 }

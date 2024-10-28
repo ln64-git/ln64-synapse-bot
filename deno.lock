@@ -4,6 +4,7 @@
     "npm:@discordjs/builders@*": "1.9.0",
     "npm:@discordjs/rest@*": "2.4.0",
     "npm:@langchain/core@*": "0.3.13_zod@3.23.8",
+    "npm:@langchain/ollama@*": "0.1.0_@langchain+core@0.3.13__zod@3.23.8",
     "npm:@ptkdev/logger@*": "1.8.0",
     "npm:@types/node@*": "22.5.4",
     "npm:discord-api-types@*": "0.37.103",
@@ -82,6 +83,14 @@
         "uuid",
         "zod",
         "zod-to-json-schema"
+      ]
+    },
+    "@langchain/ollama@0.1.0_@langchain+core@0.3.13__zod@3.23.8": {
+      "integrity": "sha512-TI4DGenLf1ApoxFf4Bx/VPyO+a+poJKIul8AGm/FEyORtw3JPq1UDR6SdkGETrkDqzzdK9R0DvFRStd1MSTE/w==",
+      "dependencies": [
+        "@langchain/core",
+        "ollama",
+        "uuid"
       ]
     },
     "@ptkdev/logger@1.8.0": {
@@ -308,6 +317,12 @@
     "mustache@4.2.0": {
       "integrity": "sha512-71ippSywq5Yb7/tVYyGbkBggbU8H3u5Rz56fH60jGFgr8uHwxs+aSKeqmluIVzM0m0kB7xQjKS6qPfd0b2ZoqQ=="
     },
+    "ollama@0.5.9": {
+      "integrity": "sha512-F/KZuDRC+ZsVCuMvcOYuQ6zj42/idzCkkuknGyyGVmNStMZ/sU3jQpvhnl4SyC0+zBzLiKNZJnJeuPFuieWZvQ==",
+      "dependencies": [
+        "whatwg-fetch"
+      ]
+    },
     "p-finally@1.0.0": {
       "integrity": "sha512-LICb2p9CB7FS+0eR1oqWnHhp0FljGLZCWBE9aix0Uye9W8LTQPwMTYVGWQWIw9RdQiDg4+epXQODwIYJtSJaow=="
     },
@@ -421,6 +436,9 @@
     },
     "webidl-conversions@7.0.0": {
       "integrity": "sha512-VwddBukDzu71offAQR975unBIGqfKZpM+8ZX6ySk8nYhVoo5CYaZyzt3YBvYtRtO+aoGlqxPg/B87NGVZ/fu6g=="
+    },
+    "whatwg-fetch@3.6.20": {
+      "integrity": "sha512-EqhiFU6daOA8kpjOWTL0olhVOF3i7OrFzSYiGsEMB8GcXS+RrzauAERX65xMeNWVqxA6HXH2m69Z9LaKKdisfg=="
     },
     "whatwg-url@11.0.0": {
       "integrity": "sha512-RKT8HExMpoYx4igMiVMY83lN6UeITKJlBQ+vR/8ZJ8OCdSiN3RwCq+9gH0+Xzj0+5IrM6i4j/6LuvzbZIQgEcQ==",
