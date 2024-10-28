@@ -1,4 +1,5 @@
 import {
+  Attachment,
   Channel,
   ChatInputCommandInteraction,
   Collection,
@@ -11,12 +12,12 @@ import {
   TextChannel,
 } from "npm:discord.js";
 import pLimit from "npm:p-limit";
-import Logger from "npm:@ptkdev/logger";
 import process from "node:process";
 import { ChannelType } from "npm:discord-api-types/v10";
 import type { Db } from "npm:mongodb@5.6.0";
-
-const logger = new Logger();
+import OpenAI from "npm:openai";
+import type { DiscordMessageWithEmbedding } from "../types.ts";
+const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
 
 export function validateInteraction(
   interaction: ChatInputCommandInteraction,
@@ -55,12 +56,12 @@ export function checkChannelPermissions(
 export async function fetchMessagesFromGuildChannel(
   channel: Channel,
   count?: number,
-): Promise<Message[]> {
+): Promise<DiscordMessageWithEmbedding[]> {
   if (!channel || !(channel instanceof TextChannel)) {
     throw new Error("Invalid channel or not a text channel");
   }
 
-  let allMessages: Message[] = [];
+  let allMessages: DiscordMessageWithEmbedding[] = [];
   let lastMessageId: string | undefined;
 
   while (true) {
@@ -68,10 +69,11 @@ export async function fetchMessagesFromGuildChannel(
       `Fetching messages from channel ${channel.name} before message ID ${lastMessageId}`,
     );
     // Fetch messages in batches of 100
-    const messages: Collection<string, Message> = await channel.messages.fetch({
-      limit: 100,
-      before: lastMessageId,
-    });
+    const messages: Collection<string, DiscordMessageWithEmbedding> =
+      await channel.messages.fetch({
+        limit: 100,
+        before: lastMessageId,
+      });
 
     allMessages = allMessages.concat(Array.from(messages.values()));
 
@@ -115,7 +117,7 @@ export async function fetchMemberFromGuild(
   try {
     const member = await guild.members.fetch(userId);
     const end = performance.now();
-    logger.info(`fetchMemberFromGuild took ${end - start} ms`);
+    console.info(`fetchMemberFromGuild took ${end - start} ms`);
     return member;
   } catch (error) {
     console.error(`Failed to fetch member with ID ${userId}:`, error);
@@ -126,19 +128,19 @@ export async function fetchMemberFromGuild(
 // Utility function to fetch all mentions of a specific member from a guild
 export async function fetchMemberMentionsFromGuild(
   guild: Guild,
-): Promise<Message[]> {
+): Promise<DiscordMessageWithEmbedding[]> {
   const start = process.hrtime.bigint();
   const limit = pLimit(5);
   const textChannels = guild.channels.cache.filter(
     (channel: GuildBasedChannel) => channel.type === ChannelType.GuildText,
   ) as Map<Snowflake, TextChannel>;
 
-  const allMessages: Message[] = [];
+  const allMessages: DiscordMessageWithEmbedding[] = [];
 
   await Promise.all(
     Array.from(textChannels.values()).map((textChannel: TextChannel) =>
       limit(async () => {
-        logger.info(
+        console.info(
           `fetching messages from channel ${textChannel.name}... `,
         );
 
@@ -148,12 +150,12 @@ export async function fetchMemberMentionsFromGuild(
               textChannel,
             );
             if (messages.length > 0) {
-              logger.info(`Mentions found in channel: ${textChannel.name}`);
+              console.info(`Mentions found in channel: ${textChannel.name}`);
             }
             allMessages.push(...messages);
           }
         } catch (error) {
-          logger.error(
+          console.error(
             `Error fetching messages from channel ${textChannel.name}: ${error}`,
           );
         }
@@ -162,7 +164,7 @@ export async function fetchMemberMentionsFromGuild(
   );
 
   const end = BigInt(Date.now()) * BigInt(1e6);
-  logger.info(
+  console.info(
     `fetchMemberMentionsFromGuild took ${(end - start) / BigInt(1e6)} ms`,
   );
   return allMessages;
@@ -178,7 +180,7 @@ export async function fetchAllMessagesFromGuild(
     (channel: GuildBasedChannel) => channel.type === ChannelType.GuildText,
   ) as Map<Snowflake, TextChannel>;
 
-  const allMessages: Message[] = [];
+  const allMessages: DiscordMessageWithEmbedding[] = [];
 
   await Promise.allSettled(
     Array.from(textChannels.values()).map((textChannel: TextChannel) =>
@@ -191,7 +193,7 @@ export async function fetchAllMessagesFromGuild(
             allMessages.push(...messages);
           }
         } catch (error) {
-          logger.error(
+          console.error(
             `Error fetching messages from channel ${textChannel.name}: ${error}`,
           );
         }
@@ -200,7 +202,7 @@ export async function fetchAllMessagesFromGuild(
   );
 
   const end = performance.now();
-  logger.info(`fetchAllMessagesFromGuild took ${end - start} ms`);
+  console.info(`fetchAllMessagesFromGuild took ${end - start} ms`);
   return allMessages;
 }
 
@@ -253,7 +255,7 @@ export async function fetchAllMembersFromGuild(
     }
   }
 
-  logger.info(`fetchAllMembersFromGuild took ${performance.now()} ms`);
+  console.info(`fetchAllMembersFromGuild took ${performance.now()} ms`);
   console.log(`Total members fetched: ${members.length}`);
   return members;
 }
@@ -267,9 +269,10 @@ export async function syncMembersToDatabase(
   let lastMemberId: Snowflake | undefined;
 
   while (true) {
+    // Use 'after' instead of 'lastMemberId'
     const fetchedMembers = await guild.members.fetch({
       limit,
-      after: lastMemberId,
+      after: lastMemberId, // Use 'after' to paginate
     }) as Collection<Snowflake, GuildMember>;
 
     if (fetchedMembers.size === 0) break;
@@ -291,7 +294,7 @@ export async function syncMembersToDatabase(
     if (fetchedMembers.size < limit) break;
   }
 
-  logger.info(`syncMembersToDatabase completed.`);
+  console.info(`syncMembersToDatabase completed.`);
 }
 
 export async function syncChannelToDatabase(
@@ -331,12 +334,12 @@ export async function syncMessagesToDatabase(
 
     for (const message of fetchedMessages.values()) {
       // Convert the entire message to JSON format, including attachments
-      const messageData = message.toJSON();
+      const messageData = message.toJSON() as DiscordMessageWithEmbedding;
 
       // Use the attachment's `toJSON()` to include the full attachment object
-      messageData.attachments = message.attachments.map((attachment: MessageAttachment) =>
-        attachment.toJSON()
-      );
+      messageData.attachments = message.attachments.map((
+        attachment: Attachment,
+      ) => attachment.toJSON());
 
       await messagesCollection.updateOne(
         { id: message.id },
@@ -368,4 +371,58 @@ export async function syncGuildToDatabase(guild: Guild, db: Db): Promise<void> {
     { $set: guildData },
     { upsert: true },
   );
+}
+
+export async function syncMessagesToDatabaseWithEmbeddings(
+  channel: TextChannel,
+  db: Db,
+): Promise<void> {
+  if (!(await checkChannelPermissions(channel, channel.guild))) {
+    return;
+  }
+
+  const messagesCollection = db.collection("messages");
+  let lastMessageId: string | undefined;
+
+  while (true) {
+    const fetchedMessages: Collection<string, Message> = await channel.messages
+      .fetch({
+        limit: 100,
+        before: lastMessageId,
+      });
+
+    for (const message of fetchedMessages.values()) {
+      // Convert the entire message to JSON format, including attachments
+      const messageData = message.toJSON();
+
+      // Convert attachments to JSON-compatible format
+      messageData.attachments = message.attachments.map((
+        attachment: Attachment,
+      ) => attachment.toJSON());
+
+      // Generate vector embeddings for the message content if it's not empty
+      if (message.cleanContent.length > 0) {
+        const embeddingResponse = await openai.embeddings.create({
+          model: "text-embedding-3-small",
+          input: message.cleanContent,
+          encoding_format: "float",
+        });
+        if (embeddingResponse.data.length > 0) {
+          messageData.cleanContentEmbedding =
+            embeddingResponse.data[0].embedding;
+        }
+      }
+
+      await messagesCollection.updateOne(
+        { id: message.id },
+        { $set: messageData },
+        { upsert: true },
+      );
+    }
+
+    lastMessageId = fetchedMessages.last()?.id;
+    if (fetchedMessages.size < 100) {
+      break;
+    }
+  }
 }
