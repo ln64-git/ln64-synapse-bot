@@ -1,81 +1,57 @@
-import {
-    type Channel,
-    ChatInputCommandInteraction,
-    TextChannel,
-} from "npm:discord.js";
+import { ChatInputCommandInteraction, TextChannel } from "npm:discord.js";
 import { SlashCommandBuilder } from "npm:@discordjs/builders";
-import { MongoClient } from "npm:mongodb";
-import {
-    syncChannelToDatabase,
-    syncGuildToDatabase,
-    syncMembersToDatabase,
-    syncMessagesToDatabaseWithEmbeddings,
-} from "../discord/guild-utils.ts";
+import neo4j from "npm:neo4j-driver";
 import { ChannelType } from "npm:discord-api-types/v10";
+import { syncMessages } from "../discord/guild-utils.ts";
+
+// Retrieve environment variables directly
+const neo4jUri = Deno.env.get("NEO4J_URI");
+const neo4jUser = Deno.env.get("NEO4J_USERNAME");
+const neo4jPassword = Deno.env.get("NEO4J_PASSWORD");
 
 export const data = new SlashCommandBuilder()
     .setName("sync")
-    .setDescription("Sync Mongo Database");
+    .setDescription("Sync Neo4j Database");
 
 export async function execute(interaction: ChatInputCommandInteraction) {
     await interaction.deferReply({ ephemeral: true });
-    const mongoUri = Deno.env.get("MONGO_URI") || "";
-    const client = new MongoClient(mongoUri);
+
+    if (!neo4jUri || !neo4jUser || !neo4jPassword) {
+        console.error("Error: Missing required environment variables.");
+        Deno.exit(1);
+    }
+
+    const driver = neo4j.driver(
+        neo4jUri,
+        neo4j.auth.basic(neo4jUser, neo4jPassword),
+    );
 
     try {
-        await client.connect();
-        console.log("Connected to MongoDB!");
-
+        const session = driver.session();
         const guild = interaction.guild!;
-        const dbName = `discord_data_${
-            guild.name.replace(/\s+/g, "_").toLowerCase()
-        }`;
-        const db = client.db(dbName);
+        console.log("Connected to Neo4j!");
 
-        // Step 1: Sync Guild Data
-        await syncGuildToDatabase(guild, db);
-        console.log("Guild data synchronized.");
-
-        // Step 2: Sync Members
-        await syncMembersToDatabase(guild, db);
-        console.log("Member data synchronized.");
-
-        // Step 3: Sync Channels
-        const channelPromises = guild.channels.cache.map(
-            async (channel: Channel) => {
-                if (channel.type === ChannelType.GuildText) {
-                    await syncChannelToDatabase(channel, db);
-                }
-            },
+        const textChannels = guild.channels.cache.filter(
+            (channel: { type: ChannelType }) =>
+                channel.type === ChannelType.GuildText,
         );
-        await Promise.all(channelPromises);
-        console.log("Channel data synchronized.");
 
-        // Step 4: Sync Messages for All Text Channels
-        const messagePromises = guild.channels.cache.map(
-            async (channel: TextChannel) => {
-                if (channel.type === ChannelType.GuildText) {
-                    await syncMessagesToDatabaseWithEmbeddings(
-                        channel as TextChannel,
-                        db,
-                    );
-                    console.log(
-                        `Message data synchronized for channel ${channel.name}.`,
-                    );
-                }
-            },
-        );
-        await Promise.all(messagePromises);
+        for (const channel of textChannels.values()) {
+            await syncMessages(channel as TextChannel, session);
+        }
 
         await interaction.editReply(
-            "Guild data synchronized to MongoDB successfully!",
+            "All messages synchronized to Neo4j successfully!",
         );
     } catch (error) {
-        console.error("Error connecting to MongoDB:", error);
+        console.error("Error syncing to Neo4j:", error);
+        const errorMessage = error instanceof Error
+            ? error.message
+            : String(error);
         await interaction.editReply(
-            `Error executing command: ${(error as Error).message}`,
+            `Error executing command: ${errorMessage}`,
         );
     } finally {
-        await client.close();
+        await driver.close();
     }
 }
