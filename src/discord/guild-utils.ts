@@ -306,7 +306,12 @@ export async function syncMessages(
                             replyTo: message.reference?.messageId || null,
                             reactions: JSON.stringify(
                                 message.reactions.cache.map(
-                                    (reaction) => {
+                                    (
+                                        reaction: {
+                                            emoji: { name: string };
+                                            count: number;
+                                        },
+                                    ) => {
                                         if (
                                             reaction && reaction.emoji &&
                                             typeof reaction.count === "number"
@@ -323,12 +328,7 @@ export async function syncMessages(
                                             return null; // Skip invalid reactions
                                         }
                                     },
-                                ).filter((
-                                    reaction,
-                                ): reaction is {
-                                    emoji: string;
-                                    count: number;
-                                } => reaction !== null), // Remove any null entries from the array
+                                ),
                             ),
                         },
                     );
