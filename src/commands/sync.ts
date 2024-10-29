@@ -11,7 +11,12 @@ const neo4jPassword = Deno.env.get("NEO4J_PASSWORD");
 
 export const data = new SlashCommandBuilder()
     .setName("sync")
-    .setDescription("Sync Neo4j Database");
+    .setDescription("Sync Neo4j Database")
+    .addStringOption(option =>
+        option.setName("channelid")
+            .setDescription("The ID of the channel to sync")
+            .setRequired(true)
+    );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
     await interaction.deferReply({ ephemeral: true });
@@ -29,19 +34,18 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     try {
         const session = driver.session();
         const guild = interaction.guild!;
-        console.log("Connected to Neo4j!");
+        const channel = guild.channels.cache.get("1271944226950611076"); // latine-chat
 
-        const textChannels = guild.channels.cache.filter(
-            (channel: { type: ChannelType }) =>
-                channel.type === ChannelType.GuildText,
-        );
-
-        for (const channel of textChannels.values()) {
-            await syncMessages(channel as TextChannel, session);
+        if (!channel || channel.type !== ChannelType.GuildText) {
+            await interaction.editReply("Invalid channel ID or the channel is not a text channel.");
+            return;
         }
 
+        console.log("Connected to Neo4j!");
+        await syncMessages(channel as TextChannel, session);
+
         await interaction.editReply(
-            "All messages synchronized to Neo4j successfully!",
+            "Channel messages synchronized to Neo4j successfully!",
         );
     } catch (error) {
         console.error("Error syncing to Neo4j:", error);
