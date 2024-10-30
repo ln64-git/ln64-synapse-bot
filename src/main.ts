@@ -5,6 +5,8 @@ import { join, relative } from "https://deno.land/std@0.224.0/path/mod.ts";
 import "https://deno.land/x/dotenv@v3.2.2/load.ts";
 import type { RESTPostAPIApplicationCommandsJSONBody } from "npm:discord-api-types/v9";
 import { GatewayIntentBits, Routes } from "npm:discord-api-types/v10";
+import { syncDatabase } from "./neo4j/neo4j.ts";
+
 
 const botToken = Deno.env.get("BOT_TOKEN")!;
 const clientId = Deno.env.get("CLIENT_ID")!;
@@ -37,12 +39,20 @@ for await (
   client.commands.set(data.name, { data, execute });
 }
 
-client.once("ready", () => console.log(`Logged in as ${client.user?.tag}!`));
+client.once("ready", () => {
+  console.log(`Logged in as ${client.user?.tag}!`);
+  const guild = client.guilds.cache.get(guildId);
+  if (guild) {
+    syncDatabase(guild);
+  } else {
+    console.error("Guild not found.");
+  }
+});
+
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isCommand()) return;
   const command = client.commands.get(interaction.commandName);
   if (!command) return;
-
   try {
     await command.execute(interaction);
   } catch (error) {
