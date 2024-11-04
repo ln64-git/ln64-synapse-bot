@@ -51,6 +51,9 @@ export async function syncDatabase(guild: Guild) {
             console.log(`Syncing channel '${channel.name}'...`);
             await syncChannel(guild.id, channel, tx);
 
+            await tx.commit(); // Commit transaction before syncing messages
+            console.log("Transaction committed before syncing messages.");
+
             if (channel.type === ChannelType.GuildText) {
                 await syncMessages(channel as TextChannel, driver);
             }
@@ -60,7 +63,6 @@ export async function syncDatabase(guild: Guild) {
             );
         }
         console.log("Synced channel data.");
-        await tx.commit();
     } catch (error) {
         console.error("Error syncing data to Neo4j:", error);
         await tx.rollback();
@@ -132,37 +134,44 @@ async function syncRoles(
     guild: Guild,
     tx: Transaction,
 ): Promise<void> {
+    const roles = guild.roles.cache.map((role) => ({
+        id: role.id,
+        name: role.name,
+        color: role.hexColor,
+        permissions: role.permissions.bitfield.toString(),
+    }));
+
+    // Sync roles and associate them with the guild
+    await tx.run(
+        `
+        MATCH (g:Guild {id: $guildId})
+        UNWIND $roles AS role
+        MERGE (r:Role {id: role.id})
+        ON CREATE SET r.name = role.name,
+                      r.color = role.color,
+                      r.permissions = role.permissions
+        MERGE (g)-[:HAS_ROLE]->(r)
+        `,
+        { roles, guildId: guild.id },
+    );
+
     const members = await guild.members.fetch();
 
-    // Loop through each member and retrieve their roles
+    // Associate roles with users
     for (const member of members.values()) {
-        const roles = member.roles.cache.map((role) => ({
-            id: role.id,
-            name: role.name,
-            color: role.hexColor,
-            permissions: role.permissions.bitfield.toString(),
-        }));
-
-        // Sync each role and connect it directly to the user
-        for (const role of roles) {
-            await tx.run(
-                `
-                MATCH (u:User {id: $userId})
-                MERGE (r:Role {id: $roleId})
-                ON CREATE SET r.name = $name,
-                              r.color = $color,
-                              r.permissions = $permissions
-                MERGE (u)-[:HAS_ROLE]->(r)
-                `,
-                {
-                    userId: member.id,
-                    roleId: role.id,
-                    name: role.name,
-                    color: role.color,
-                    permissions: role.permissions,
-                },
-            );
-        }
+        const userRoles = member.roles.cache.map((role) => role.id);
+        await tx.run(
+            `
+            MATCH (u:User {id: $userId})
+            UNWIND $roleIds AS roleId
+            MATCH (r:Role {id: roleId})
+            MERGE (r)-[:ASSIGNED_TO]->(u)
+            `,
+            {
+                userId: member.id,
+                roleIds: userRoles,
+            },
+        );
     }
 }
 
@@ -171,45 +180,35 @@ async function syncChannel(
     channel: TextChannel | CategoryChannel,
     tx: Transaction,
 ): Promise<void> {
-    if (channel.type === ChannelType.GuildCategory) {
-        await tx.run(
-            `
-            MATCH (g:Guild {id: $guildId})
-            MERGE (cat:CategoryChannel {id: $id})
-            ON CREATE SET cat.name = $name
-            MERGE (g)-[:HAS_CATEGORY]->(cat)
-            `,
-            {
-                id: channel.id,
-                name: channel.name,
-                guildId,
-            },
-        );
-    } else if (channel.type === ChannelType.GuildText) {
-        await tx.run(
-            `
-            MATCH (g:Guild {id: $guildId})
-            MERGE (c:TextChannel {id: $id})
-            ON CREATE SET c.name = $name
-            MERGE (g)-[:HAS_CHANNEL]->(c)
-            `,
-            {
-                id: channel.id,
-                name: channel.name,
-                guildId,
-            },
-        );
+    // Merge the channel node with a 'type' property
+    await tx.run(
+        `
+        MATCH (g:Guild {id: $guildId})
+        MERGE (c:Channel {id: $id})
+        ON CREATE SET c.name = $name,
+                      c.type = $type
+        MERGE (g)-[:HAS_CHANNEL]->(c)
+        `,
+        {
+            id: channel.id,
+            name: channel.name,
+            type: channel.type === ChannelType.GuildCategory
+                ? "category"
+                : "text",
+            guildId,
+        },
+    );
 
-        if (channel.parentId) {
-            await tx.run(
-                `
-                MATCH (cat:CategoryChannel {id: $parentId})
-                MATCH (c:TextChannel {id: $channelId})
-                MERGE (cat)-[:CONTAINS]->(c)
-                `,
-                { parentId: channel.parentId, channelId: channel.id },
-            );
-        }
+    // If the channel has a parent, create the hierarchy
+    if (channel.parentId) {
+        await tx.run(
+            `
+            MATCH (parent:Channel {id: $parentId})
+            MATCH (child:Channel {id: $childId})
+            MERGE (parent)-[:PARENT_OF]->(child)
+            `,
+            { parentId: channel.parentId, childId: channel.id },
+        );
     }
 }
 
@@ -250,26 +249,103 @@ async function syncMessages(
                             url: attachment.url,
                         })),
                     ),
+                    mentions: message.mentions.users.map((user) => user.id),
+                    referenceId: message.reference?.messageId || null,
                 }));
 
                 const session = driver.session();
 
-                // Run a transaction for each batch to sync messages and create `next_message` relationships
                 await session.writeTransaction(async (tx) => {
+                    // Merge messages
                     await tx.run(
                         `
                         UNWIND $messages AS message
                         MERGE (m:Message {id: message.id})
                         ON CREATE SET m.content = message.content,
-                                      m.authorId = message.authorId,
                                       m.createdAt = message.createdAt,
-                                      m.channelId = message.channelId,
                                       m.attachments = message.attachments
                         `,
                         { messages: messageData },
                     );
 
-                    // Create next_message relationships
+                    // Create SENT_BY relationships
+                    await tx.run(
+                        `
+                        UNWIND $messages AS message
+                        MATCH (u:User {id: message.authorId})
+                        MATCH (m:Message {id: message.id})
+                        MERGE (u)-[:SENT_MESSAGE]->(m)
+                        `,
+                        { messages: messageData },
+                    );
+
+                    // Create IN_CHANNEL relationships
+                    await tx.run(
+                        `
+                        UNWIND $messages AS message
+                        MATCH (c:Channel {id: message.channelId})
+                        MATCH (m:Message {id: message.id})
+                        MERGE (m)-[:IN_CHANNEL]->(c)
+                        `,
+                        { messages: messageData },
+                    );
+
+                    // Handle mentions
+                    await tx.run(
+                        `
+                        UNWIND $messages AS message
+                        UNWIND message.mentions AS mentionId
+                        MATCH (m:Message {id: message.id})
+                        MATCH (u:User {id: mentionId})
+                        MERGE (m)-[:MENTIONS]->(u)
+                        `,
+                        { messages: messageData },
+                    );
+
+                    // Handle replies
+                    await tx.run(
+                        `
+                        UNWIND $messages AS message
+                        WITH message
+                        WHERE message.referenceId IS NOT NULL
+                        MATCH (m:Message {id: message.id})
+                        MATCH (ref:Message {id: message.referenceId})
+                        MERGE (m)-[:REPLIES_TO]->(ref)
+                        `,
+                        { messages: messageData },
+                    );
+
+                    // Create user interaction relationships for mentions
+                    await tx.run(
+                        `
+                        UNWIND $messages AS message
+                        UNWIND message.mentions AS mentionId
+                        MATCH (author:User {id: message.authorId})
+                        MATCH (mentioned:User {id: mentionId})
+                        MERGE (author)-[r:INTERACTED_WITH {type: 'mention'}]->(mentioned)
+                        ON CREATE SET r.count = 1
+                        ON MATCH SET r.count = r.count + 1
+                        `,
+                        { messages: messageData },
+                    );
+
+                    // For replies between users
+                    await tx.run(
+                        `
+                        UNWIND $messages AS message
+                        WITH message
+                        WHERE message.referenceId IS NOT NULL
+                        MATCH (replyingUser:User {id: message.authorId})
+                        MATCH (ref:Message {id: message.referenceId})
+                        MATCH (originalAuthor:User {id: ref.authorId})
+                        MERGE (replyingUser)-[r:INTERACTED_WITH {type: 'reply'}]->(originalAuthor)
+                        ON CREATE SET r.count = 1
+                        ON MATCH SET r.count = r.count + 1
+                        `,
+                        { messages: messageData },
+                    );
+
+                    // Create NEXT_MESSAGE relationships
                     const messageArray = Array.from(messages.values());
                     for (let i = 0; i < messageArray.length - 1; i++) {
                         const currentMessage = messageArray[i];
