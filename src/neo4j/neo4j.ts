@@ -32,9 +32,13 @@ export async function syncDatabase(guild: Guild) {
     const tx = session.beginTransaction();
 
     try {
+        console.log(`Syncing data for guild '${guild.name}'...`);
         await syncGuild(guild.id, guild, tx);
+        console.log("Synced guild data.");
         await syncMembers(guild.id, guild, tx);
-        await syncRoles(guild.id, guild, tx);
+        console.log("Synced guild members.");
+        await syncRoles(guild, tx);
+        console.log("Synced guild roles.");
 
         const channel = channelId
             ? guild.channels.cache.get(channelId)
@@ -44,6 +48,7 @@ export async function syncDatabase(guild: Guild) {
             (channel.type === ChannelType.GuildText ||
                 channel.type === ChannelType.GuildCategory)
         ) {
+            console.log(`Syncing channel '${channel.name}'...`);
             await syncChannel(guild.id, channel, tx);
 
             if (channel.type === ChannelType.GuildText) {
@@ -54,7 +59,7 @@ export async function syncDatabase(guild: Guild) {
                 `Channel with ID '${channelId}' not found or is not a text/category channel.`,
             );
         }
-
+        console.log("Synced channel data.");
         await tx.commit();
     } catch (error) {
         console.error("Error syncing data to Neo4j:", error);
@@ -124,29 +129,41 @@ async function syncMembers(
 }
 
 async function syncRoles(
-    guildId: string,
     guild: Guild,
     tx: Transaction,
 ): Promise<void> {
-    const roles = guild.roles.cache.map((role) => ({
-        id: role.id,
-        name: role.name,
-        color: role.hexColor,
-        permissions: role.permissions.bitfield.toString(),
-    }));
+    const members = await guild.members.fetch();
 
-    await tx.run(
-        `
-        MATCH (g:Guild {id: $guildId})
-        UNWIND $roles AS role
-        MERGE (r:Role {id: role.id})
-        ON CREATE SET r.name = role.name,
-                      r.color = role.color,
-                      r.permissions = role.permissions
-        MERGE (g)-[:HAS_ROLE]->(r)
-        `,
-        { roles, guildId },
-    );
+    // Loop through each member and retrieve their roles
+    for (const member of members.values()) {
+        const roles = member.roles.cache.map((role) => ({
+            id: role.id,
+            name: role.name,
+            color: role.hexColor,
+            permissions: role.permissions.bitfield.toString(),
+        }));
+
+        // Sync each role and connect it directly to the user
+        for (const role of roles) {
+            await tx.run(
+                `
+                MATCH (u:User {id: $userId})
+                MERGE (r:Role {id: $roleId})
+                ON CREATE SET r.name = $name,
+                              r.color = $color,
+                              r.permissions = $permissions
+                MERGE (u)-[:HAS_ROLE]->(r)
+                `,
+                {
+                    userId: member.id,
+                    roleId: role.id,
+                    name: role.name,
+                    color: role.color,
+                    permissions: role.permissions,
+                },
+            );
+        }
+    }
 }
 
 async function syncChannel(
@@ -202,17 +219,24 @@ async function syncMessages(
 ): Promise<number> {
     const batchSize = 100;
     let lastMessageId: string | undefined;
+    let previousMessageId: string | undefined;
     let totalMessagesInChannel = 0;
     const maxRetries = 3;
+
+    console.log(`Starting to sync messages for channel '${channel.name}'...`);
 
     while (true) {
         const options = { limit: batchSize, before: lastMessageId };
         let retries = 0;
-
         while (retries < maxRetries) {
             try {
                 const messages = await channel.messages.fetch(options);
-                if (messages.size === 0) return totalMessagesInChannel;
+                if (messages.size === 0) {
+                    console.log(
+                        `Total messages collected: ${totalMessagesInChannel}`,
+                    );
+                    return totalMessagesInChannel;
+                }
 
                 const messageData = messages.map((message: Message) => ({
                     id: message.id,
@@ -229,51 +253,79 @@ async function syncMessages(
                 }));
 
                 const session = driver.session();
-                const tx = session.beginTransaction();
 
-                await tx.run(
-                    `
-                    UNWIND $messages AS message
-                    MERGE (m:Message {id: message.id})
-                    ON CREATE SET m.content = message.content,
-                                  m.authorId = message.authorId,
-                                  m.createdAt = message.createdAt
-                    `,
-                    { messages: messageData },
-                );
-
-                for (let i = 1; i < messageData.length; i++) {
+                // Run a transaction for each batch to sync messages and create `next_message` relationships
+                await session.writeTransaction(async (tx) => {
                     await tx.run(
                         `
-                        MATCH (m1:Message {id: $previousId}), (m2:Message {id: $currentId})
-                        MERGE (m1)-[:NEXT_MESSAGE]->(m2)
+                        UNWIND $messages AS message
+                        MERGE (m:Message {id: message.id})
+                        ON CREATE SET m.content = message.content,
+                                      m.authorId = message.authorId,
+                                      m.createdAt = message.createdAt,
+                                      m.channelId = message.channelId,
+                                      m.attachments = message.attachments
                         `,
-                        {
-                            previousId: messageData[i - 1].id,
-                            currentId: messageData[i].id,
-                        },
+                        { messages: messageData },
                     );
-                }
 
-                await tx.commit();
+                    // Create next_message relationships
+                    const messageArray = Array.from(messages.values());
+                    for (let i = 0; i < messageArray.length - 1; i++) {
+                        const currentMessage = messageArray[i];
+                        const nextMessage = messageArray[i + 1];
+
+                        await tx.run(
+                            `
+                            MATCH (m1:Message {id: $currentMessageId})
+                            MATCH (m2:Message {id: $nextMessageId})
+                            MERGE (m1)-[:NEXT_MESSAGE]->(m2)
+                            `,
+                            {
+                                currentMessageId: currentMessage.id,
+                                nextMessageId: nextMessage.id,
+                            },
+                        );
+                    }
+
+                    // Link the last message of the previous batch to the first message of this batch
+                    if (previousMessageId && messageArray.length > 0) {
+                        await tx.run(
+                            `
+                            MATCH (prev:Message {id: $previousMessageId})
+                            MATCH (first:Message {id: $firstMessageId})
+                            MERGE (prev)-[:NEXT_MESSAGE]->(first)
+                            `,
+                            {
+                                previousMessageId,
+                                firstMessageId: messageArray[0].id,
+                            },
+                        );
+                    }
+                });
+
                 await session.close();
 
                 totalMessagesInChannel += messages.size;
                 lastMessageId = messages.last()?.id;
+                previousMessageId = messages.first()?.id;
+                console.log(
+                    `Fetched ${messages.size} messages, total so far: ${totalMessagesInChannel}`,
+                );
                 break;
             } catch (error) {
-                console.error(
-                    `Error fetching messages for channel ${channel.id}:`,
-                    error,
-                );
+                console.error(`Error fetching messages: ${error}`);
                 retries += 1;
-                if (retries >= maxRetries) break;
-                await new Promise((resolve) => setTimeout(resolve, 1000));
+                if (retries >= maxRetries) {
+                    console.error(
+                        `Max retries reached for fetching messages in channel '${channel.name}'`,
+                    );
+                    throw error;
+                }
+                console.log(
+                    `Retrying fetch messages... (${retries}/${maxRetries})`,
+                );
             }
         }
-
-        if (!lastMessageId || retries === maxRetries) break;
     }
-
-    return totalMessagesInChannel;
 }
