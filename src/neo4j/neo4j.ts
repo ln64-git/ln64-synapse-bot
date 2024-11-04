@@ -1,7 +1,5 @@
 import {
-    Attachment,
     CategoryChannel,
-    Collection,
     Guild,
     GuildMember,
     Message,
@@ -32,7 +30,7 @@ export async function syncDatabase(guild: Guild) {
     const trimmedGuildId = guild.id.split(":")[0];
     const session = driver.session();
     const tx = session.beginTransaction();
-
+    const channelId = Deno.env.get("CHANNEL_ID") || "";
     try {
         await syncGuild(trimmedGuildId, guild, tx);
         console.log(`'${guild.name}' guild synchronized successfully.`);
@@ -43,24 +41,27 @@ export async function syncDatabase(guild: Guild) {
         await syncRoles(trimmedGuildId, guild, tx);
         console.log(`'${guild.name}' roles synchronized successfully.`);
 
-        const channels = guild.channels.cache.filter(
-            (channel) =>
-                channel.type === ChannelType.GuildText ||
-                channel.type === ChannelType.GuildCategory,
-        );
-
-        for (const channel of channels.values()) {
+        const channel = guild.channels.cache.get(channelId);
+        if (
+            channel &&
+            (channel.type === ChannelType.GuildText ||
+                channel.type === ChannelType.GuildCategory)
+        ) {
             await syncChannel(trimmedGuildId, channel, tx);
             console.log(
                 `'${guild.name}' channel '${channel.name}' synchronized successfully.`,
             );
 
             if (channel.type === ChannelType.GuildText) {
-                await syncMessages(channel, tx);
+                await syncMessages(channel, driver);
                 console.log(
                     `'${guild.name}' messages in channel '${channel.name}' synchronized successfully.`,
                 );
             }
+        } else {
+            console.error(
+                `Channel with ID '${channelId}' not found or is not a text/category channel.`,
+            );
         }
 
         await tx.commit();
@@ -281,93 +282,120 @@ async function syncChannel(
         }
     }
 }
-
-// Function to sync Messages in a Text Channel with a dynamic loading bar
-
-// Function to sync Messages in a Text Channel with a dynamic loading bar
 async function syncMessages(
     channel: TextChannel,
-    tx: Transaction,
-): Promise<void> {
-    try {
-        let fetchedCount = 0;
-        let lastMessageId: string | undefined;
+    driver: neo4j.Driver,
+): Promise<number> {
+    const batchSize = 100;
+    let lastMessageId: string | undefined;
+    let totalMessagesInChannel = 0;
+    const maxRetries = 3;
 
-        // Fetch until there are no more messages left
-        while (true) {
-            // Type messages as Collection<string, Message>
-            const messages: Collection<string, Message> = await channel.messages
-                .fetch({
-                    limit: 100,
-                    ...(lastMessageId ? { before: lastMessageId } : {}),
-                });
-
-            const messageData = messages.map((message) => ({
-                id: message.id,
-                content: message.content,
-                authorId: message.author.id,
-                createdAt: message.createdAt.toISOString(),
-                channelId: channel.id,
-                attachments: JSON.stringify(
-                    message.attachments.map((attachment: Attachment) => ({
-                        id: attachment.id,
-                        size: attachment.size,
-                        contentType: attachment.contentType,
-                        proxyURL: attachment.proxyURL,
-                        url: attachment.url,
-                    })),
-                ),
-                isReply: message.type === MessageType.Reply,
-                replyTo: message.reference?.messageId || null,
-            }));
-
-            await tx.run(
-                `
-                UNWIND $messages AS msg
-                MERGE (m:Message {id: msg.id})
-                ON CREATE SET m.content = msg.content,
-                              m.createdAt = msg.createdAt,
-                              m.attachments = msg.attachments
-                ON MATCH SET m.content = COALESCE(msg.content, m.content),
-                             m.attachments = COALESCE(msg.attachments, m.attachments)
-
-                // Link message to its author
-                MERGE (u:User {id: msg.authorId})
-                MERGE (u)-[:SENT]->(m)
-
-                // Link message to its channel
-                MERGE (c:TextChannel {id: msg.channelId})
-                MERGE (c)-[:HAS_MESSAGE]->(m)
-
-                // Optionally, link reply message to the original message if it's a reply
-                FOREACH (ignoreMe IN CASE WHEN msg.replyTo IS NOT NULL THEN [1] ELSE [] END |
-                    MERGE (replyMsg:Message {id: msg.replyTo})
-                    MERGE (m)-[:REPLY_TO]->(replyMsg)
-                )
-                `,
-                { messages: messageData },
-            );
-
-            fetchedCount += messages.size;
-
-            // Estimate total progress based on completed rounds
-            console.log(
-                `Fetching messages for '${channel.name}': ${fetchedCount}`,
-            );
-
-            // Break the loop if no more messages are left to fetch
-            if (messages.size < 100) break;
+    while (true) {
+        const options: { limit: number; before?: string } = {
+            limit: batchSize,
+        };
+        if (lastMessageId) {
+            options.before = lastMessageId;
         }
-    } catch (error) {
-        if ((error as { code: number }).code === 50001) {
-            console.warn(
-                `Missing access to messages in channel '${channel.name}'. Skipping...`,
+
+        let retries = 0;
+        while (retries < maxRetries) {
+            try {
+                const messages = await channel.messages.fetch(options);
+                if (messages.size === 0) {
+                    console.log(
+                        `No more messages found in channel '${channel.name}'.`,
+                    );
+                    return totalMessagesInChannel;
+                }
+
+                const messageData = messages.map((message) => ({
+                    id: message.id,
+                    content: message.content,
+                    authorId: message.author.id,
+                    createdAt: message.createdAt.toISOString(),
+                    channelId: message.channel.id,
+                    attachments: JSON.stringify(
+                        message.attachments.map((attachment) => ({
+                            id: attachment.id,
+                            size: attachment.size,
+                            contentType: attachment.contentType,
+                            proxyURL: attachment.proxyURL,
+                            url: attachment.url,
+                        })),
+                    ),
+                    isReply: message.type === MessageType.Reply,
+                    replyTo: message.reference?.messageId || null,
+                }));
+
+                const session = driver.session();
+                const tx = session.beginTransaction();
+
+                // Insert messages and create NEXT_MESSAGE relationships
+                await tx.run(
+                    `
+                    UNWIND $messages AS message
+                    MERGE (m:Message {id: message.id})
+                    ON CREATE SET m.content = message.content,
+                                  m.authorId = message.authorId,
+                                  m.createdAt = message.createdAt,
+                                  m.attachments = message.attachments
+                    ON MATCH SET m.content = COALESCE(message.content, m.content),
+                                 m.attachments = COALESCE(message.attachments, m.attachments)
+                    `,
+                    { messages: messageData },
+                );
+
+                // Create NEXT_MESSAGE relationship for ordered messages
+                for (let i = 1; i < messageData.length; i++) {
+                    await tx.run(
+                        `
+                        MATCH (m1:Message {id: $previousId}), (m2:Message {id: $currentId})
+                        MERGE (m1)-[:NEXT_MESSAGE]->(m2)
+                        `,
+                        {
+                            previousId: messageData[i - 1].id,
+                            currentId: messageData[i].id,
+                        },
+                    );
+                }
+
+                await tx.commit();
+                await session.close();
+
+                totalMessagesInChannel += messages.size;
+                lastMessageId = (messages.last() as unknown as Message)?.id;
+
+                console.log(
+                    `Messages fetched in channel '${channel.name}': ${totalMessagesInChannel}`,
+                );
+                break;
+            } catch (error) {
+                retries += 1;
+                console.error(
+                    `Attempt ${retries} failed to sync messages for channel '${channel.name}':`,
+                    error,
+                );
+
+                if (retries >= maxRetries) {
+                    console.error(
+                        `Max retries reached for channel '${channel.name}'. Moving on.`,
+                    );
+                    break;
+                }
+
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+            }
+        }
+
+        if (!lastMessageId || retries === maxRetries) {
+            console.log(
+                `Exiting message sync for channel '${channel.name}' after fetching ${totalMessagesInChannel} messages.`,
             );
-        } else {
-            console.error(
-                `Failed to sync messages for channel '${channel.name}':`,
-                error,
-            );
+            break;
         }
     }
+
+    return totalMessagesInChannel;
 }
