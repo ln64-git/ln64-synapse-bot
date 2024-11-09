@@ -15,7 +15,6 @@ dotenv.config();
 const neo4jUri = Deno.env.get("NEO4J_URI");
 const neo4jUser = Deno.env.get("NEO4J_USERNAME");
 const neo4jPassword = Deno.env.get("NEO4J_PASSWORD");
-const channelId = Deno.env.get("CHANNEL_ID");
 
 if (!neo4jUri || !neo4jUser || !neo4jPassword) {
     console.error("Error: Missing required environment variables.");
@@ -33,41 +32,69 @@ export async function syncDatabase(guild: Guild) {
 
     try {
         console.log(`Syncing data for guild '${guild.name}'...`);
+
+        // Sync guild, members, and roles in one transaction
         await syncGuild(guild.id, guild, tx);
         console.log("Synced guild data.");
+
         await syncMembers(guild.id, guild, tx);
         console.log("Synced guild members.");
+
         await syncRoles(guild, tx);
         console.log("Synced guild roles.");
 
-        const channel = channelId
-            ? guild.channels.cache.get(channelId)
-            : undefined;
-        if (
-            channel &&
-            (channel.type === ChannelType.GuildText ||
-                channel.type === ChannelType.GuildCategory)
-        ) {
-            console.log(`Syncing channel '${channel.name}'...`);
-            await syncChannel(guild.id, channel, tx);
+        await tx.commit();
+        console.log(
+            "Transaction committed for guild data before syncing channels and messages.",
+        );
+    } catch (error) {
+        console.error("Error syncing data to Neo4j:", error);
+        await tx.rollback();
+        return;
+    } finally {
+        await session.close();
+    }
 
-            await tx.commit(); // Commit transaction before syncing messages
-            console.log("Transaction committed before syncing messages.");
+    // Sync channels and messages separately in independent transactions
+    const channels = guild.channels.cache.filter(
+        (channel: { type: ChannelType }) =>
+            channel.type === ChannelType.GuildText ||
+            channel.type === ChannelType.GuildCategory,
+    );
+
+    for (const channel of channels.values()) {
+        const channelSession = driver.session();
+        const channelTx = channelSession.beginTransaction();
+
+        try {
+            console.log(`Syncing channel '${channel.name}'...`);
+
+            await syncChannel(
+                guild.id,
+                channel as TextChannel | CategoryChannel,
+                channelTx,
+            );
+            await channelTx.commit();
+            console.log(`Synced channel '${channel.name}' data.`);
 
             if (channel.type === ChannelType.GuildText) {
                 await syncMessages(channel as TextChannel, driver);
             }
-        } else {
-            console.error(
-                `Channel with ID '${channelId}' not found or is not a text/category channel.`,
-            );
+        } catch (error) {
+            if ((error as { code?: number }).code === 50001) { // Missing Access
+                console.warn(
+                    `Skipped channel '${channel.name}' due to Missing Access.`,
+                );
+            } else {
+                console.error(
+                    `Error syncing channel '${channel.name}':`,
+                    error,
+                );
+            }
+            await channelTx.rollback();
+        } finally {
+            await channelSession.close();
         }
-        console.log("Synced channel data.");
-    } catch (error) {
-        console.error("Error syncing data to Neo4j:", error);
-        await tx.rollback();
-    } finally {
-        await session.close();
     }
 }
 
@@ -134,7 +161,14 @@ async function syncRoles(
     guild: Guild,
     tx: Transaction,
 ): Promise<void> {
-    const roles = guild.roles.cache.map((role) => ({
+    const roles = guild.roles.cache.map((
+        role: {
+            id: string;
+            name: string;
+            hexColor: string;
+            permissions: { bitfield: { toString: () => string } };
+        },
+    ) => ({
         id: role.id,
         name: role.name,
         color: role.hexColor,
@@ -159,7 +193,9 @@ async function syncRoles(
 
     // Associate roles with users
     for (const member of members.values()) {
-        const userRoles = member.roles.cache.map((role) => role.id);
+        const userRoles = member.roles.cache.map((role: { id: string }) =>
+            role.id
+        );
         await tx.run(
             `
             MATCH (u:User {id: $userId})
@@ -227,12 +263,14 @@ async function syncMessages(
     while (true) {
         const options = { limit: batchSize, before: lastMessageId };
         let retries = 0;
+
         while (retries < maxRetries) {
             try {
                 const messages = await channel.messages.fetch(options);
+
                 if (messages.size === 0) {
                     console.log(
-                        `Total messages collected: ${totalMessagesInChannel}`,
+                        `Total messages collected for channel '${channel.name}': ${totalMessagesInChannel}`,
                     );
                     return totalMessagesInChannel;
                 }
@@ -244,12 +282,16 @@ async function syncMessages(
                     createdAt: message.createdAt.toISOString(),
                     channelId: message.channel.id,
                     attachments: JSON.stringify(
-                        message.attachments.map((attachment) => ({
+                        message.attachments.map((
+                            attachment: { id: string; url: string },
+                        ) => ({
                             id: attachment.id,
                             url: attachment.url,
                         })),
                     ),
-                    mentions: message.mentions.users.map((user) => user.id),
+                    mentions: message.mentions.users.map((user: { id: string }) =>
+                        user.id
+                    ),
                     referenceId: message.reference?.messageId || null,
                 }));
 
@@ -315,36 +357,6 @@ async function syncMessages(
                         { messages: messageData },
                     );
 
-                    // Create user interaction relationships for mentions
-                    await tx.run(
-                        `
-                        UNWIND $messages AS message
-                        UNWIND message.mentions AS mentionId
-                        MATCH (author:User {id: message.authorId})
-                        MATCH (mentioned:User {id: mentionId})
-                        MERGE (author)-[r:INTERACTED_WITH {type: 'mention'}]->(mentioned)
-                        ON CREATE SET r.count = 1
-                        ON MATCH SET r.count = r.count + 1
-                        `,
-                        { messages: messageData },
-                    );
-
-                    // For replies between users
-                    await tx.run(
-                        `
-                        UNWIND $messages AS message
-                        WITH message
-                        WHERE message.referenceId IS NOT NULL
-                        MATCH (replyingUser:User {id: message.authorId})
-                        MATCH (ref:Message {id: message.referenceId})
-                        MATCH (originalAuthor:User {id: ref.authorId})
-                        MERGE (replyingUser)-[r:INTERACTED_WITH {type: 'reply'}]->(originalAuthor)
-                        ON CREATE SET r.count = 1
-                        ON MATCH SET r.count = r.count + 1
-                        `,
-                        { messages: messageData },
-                    );
-
                     // Create NEXT_MESSAGE relationships
                     const messageArray = Array.from(messages.values());
                     for (let i = 0; i < messageArray.length - 1; i++) {
@@ -388,16 +400,25 @@ async function syncMessages(
                 console.log(
                     `Fetched ${messages.size} messages, total so far: ${totalMessagesInChannel}`,
                 );
-                break;
+                break; // Break retry loop on success
             } catch (error) {
+                if ((error as { code?: number }).code === 50001) { // Missing Access
+                    console.warn(
+                        `Missing Access for channel '${channel.name}'. Skipping message sync.`,
+                    );
+                    return totalMessagesInChannel; // Stop further syncing
+                }
+
                 console.error(`Error fetching messages: ${error}`);
                 retries += 1;
+
                 if (retries >= maxRetries) {
                     console.error(
                         `Max retries reached for fetching messages in channel '${channel.name}'`,
                     );
-                    throw error;
+                    return totalMessagesInChannel; // Skip remaining messages
                 }
+
                 console.log(
                     `Retrying fetch messages... (${retries}/${maxRetries})`,
                 );
