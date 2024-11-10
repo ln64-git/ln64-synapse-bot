@@ -3,7 +3,10 @@
 import dotenv from "npm:dotenv";
 import { ChatInputCommandInteraction } from "npm:discord.js";
 import { SlashCommandBuilder } from "npm:@discordjs/builders";
-import { generateCypherQuery } from "../langchain/langchain.ts"; // Update the import path
+import {
+    generateCypherQuery,
+    generateNaturalLanguageResponse,
+} from "../langchain/langchain.ts"; // Update the import path
 import { executeCypherQuery } from "../neo4j/neo4j.ts";
 
 dotenv.config();
@@ -32,7 +35,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         }
         // Execute Cypher Query
         const records = await executeCypherQuery(cypherQuery);
+        const response = await generateNaturalLanguageResponse(records);
+        // Utilize langchain to translate the response into natural language
         await handleQueryResult(interaction, records);
+        await interaction.editReply(response);
     } catch (error) {
         console.error("Error:", error);
         await interaction.editReply(

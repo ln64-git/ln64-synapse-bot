@@ -50,11 +50,28 @@ export async function generateCypherQuery(question: string): Promise<string> {
         throw new Error("Failed to generate Cypher query.");
     }
     // Replace curly braces with parentheses
-    cypherQuery = cypherQuery.replace(
-        /\{days: (\d+)\}/g,
-        "duration({days: $1})",
-    );
+    cypherQuery = cypherQuery.replace(/\{days: (\d+)\}/g, 'duration({days: $1})');
     // Replace size() with COUNT {}
-    cypherQuery = cypherQuery.replace(/size\(\(([^)]+)\)\)/g, "COUNT($1)");
+    cypherQuery = cypherQuery.replace(/size\(\(([^)]+)\)\)/g, 'COUNT($1)');
+    // Ensure correct syntax for labels and properties
+    cypherQuery = cypherQuery.replace(/:\s*([A-Za-z]+)/g, ':$1');
+    // Ensure variables are properly defined
+    cypherQuery = cypherQuery.replace(/(\w+)\s*=\s*\(([^)]+)\)/g, '($2) AS $1');
     return cypherQuery;
+}
+
+export async function generateNaturalLanguageResponse(
+    records: Record<string, unknown>[],
+): Promise<string> {
+    const formattedPrompt = await ChatPromptTemplate.fromTemplate(`
+    You are an AI assistant that translates Cypher query results into natural language responses.
+    Given the following Cypher query results, provide a natural language summary.
+    Cypher Query Results:
+    {records}
+
+    Provide your summary below:
+  `).format({
+            records: JSON.stringify(records, null, 2),
+        });
+    return callModel(formattedPrompt);
 }
