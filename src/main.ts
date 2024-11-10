@@ -25,6 +25,22 @@ const client = new Client({
   ],
 });
 
+async function main() {
+  client.once("ready", () => {
+    console.log(`Logged in as ${client.user?.tag}!`);
+  });
+
+  client.commands = new Map();
+  const commands = await loadCommands();
+  await registerCommands(commands);
+
+  client.on("interactionCreate", handleInteraction);
+  client.on("voiceStateUpdate", handleVoiceStateUpdate);
+  await client.login(botToken);
+}
+
+main();
+
 async function loadCommands() {
   const commands: RESTPostAPIApplicationCommandsJSONBody[] = [];
   const commandFiles = walk(join(Deno.cwd(), "src/commands"), {
@@ -77,64 +93,48 @@ async function handleInteraction(interaction: Interaction) {
 import type { Interaction, VoiceState } from "npm:discord.js";
 
 async function handleVoiceStateUpdate(
-  _oldState: VoiceState,
+  oldState: VoiceState,
   newState: VoiceState,
 ) {
   const user = newState.member?.user;
-  const channel = newState.channel;
+  const oldChannel = oldState.channel;
+  const newChannel = newState.channel;
 
-  if (user && channel) {
-    let action = "joined";
-    let payload = `${user.displayName} ${action} ${channel.name}`;
-    if (!_oldState.channel && newState.channel) {
+  if (user) {
+    let action = "";
+    let payload = "";
+
+    if (!oldChannel && newChannel) {
       action = "joined";
-      payload = `${user.displayName} ${action} ${channel.name}`;
-    } else if (_oldState.channel && !newState.channel) {
+      payload = `${user.displayName} ${action} ${newChannel.name}`;
+    } else if (oldChannel && !newChannel) {
       action = "left";
-      payload = `${user.displayName} ${action} ${_oldState.channel.name}`;
-    } else if (
-      _oldState.channel && newState.channel &&
-      _oldState.channel.id !== newState.channel.id
-    ) {
+      payload = `${user.displayName} ${action} ${oldChannel.name}`;
+    } else if (oldChannel && newChannel && oldChannel.id !== newChannel.id) {
       action = "moved";
       payload =
-        `${user.displayName} ${action} from ${_oldState.channel.name} to ${newState.channel.name}`;
+        `${user.displayName} ${action} from ${oldChannel.name} to ${newChannel.name}`;
     }
 
-    const speechRequest = { Text: payload };
+    if (action) {
+      const speechRequest = { Text: payload };
 
-    try {
-      const response = await fetch("http://localhost:8080/input", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(speechRequest),
-      });
+      try {
+        const response = await fetch("http://localhost:8080/input", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(speechRequest),
+        });
 
-      if (!response.ok) {
-        console.error(
-          "Failed to send voice state update:",
-          response.statusText,
-        );
+        if (!response.ok) {
+          console.error(
+            "Failed to send voice state update:",
+            response.statusText,
+          );
+        }
+      } catch (error) {
+        console.error("Error sending voice state update:", error);
       }
-    } catch (error) {
-      console.error("Error sending voice state update:", error);
     }
   }
 }
-
-async function main() {
-  client.commands = new Map();
-  const commands = await loadCommands();
-  await registerCommands(commands);
-
-  client.once("ready", () => {
-    console.log(`Logged in as ${client.user?.tag}!`);
-  });
-
-  client.on("interactionCreate", handleInteraction);
-  client.on("voiceStateUpdate", handleVoiceStateUpdate);
-
-  await client.login(botToken);
-}
-
-main();

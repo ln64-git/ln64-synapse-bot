@@ -4,6 +4,7 @@ import dotenv from "npm:dotenv";
 import neo4j from "npm:neo4j-driver";
 import { ChatInputCommandInteraction } from "npm:discord.js";
 import { SlashCommandBuilder } from "npm:@discordjs/builders";
+import { generateCypherQuery } from "../openai/openai.ts";
 
 dotenv.config();
 
@@ -40,38 +41,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
     try {
-        // Initialize OpenAI
-        const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
-        if (!openaiApiKey) {
-            throw new Error("Missing OPENAI_API_KEY environment variable.");
-        }
-
-        const configuration = new Configuration({
-            apiKey: openaiApiKey,
-        });
-        const openai = new OpenAIApi(configuration);
-
         // Generate Cypher Query using OpenAI
-        const prompt = `
-You are an AI assistant that translates English questions into Cypher queries for a Neo4j database. The database contains nodes labeled User, Message, Channel, and Guild, with relationships such as SENT_MESSAGE, IN_CHANNEL, MENTIONS, HAS_MEMBER, etc.
-
-Translate the following question into a Cypher query. Only provide the Cypher query and nothing else.
-
-Question: "${question}"
-
-Cypher Query:
-`;
-
-        const response = await openai.createCompletion({
-            model: "text-davinci-003",
-            prompt,
-            max_tokens: 100,
-        });
-
-        const cypherQuery = response.data.choices[0].text?.trim();
-        if (!cypherQuery) {
-            throw new Error("Failed to generate Cypher query.");
-        }
+        const cypherQuery = await generateCypherQuery(question);
 
         if (!isValidCypherQuery(cypherQuery)) {
             throw new Error(
@@ -99,17 +70,15 @@ Cypher Query:
             const result = await session.run(cypherQuery);
 
             // Process Results
-            const records = result.records.map((
-                record: { toObject: () => Record<string, unknown> },
-            ) => record.toObject());
+            const records = result.records.map((record) => record.toObject());
 
             if (records.length === 0) {
                 await interaction.editReply("No results found.");
             } else {
                 // Convert records to a readable format
-                const formattedResults = records.map((
-                    record: Record<string, unknown>,
-                ) => JSON.stringify(record, null, 2)).join("\n");
+                const formattedResults = records
+                    .map((record) => JSON.stringify(record, null, 2))
+                    .join("\n");
 
                 // Discord messages have a character limit
                 const MAX_MESSAGE_LENGTH = 2000;
