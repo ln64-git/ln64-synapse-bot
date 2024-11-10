@@ -1,8 +1,9 @@
 // src/commands/ask.ts
 
-import { ChatInputCommandInteraction } from "npm:discord.js";
 import dotenv from "npm:dotenv";
 import neo4j from "npm:neo4j-driver";
+import { ChatInputCommandInteraction } from "npm:discord.js";
+import { SlashCommandBuilder } from "npm:@discordjs/builders";
 
 dotenv.config();
 

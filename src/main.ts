@@ -5,8 +5,6 @@ import { join, relative } from "https://deno.land/std@0.224.0/path/mod.ts";
 import "https://deno.land/x/dotenv@v3.2.2/load.ts";
 import type { RESTPostAPIApplicationCommandsJSONBody } from "npm:discord-api-types/v9";
 import { GatewayIntentBits, Routes } from "npm:discord-api-types/v10";
-import { syncDatabase } from "./neo4j/neo4j.ts";
-
 
 const botToken = Deno.env.get("BOT_TOKEN")!;
 const clientId = Deno.env.get("CLIENT_ID")!;
@@ -23,33 +21,42 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildVoiceStates,
   ],
 });
 
-client.commands = new Map();
-for await (
-  const entry of walk(join(Deno.cwd(), "src/commands"), {
+async function loadCommands() {
+  const commands: RESTPostAPIApplicationCommandsJSONBody[] = [];
+  const commandFiles = walk(join(Deno.cwd(), "src/commands"), {
     exts: [".ts"],
     includeDirs: false,
-  })
-) {
-  const { data, execute } = await import(
-    `./${relative(join(Deno.cwd(), "src"), entry.path).replace(/\\/g, "/")}`
-  );
-  client.commands.set(data.name, { data, execute });
+  });
+  for await (const entry of commandFiles) {
+    const { data, execute } = await import(
+      `./${relative(join(Deno.cwd(), "src"), entry.path).replace(/\\/g, "/")}`
+    );
+    client.commands.set(data.name, { data, execute });
+    commands.push(data.toJSON());
+  }
+  return commands;
 }
 
-client.once("ready", () => {
-  console.log(`Logged in as ${client.user?.tag}!`);
-  const guild = client.guilds.cache.get(guildId);
-  if (guild) {
-    syncDatabase(guild);
-  } else {
-    console.error("Guild not found.");
+async function registerCommands(
+  commands: RESTPostAPIApplicationCommandsJSONBody[],
+) {
+  const rest = new REST({ version: "9" }).setToken(botToken);
+  try {
+    console.log("Started refreshing application (/) commands.");
+    await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
+      body: commands,
+    });
+    console.log("Successfully reloaded application (/) commands.");
+  } catch (error) {
+    console.error("Error registering commands:", error);
   }
-});
+}
 
-client.on("interactionCreate", async (interaction) => {
+async function handleInteraction(interaction: Interaction) {
   if (!interaction.isCommand()) return;
   const command = client.commands.get(interaction.commandName);
   if (!command) return;
@@ -65,30 +72,69 @@ client.on("interactionCreate", async (interaction) => {
       ? await interaction.editReply(replyContent)
       : await interaction.reply(replyContent);
   }
-});
+}
 
-async function registerCommands() {
-  const commands: RESTPostAPIApplicationCommandsJSONBody[] = [];
-  const commandFiles = walk(join(Deno.cwd(), "src/commands"), {
-    exts: [".ts"],
-    includeDirs: false,
-  });
-  for await (const entry of commandFiles) {
-    const { data } = await import(
-      `./${relative(join(Deno.cwd(), "src"), entry.path).replace(/\\/g, "/")}`
-    );
-    commands.push(data.toJSON());
-  }
-  const rest = new REST({ version: "9" }).setToken(botToken);
-  try {
-    console.log("Started refreshing application (/) commands.");
-    await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
-      body: commands,
-    });
-    console.log("Successfully reloaded application (/) commands.");
-  } catch (error) {
-    console.error("Error registering commands:", error);
+import type { Interaction, VoiceState } from "npm:discord.js";
+
+async function handleVoiceStateUpdate(
+  _oldState: VoiceState,
+  newState: VoiceState,
+) {
+  const user = newState.member?.user;
+  const channel = newState.channel;
+
+  if (user && channel) {
+    let action = "joined";
+    let payload = `${user.displayName} ${action} ${channel.name}`;
+    if (!_oldState.channel && newState.channel) {
+      action = "joined";
+      payload = `${user.displayName} ${action} ${channel.name}`;
+    } else if (_oldState.channel && !newState.channel) {
+      action = "left";
+      payload = `${user.displayName} ${action} ${_oldState.channel.name}`;
+    } else if (
+      _oldState.channel && newState.channel &&
+      _oldState.channel.id !== newState.channel.id
+    ) {
+      action = "moved";
+      payload =
+        `${user.displayName} ${action} from ${_oldState.channel.name} to ${newState.channel.name}`;
+    }
+
+    const speechRequest = { Text: payload };
+
+    try {
+      const response = await fetch("http://localhost:8080/input", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(speechRequest),
+      });
+
+      if (!response.ok) {
+        console.error(
+          "Failed to send voice state update:",
+          response.statusText,
+        );
+      }
+    } catch (error) {
+      console.error("Error sending voice state update:", error);
+    }
   }
 }
 
-registerCommands().then(() => client.login(botToken));
+async function main() {
+  client.commands = new Map();
+  const commands = await loadCommands();
+  await registerCommands(commands);
+
+  client.once("ready", () => {
+    console.log(`Logged in as ${client.user?.tag}!`);
+  });
+
+  client.on("interactionCreate", handleInteraction);
+  client.on("voiceStateUpdate", handleVoiceStateUpdate);
+
+  await client.login(botToken);
+}
+
+main();
