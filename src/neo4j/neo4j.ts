@@ -26,6 +26,32 @@ const driver = neo4j.driver(
     neo4j.auth.basic(neo4jUser, neo4jPassword),
 );
 
+export async function executeCypherQuery(
+    cypherQuery: string,
+): Promise<Record<string, unknown>[]> {
+    const neo4jUri = Deno.env.get("NEO4J_URI");
+    const neo4jUser = Deno.env.get("NEO4J_USERNAME");
+    const neo4jPassword = Deno.env.get("NEO4J_PASSWORD");
+
+    if (!neo4jUri || !neo4jUser || !neo4jPassword) {
+        throw new Error("Missing Neo4j environment variables.");
+    }
+
+    const driver = neo4j.driver(
+        neo4jUri,
+        neo4j.auth.basic(neo4jUser, neo4jPassword),
+    );
+    const session = driver.session();
+
+    try {
+        const result = await session.run(cypherQuery);
+        return result.records.map((record) => record.toObject());
+    } finally {
+        await session.close();
+        await driver.close();
+    }
+}
+
 export async function syncDatabase(guild: Guild) {
     const session = driver.session();
     const tx = session.beginTransaction();
@@ -289,9 +315,9 @@ async function syncMessages(
                             url: attachment.url,
                         })),
                     ),
-                    mentions: message.mentions.users.map((user: { id: string }) =>
-                        user.id
-                    ),
+                    mentions: message.mentions.users.map((
+                        user: { id: string },
+                    ) => user.id),
                     referenceId: message.reference?.messageId || null,
                 }));
 
