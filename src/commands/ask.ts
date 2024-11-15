@@ -6,8 +6,8 @@ import { SlashCommandBuilder } from "npm:@discordjs/builders";
 import {
     generateCypherQuery,
     generateNaturalLanguageResponse,
-} from "../langchain/langchain.ts"; // Update the import path
-import { executeCypherQuery } from "../neo4j/neo4j.ts";
+} from "../lib/langchain/langchain.ts"; // Update the import path
+import { executeCypherQuery } from "../lib/neo4j/neo4j.ts";
 
 dotenv.config();
 

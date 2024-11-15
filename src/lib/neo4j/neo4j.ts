@@ -53,22 +53,54 @@ export async function executeCypherQuery(
 }
 
 export async function syncDatabase(guild: Guild) {
-    const channelId = Deno.env.get("CHANNEL_ID");
-    if (!channelId) {
-        console.warn("CHANNEL_ID environment variable is not set.");
-        return;
-    }
-    const channel = guild.channels.cache.get(channelId);
+    const session = driver.session();
+    const tx = session.beginTransaction();
 
-    if (
-        channel &&
-        (channel.type === ChannelType.GuildText ||
-            channel.type === ChannelType.GuildCategory)
-    ) {
+    try {
+        console.log(`Syncing data for guild '${guild.name}'...`);
+
+        // Sync guild, members, and roles in one transaction
+        await syncGuild(guild.id, guild, tx);
+        await syncMembers(guild.id, guild, tx);
+        console.log("Synced guild members.");
+
+        await syncRoles(guild, tx);
+        console.log("Synced guild roles.");
+
+        await tx.commit();
+        console.log(
+            "Transaction committed for guild data before syncing channels and messages.",
+        );
+    } catch (error) {
+        console.error("Error syncing data to Neo4j:", error);
+        await tx.rollback();
+        return;
+    } finally {
+        await session.close();
+    }
+
+    // Sync channels and messages separately in independent transactions
+    const channels = guild.channels.cache.filter(
+        (channel: { type: ChannelType }) =>
+            channel.type === ChannelType.GuildText ||
+            channel.type === ChannelType.GuildCategory,
+    );
+
+    for (const channel of channels.values()) {
         const channelSession = driver.session();
         const channelTx = channelSession.beginTransaction();
 
         try {
+            console.log(`Syncing channel '${channel.name}'...`);
+
+            await syncChannel(
+                guild.id,
+                channel as TextChannel | CategoryChannel,
+                channelTx,
+            );
+            await channelTx.commit();
+            console.log(`Synced channel '${channel.name}' data.`);
+
             if (channel.type === ChannelType.GuildText) {
                 await syncMessages(channel as TextChannel, driver);
             }
@@ -87,10 +119,6 @@ export async function syncDatabase(guild: Guild) {
         } finally {
             await channelSession.close();
         }
-    } else {
-        console.warn(
-            `Channel with ID '${channelId}' not found or unsupported type.`,
-        );
     }
 }
 
