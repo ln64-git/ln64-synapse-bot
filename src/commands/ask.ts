@@ -35,6 +35,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         }
         // Execute Cypher Query
         const records = await executeCypherQuery(cypherQuery);
+        console.log(records);
         const response = await generateNaturalLanguageResponse(records);
         // Utilize langchain to translate the response into natural language
         await handleQueryResult(interaction, records);

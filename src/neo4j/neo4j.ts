@@ -53,56 +53,22 @@ export async function executeCypherQuery(
 }
 
 export async function syncDatabase(guild: Guild) {
-    const session = driver.session();
-    const tx = session.beginTransaction();
-
-    try {
-        console.log(`Syncing data for guild '${guild.name}'...`);
-
-        // Sync guild, members, and roles in one transaction
-        await syncGuild(guild.id, guild, tx);
-        console.log("Synced guild data.");
-
-        await syncMembers(guild.id, guild, tx);
-        console.log("Synced guild members.");
-
-        await syncRoles(guild, tx);
-        console.log("Synced guild roles.");
-
-        await tx.commit();
-        console.log(
-            "Transaction committed for guild data before syncing channels and messages.",
-        );
-    } catch (error) {
-        console.error("Error syncing data to Neo4j:", error);
-        await tx.rollback();
+    const channelId = Deno.env.get("CHANNEL_ID");
+    if (!channelId) {
+        console.warn("CHANNEL_ID environment variable is not set.");
         return;
-    } finally {
-        await session.close();
     }
+    const channel = guild.channels.cache.get(channelId);
 
-    // Sync channels and messages separately in independent transactions
-    const channels = guild.channels.cache.filter(
-        (channel: { type: ChannelType }) =>
-            channel.type === ChannelType.GuildText ||
-            channel.type === ChannelType.GuildCategory,
-    );
-
-    for (const channel of channels.values()) {
+    if (
+        channel &&
+        (channel.type === ChannelType.GuildText ||
+            channel.type === ChannelType.GuildCategory)
+    ) {
         const channelSession = driver.session();
         const channelTx = channelSession.beginTransaction();
 
         try {
-            console.log(`Syncing channel '${channel.name}'...`);
-
-            await syncChannel(
-                guild.id,
-                channel as TextChannel | CategoryChannel,
-                channelTx,
-            );
-            await channelTx.commit();
-            console.log(`Synced channel '${channel.name}' data.`);
-
             if (channel.type === ChannelType.GuildText) {
                 await syncMessages(channel as TextChannel, driver);
             }
@@ -121,6 +87,10 @@ export async function syncDatabase(guild: Guild) {
         } finally {
             await channelSession.close();
         }
+    } else {
+        console.warn(
+            `Channel with ID '${channelId}' not found or unsupported type.`,
+        );
     }
 }
 
@@ -129,29 +99,56 @@ async function syncGuild(
     guild: Guild,
     tx: Transaction,
 ): Promise<void> {
-    await tx.run(
+    const newGuildData = {
+        id: guildId,
+        name: guild.name,
+        createdAt: guild.createdAt.toISOString(),
+        ownerId: guild.ownerId,
+        iconURL: guild.iconURL() || null,
+        description: guild.description || null,
+        memberCount: guild.memberCount,
+        updatedAt: new Date().toISOString(),
+    };
+    const result = await tx.run(
         `
-        MERGE (g:Guild {id: $id})
-        ON CREATE SET g.name = $name,
-                      g.createdAt = $createdAt,
-                      g.ownerId = $ownerId,
-                      g.iconURL = $iconURL,
-                      g.description = $description,
-                      g.memberCount = $memberCount
-        ON MATCH SET g.name = COALESCE($name, g.name),
-                     g.updatedAt = $updatedAt
+        MATCH (g:Guild {id: $id})
+        RETURN g
         `,
-        {
-            id: guildId,
-            name: guild.name,
-            createdAt: guild.createdAt.toISOString(),
-            ownerId: guild.ownerId,
-            iconURL: guild.iconURL() || null,
-            description: guild.description || null,
-            memberCount: guild.memberCount,
-            updatedAt: new Date().toISOString(),
-        },
+        { id: guildId },
     );
+    const existingGuild = result.records[0]?.get("g") || null;
+
+    if (existingGuild) {
+        const existingProperties = existingGuild.properties;
+        const hasChanges = Object.keys(newGuildData).some((key) => {
+            const newValue = newGuildData[key as keyof typeof newGuildData];
+            const existingValue =
+                existingProperties[key as keyof typeof existingProperties];
+            return newValue !== existingValue;
+        });
+        if (!hasChanges) {
+            await tx.run(
+                `
+                MERGE (g:Guild {id: $id})
+                ON CREATE SET g.name = $name,
+                              g.createdAt = $createdAt,
+                              g.ownerId = $ownerId,
+                              g.iconURL = $iconURL,
+                              g.description = $description,
+                              g.memberCount = $memberCount
+                ON MATCH SET g.name = COALESCE($name, g.name),
+                             g.updatedAt = $updatedAt
+                `,
+                newGuildData,
+            );
+            console.log(`Guild ${guild.name} synchronized successfully.`);
+        } else {
+            console.log(
+                `No changes detected for guild ${guild.name}. Skipping update.`,
+            );
+            return; // Exit if no changes detected
+        }
+    }
 }
 
 async function syncMembers(

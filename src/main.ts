@@ -26,13 +26,24 @@ const client = new Client({
 });
 
 async function main() {
-  client.once("ready", () => {
-    console.log(`Logged in as ${client.user?.tag}!`);
-  });
-
   client.commands = new Map();
   const commands = await loadCommands();
   await registerCommands(commands);
+
+  client.once("ready", async () => {
+    console.log(`Logged in as ${client.user?.tag}!`);
+    const guildId = Deno.env.get("GUILD_ID");
+    if (!guildId) {
+      throw new Error("GUILD_ID is not set in environment variables.");
+    }
+    try {
+      const guild = await client.guilds.fetch(guildId);
+      console.log(`Fetched guild: ${guild.name}`);
+      await syncDatabase(guild);
+    } catch (error) {
+      console.error("Error fetching guild or syncing database:", error);
+    }
+  });
 
   client.on("interactionCreate", handleInteraction);
   client.on("voiceStateUpdate", handleVoiceStateUpdate);
@@ -91,6 +102,7 @@ async function handleInteraction(interaction: Interaction) {
 }
 
 import type { Interaction, VoiceState } from "npm:discord.js";
+import { syncDatabase } from "./neo4j/neo4j.ts";
 
 async function handleVoiceStateUpdate(
   oldState: VoiceState,
