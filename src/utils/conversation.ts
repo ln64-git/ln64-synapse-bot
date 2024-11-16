@@ -6,22 +6,25 @@ import {
   TextChannel,
 } from "npm:discord.js"
 
-// Define the structure of a FiresideMessage
-type FiresideMessage = {
-  displayName: string
-  message: string
-  timestamp: string
-}
-
-// Define the structure of a Conversation
 type Conversation = {
   id: number
   messages: FiresideMessage[]
   participants: Set<string>
   lastActive: Date
+  conversationEmbedding: number[]
+  embeddingSum: number[]
 }
 
-async function getFiresideMessages(guild: Guild): Promise<FiresideMessage[]> {
+type FiresideMessage = {
+  displayName: string
+  message: string
+  timestamp: string
+  embedding: number[]
+}
+
+export async function getFiresideMessages(
+  guild: Guild
+): Promise<FiresideMessage[]> {
   const channelId = Deno.env.get("CHANNEL_ID")
   if (!channelId) {
     throw new Error("CHANNEL_ID is not set in environment variables.")
@@ -32,120 +35,180 @@ async function getFiresideMessages(guild: Guild): Promise<FiresideMessage[]> {
     throw new Error(`Channel with ID ${channelId} not found.`)
   }
 
-  // Fetch messages; adjust the limit as needed for context
+  // Fetch messages and ensure correct type
   const fetchedMessages: Collection<
     Snowflake,
     Message<true>
-  > = await channel.messages.fetch({limit: 100}) // Increase limit as needed
+  > = await channel.messages.fetch({limit: 25})
 
-  // Convert Collection to an array and map to FiresideMessage
+  // Convert Collection to an array of Message<true>
   const messagesArray: Message<true>[] = Array.from(fetchedMessages.values())
 
-  const firesideMessages: FiresideMessage[] = messagesArray
-    .map((message) => ({
-      displayName: message.member?.displayName || message.author.username,
-      message: message.content,
-      timestamp: message.createdAt.toISOString(),
-    }))
-    .filter((msg) => msg.message.trim().length >= 1) // Adjust if needed
+  // Map over the array
+  const firesideMessages: FiresideMessage[] = messagesArray.map((message) => ({
+    displayName: message.member?.displayName || message.author.username,
+    message: message.content,
+    timestamp: message.createdAt.toISOString(),
+    embedding: [],
+  }))
 
-  // Sort messages chronologically
+  // Sort messages and save to JSON
   const sortedMessages = firesideMessages.sort(
     (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
   )
-
-  // Save sorted messages to a JSON file for debugging
   const encoder = new TextEncoder()
   const json = JSON.stringify(sortedMessages, null, 2)
   await Deno.writeFile("./logs/messages.json", encoder.encode(json))
-
   return sortedMessages
 }
 
-// Main Orchestration Function
-export async function processConversations(guild: Guild): Promise<void> {
-  try {
-    // Step 1: Fetch and prepare messages
-    const messages = await getFiresideMessages(guild)
-    console.log(`Fetched ${messages.length} messages.`)
+export async function deriveConversations(
+  messages: FiresideMessage[]
+): Promise<Conversation[]> {
+  // Messages are already sorted in getFiresideMessages
+  const sortedMessages = messages
 
-    // Step 2: Segment conversations based on time gaps
-    const timeGapMinutes = 10 // Adjust as needed
-    const conversations = segmentConversationsByTime(messages, timeGapMinutes)
-    console.log(
-      `Segmented into ${conversations.length} conversations based on time gaps.`
-    )
-
-    // Save conversations to JSON for debugging
-    const conversationsToSave = conversations.map((conv) => ({
-      id: conv.id,
-      messages: conv.messages,
-      participants: Array.from(conv.participants),
-      lastActive: conv.lastActive.toISOString(),
-    }))
-
-    try {
-      const encoder = new TextEncoder()
-      const json = JSON.stringify(conversationsToSave, null, 2)
-      await Deno.writeFile(
-        "./logs/conversations_segmented.json",
-        encoder.encode(json)
-      )
-      console.log(
-        "Segmented conversations saved to ./log/conversations_segmented.json"
-      )
-    } catch (error) {
-      console.log(`Error writing segmented conversations to file: ${error}`)
-    }
-
-    // Further processing can be done here (e.g., storing in a database)
-  } catch (error) {
-    console.log(`Error processing conversations: ${error}`)
+  // Generate embeddings
+  for (const message of sortedMessages) {
+    message.embedding = await getEmbedding(message.message)
   }
-}
 
-function segmentConversationsByTime(
-  messages: FiresideMessage[],
-  timeGapMinutes: number = 10
-): Conversation[] {
   const conversations: Conversation[] = []
-  const timeThreshold = timeGapMinutes * 60 * 1000 // Convert minutes to milliseconds
+  let conversationIdCounter = 0
+  const timeThreshold = 5 * 60 * 1000 // 5 minutes
+  const similarityThreshold = 0.7 // Adjust as needed
 
-  let currentConvId = 0
-  let currentConv: Conversation = {
-    id: currentConvId,
-    messages: [],
-    participants: new Set(),
-    lastActive: new Date(messages[0].timestamp),
-  }
+  for (const message of sortedMessages) {
+    let assigned = false
 
-  currentConv.messages.push(messages[0])
-  currentConv.participants.add(messages[0].displayName)
+    for (const conv of conversations) {
+      const timeDiff =
+        new Date(message.timestamp).getTime() - conv.lastActive.getTime()
 
-  for (let i = 1; i < messages.length; i++) {
-    const prevTimestamp = new Date(messages[i - 1].timestamp).getTime()
-    const currentTimestamp = new Date(messages[i].timestamp).getTime()
-    const timeDiff = currentTimestamp - prevTimestamp
+      if (timeDiff < timeThreshold) {
+        // Compare message embedding with conversation embedding
+        const similarity = cosineSimilarity(
+          message.embedding,
+          conv.conversationEmbedding
+        )
 
-    if (timeDiff > timeThreshold) {
-      // Start a new conversation
-      conversations.push(currentConv)
-      currentConvId++
-      currentConv = {
-        id: currentConvId,
-        messages: [],
-        participants: new Set(),
-        lastActive: new Date(messages[i].timestamp),
+        if (similarity > similarityThreshold) {
+          // Assign message to this conversation
+          conv.messages.push(message)
+          conv.participants.add(message.displayName)
+          conv.lastActive = new Date(message.timestamp)
+
+          // Update embedding sum
+          conv.embeddingSum = addEmbeddings(
+            conv.embeddingSum,
+            message.embedding
+          )
+
+          // Recompute conversation embedding (average)
+          conv.conversationEmbedding = divideEmbedding(
+            conv.embeddingSum,
+            conv.messages.length
+          )
+
+          assigned = true
+          break
+        }
       }
     }
 
-    currentConv.messages.push(messages[i])
-    currentConv.participants.add(messages[i].displayName)
-    currentConv.lastActive = new Date(messages[i].timestamp)
+    if (!assigned) {
+      // Create new conversation
+      const newConversation: Conversation = {
+        id: conversationIdCounter++,
+        messages: [message],
+        participants: new Set([message.displayName]),
+        lastActive: new Date(message.timestamp),
+        conversationEmbedding: message.embedding.slice(), // Copy of the embedding
+        embeddingSum: message.embedding.slice(), // Start sum with this embedding
+      }
+      conversations.push(newConversation)
+    }
   }
 
-  // Push the last conversation
-  conversations.push(currentConv)
+  // Remove embeddings before saving or returning
+  const conversationsWithoutEmbeddings = conversations.map((conv) => ({
+    ...conv,
+    messages: conv.messages.map(({embedding, ...rest}) => rest),
+    conversationEmbedding: undefined,
+    embeddingSum: undefined,
+  }))
+
+  // Save the conversations to a JSON file
+  const encoder = new TextEncoder()
+  const json = JSON.stringify(conversationsWithoutEmbeddings, null, 2)
+  await Deno.writeFile("./logs/conversations.json", encoder.encode(json))
 
   return conversations
+}
+
+function addEmbeddings(embeddingA: number[], embeddingB: number[]): number[] {
+  return embeddingA.map((val, idx) => val + embeddingB[idx])
+}
+
+function divideEmbedding(embedding: number[], divisor: number): number[] {
+  return embedding.map((val) => val / divisor)
+}
+
+function cosineSimilarity(vecA: number[], vecB: number[]): number {
+  if (vecA.length !== vecB.length || vecA.length === 0) {
+    console.warn(
+      "Vectors have different lengths or are empty. Returning 0 similarity."
+    )
+    return 0
+  }
+
+  const dotProduct = vecA.reduce((sum, val, i) => sum + val * vecB[i], 0)
+  const magnitudeA = Math.sqrt(vecA.reduce((sum, val) => sum + val * val, 0))
+  const magnitudeB = Math.sqrt(vecB.reduce((sum, val) => sum + val * val, 0))
+  if (magnitudeA === 0 || magnitudeB === 0) {
+    console.warn(
+      "One of the vectors has zero magnitude. Returning 0 similarity."
+    )
+    return 0
+  }
+  return dotProduct / (magnitudeA * magnitudeB)
+}
+
+async function getEmbedding(text: string): Promise<number[]> {
+  // Handle empty text
+  if (!text.trim()) {
+    console.warn("Empty message content; returning zero vector.")
+    return Array(1536).fill(0) // Assuming the embedding size is 1536
+  }
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("OPENAI_API_KEY")}`,
+      },
+      body: JSON.stringify({
+        input: text,
+        model: "text-embedding-ada-002",
+      }),
+    })
+
+    if (!response.ok) {
+      console.error("Embedding API error:", response.statusText)
+      return Array(1536).fill(0)
+    }
+
+    const data = await response.json()
+
+    if (data && data.data && data.data[0] && data.data[0].embedding) {
+      return data.data[0].embedding
+    } else {
+      console.error("Invalid embedding response format:", data)
+      return Array(1536).fill(0)
+    }
+  } catch (error) {
+    console.error("Error fetching embedding:", error)
+    return Array(1536).fill(0)
+  }
 }

@@ -38,8 +38,8 @@ async function main() {
     }
     try {
       const guild = await client.guilds.fetch(guildId)
-      // await syncDatabase(guild);
-      processConversations(guild)
+      const messages = await getFiresideMessages(guild)
+      deriveConversations(messages)
       // Replace 'YOUR_GUILD_ID' with your actual guild/server ID
     } catch (error) {
       console.error("Error fetching guild or syncing database:", error)
@@ -102,51 +102,51 @@ async function handleInteraction(interaction: Interaction) {
   }
 }
 
-import type {Interaction, VoiceState} from "npm:discord.js"
-import {processConversations} from "./utils/conversation.ts"
+import type {Interaction} from "npm:discord.js"
+import {deriveConversations, getFiresideMessages} from "./utils/conversation.ts"
 
-async function handleVoiceStateUpdate(
-  oldState: VoiceState,
-  newState: VoiceState
-) {
-  const user = newState.member?.user
-  const oldChannel = oldState.channel
-  const newChannel = newState.channel
+// async function handleVoiceStateUpdate(
+//   oldState: VoiceState,
+//   newState: VoiceState
+// ) {
+//   const user = newState.member?.user
+//   const oldChannel = oldState.channel
+//   const newChannel = newState.channel
 
-  if (user) {
-    let action = ""
-    let payload = ""
+//   if (user) {
+//     let action = ""
+//     let payload = ""
 
-    if (!oldChannel && newChannel) {
-      action = "joined"
-      payload = `${user.displayName} ${action} ${newChannel.name}`
-    } else if (oldChannel && !newChannel) {
-      action = "left"
-      payload = `${user.displayName} ${action} ${oldChannel.name}`
-    } else if (oldChannel && newChannel && oldChannel.id !== newChannel.id) {
-      action = "moved"
-      payload = `${user.displayName} ${action} from ${oldChannel.name} to ${newChannel.name}`
-    }
+//     if (!oldChannel && newChannel) {
+//       action = "joined"
+//       payload = `${user.displayName} ${action} ${newChannel.name}`
+//     } else if (oldChannel && !newChannel) {
+//       action = "left"
+//       payload = `${user.displayName} ${action} ${oldChannel.name}`
+//     } else if (oldChannel && newChannel && oldChannel.id !== newChannel.id) {
+//       action = "moved"
+//       payload = `${user.displayName} ${action} from ${oldChannel.name} to ${newChannel.name}`
+//     }
 
-    if (action) {
-      const speechRequest = {Text: payload}
+//     if (action) {
+//       const speechRequest = {Text: payload}
 
-      try {
-        const response = await fetch("http://localhost:8080/input", {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify(speechRequest),
-        })
+//       try {
+//         const response = await fetch("http://localhost:8080/input", {
+//           method: "POST",
+//           headers: {"Content-Type": "application/json"},
+//           body: JSON.stringify(speechRequest),
+//         })
 
-        if (!response.ok) {
-          console.error(
-            "Failed to send voice state update:",
-            response.statusText
-          )
-        }
-      } catch (error) {
-        console.error("Error sending voice state update:", error)
-      }
-    }
-  }
-}
+//         if (!response.ok) {
+//           console.error(
+//             "Failed to send voice state update:",
+//             response.statusText
+//           )
+//         }
+//       } catch (error) {
+//         console.error("Error sending voice state update:", error)
+//       }
+//     }
+//   }
+// }
