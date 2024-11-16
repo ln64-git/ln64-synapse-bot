@@ -39,8 +39,8 @@ async function main() {
     try {
       const guild = await client.guilds.fetch(guildId);
       // await syncDatabase(guild);
-      const messages = await getFiresideMessages(guild);
-      await deriveConversations(messages);
+      processConversations(guild);
+      // Replace 'YOUR_GUILD_ID' with your actual guild/server ID
     } catch (error) {
       console.error("Error fetching guild or syncing database:", error);
     }
@@ -103,10 +103,7 @@ async function handleInteraction(interaction: Interaction) {
 }
 
 import type { Interaction, VoiceState } from "npm:discord.js";
-import {
-  deriveConversations,
-  getFiresideMessages,
-} from "./utils/conversation.ts";
+import { processConversations } from "./utils/conversation.ts";
 
 async function handleVoiceStateUpdate(
   oldState: VoiceState,

@@ -7,9 +7,11 @@
     "npm:@langchain/ollama@*": "0.1.0_@langchain+core@0.3.13__zod@3.23.8",
     "npm:@ptkdev/logger@*": "1.8.0",
     "npm:@types/node@*": "22.5.4",
+    "npm:density-clustering@*": "1.3.0",
     "npm:discord-api-types@*": "0.37.100",
     "npm:discord.js@*": "14.16.3",
     "npm:dotenv@*": "16.4.5",
+    "npm:ml-distance-euclidean@*": "2.0.0",
     "npm:mongodb@*": "5.6.0",
     "npm:mongodb@5.6.0": "5.6.0",
     "npm:neo4j-driver@*": "5.26.0",
@@ -285,6 +287,9 @@
     "delayed-stream@1.0.0": {
       "integrity": "sha512-ZySD7Nf91aLB0RxL4KGrKHBXl7Eds1DAmEdcoVawXnLD7SDhpNgtuII2aAkg7a7QS41jxPSZ17p4VdGnMHk3MQ=="
     },
+    "density-clustering@1.3.0": {
+      "integrity": "sha512-icpmBubVTwLnsaor9qH/4tG5+7+f61VcqMN3V3pm9sxxSCt2Jcs0zWOgwZW9ARJYaKD3FumIgHiMOcIMRRAzFQ=="
+    },
     "discord-api-types@0.37.100": {
       "integrity": "sha512-a8zvUI0GYYwDtScfRd/TtaNBDTXwP5DiDVX7K5OmE+DRT57gBqKnwtOC5Ol8z0mRW8KQfETIgiB8U0YZ9NXiCA=="
     },
@@ -466,6 +471,9 @@
       "dependencies": [
         "mime-db"
       ]
+    },
+    "ml-distance-euclidean@2.0.0": {
+      "integrity": "sha512-yC9/2o8QF0A3m/0IXqCTXCzz2pNEzvmcE/9HFKOZGnTjatvBbsn4lWYJkxENkA4Ug2fnYl7PXQxnPi21sgMy/Q=="
     },
     "mongodb-connection-string-url@2.6.0": {
       "integrity": "sha512-WvTZlI9ab0QYtTYnuMLgobULWhokRjtC7db9LtcVfJ+Hsnyr5eo6ZtNAt3Ly24XZScGMelOcGtm7lSn0332tPQ==",
@@ -785,6 +793,13 @@
     "https://deno.land/x/dotenv/mod.ts": "https://deno.land/x/dotenv@v3.2.2/mod.ts"
   },
   "remote": {
+    "https://cdn.skypack.dev/-/is-any-array@v2.0.0-w21MXvU969BCEn3CrfEZ/dist=es2019,mode=imports/optimized/is-any-array.js": "f39ffc751f41440d6ca4f0f9c182db1ec84648d1f4543c26b1532313469ee991",
+    "https://cdn.skypack.dev/-/ml-array-max@v1.2.4-qTcGYvkElpyjnn219QUW/dist=es2019,mode=imports/optimized/ml-array-max.js": "04425432314ab47aa7649ba8846c60c4012e9e370a001148e6ff1fd4467a6272",
+    "https://cdn.skypack.dev/-/ml-array-min@v1.2.3-8dvOBfS029MmUp9izQqc/dist=es2019,mode=imports/optimized/ml-array-min.js": "a0a14cddb08ce5cee4f566c12f8610cf2ec4a3bc6fdddd546168180838dbbc95",
+    "https://cdn.skypack.dev/-/ml-array-rescale@v1.3.7-RehABIr0yWLxhJznz2QZ/dist=es2019,mode=imports/optimized/ml-array-rescale.js": "34efe208a081f26b610cc1a26ff0dc5dabb3429c076501f87e223d38d8ea5a9c",
+    "https://cdn.skypack.dev/-/ml-matrix@v6.10.4-vWd3VK19cHw84Fa3Teir/dist=es2019,mode=imports/optimized/ml-matrix.js": "9412099acd91dcfab07422700fc93422c1c6fc024bcc77992159f8c50c2ade4c",
+    "https://cdn.skypack.dev/-/ml-pca@v4.1.1-tstukhbdUyJykeoRzp7Z/dist=es2019,mode=imports/optimized/ml-pca.js": "50ad0b382f8058b34641ba715a3585bce4e9d13883e604f8976ee86e8dae7f10",
+    "https://cdn.skypack.dev/ml-pca": "cee049f6ee3ea705aadf2883e0ded76f3aa66c18c36bc1d3bafdc6e06f5b5641",
     "https://deno.land/std@0.154.0/_util/assert.ts": "e94f2eb37cebd7f199952e242c77654e43333c1ac4c5c700e929ea3aa5489f74",
     "https://deno.land/std@0.154.0/_wasm_crypto/lib/deno_std_wasm_crypto.generated.mjs": "dfcd6777d05345362c70f9f2c49abba3ed3f925fccfcf725abe2d16d51819433",
     "https://deno.land/std@0.154.0/_wasm_crypto/mod.ts": "6c60d332716147ded0eece0861780678d51b560f533b27db2e15c64a4ef83665",
