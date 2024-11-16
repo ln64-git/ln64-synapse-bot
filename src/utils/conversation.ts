@@ -57,7 +57,7 @@ async function getFiresideMessages(guild: Guild): Promise<FiresideMessage[]> {
   // Save sorted messages to a JSON file for debugging
   const encoder = new TextEncoder()
   const json = JSON.stringify(sortedMessages, null, 2)
-  await Deno.writeFile("./log/messages.json", encoder.encode(json))
+  await Deno.writeFile("./logs/messages.json", encoder.encode(json))
 
   return sortedMessages
 }
@@ -88,7 +88,7 @@ export async function processConversations(guild: Guild): Promise<void> {
       const encoder = new TextEncoder()
       const json = JSON.stringify(conversationsToSave, null, 2)
       await Deno.writeFile(
-        "./log/conversations_segmented.json",
+        "./logs/conversations_segmented.json",
         encoder.encode(json)
       )
       console.log(
