@@ -1,25 +1,14 @@
+// getFiresideMessages.ts
+
 import {
   Collection,
   Guild,
   Message,
   Snowflake,
   TextChannel,
+  Attachment as DiscordAttachment,
 } from "npm:discord.js"
-
-// Define the structure of a FiresideMessage
-type FiresideMessage = {
-  displayName: string
-  message: string
-  timestamp: string
-}
-
-// Define the structure of a Conversation
-type Conversation = {
-  id: number
-  messages: FiresideMessage[]
-  participants: Set<string>
-  lastActive: Date
-}
+import {FiresideMessage} from "../../types.ts"
 
 export async function getFiresideMessages(
   guild: Guild
@@ -34,32 +23,58 @@ export async function getFiresideMessages(
     throw new Error(`Channel with ID ${channelId} not found.`)
   }
 
-  // Fetch messages; adjust the limit as needed for context
+  // Fetch messages and ensure correct type
   const fetchedMessages: Collection<
     Snowflake,
     Message<true>
-  > = await channel.messages.fetch({limit: 100}) // Increase limit as needed
+  > = await channel.messages.fetch({limit: 100})
 
-  // Convert Collection to an array and map to FiresideMessage
+  // Convert Collection to an array of Message<true>
   const messagesArray: Message<true>[] = Array.from(fetchedMessages.values())
 
-  const firesideMessages: FiresideMessage[] = messagesArray
-    .map((message) => ({
-      displayName: message.member?.displayName || message.author.username,
-      message: message.content,
-      timestamp: message.createdAt.toISOString(),
-    }))
-    .filter((msg) => msg.message.trim().length >= 1) // Adjust if needed
+  // Map over the array
+  const firesideMessages: FiresideMessage[] = messagesArray.map((message) => ({
+    displayName: message.member?.displayName || message.author.username,
+    messageContent: message.content,
+    attachments: message.attachments.map((attachment: DiscordAttachment) => ({
+      url: attachment.url,
+      // Initialize summary and ocrText as empty strings; they'll be populated later
+      summary: "",
+      ocrText: "",
+    })),
+    timestamp: message.createdAt.toISOString(),
+    embedding: [],
+  }))
 
-  // Sort messages chronologically
+  // Sort messages and save to JSON
   const sortedMessages = firesideMessages.sort(
     (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
   )
-
-  // Save sorted messages to a JSON file for debugging
   const encoder = new TextEncoder()
   const json = JSON.stringify(sortedMessages, null, 2)
   await Deno.writeFile("./logs/messages.json", encoder.encode(json))
-
   return sortedMessages
+}
+
+export async function getMessageById(
+  guild: Guild,
+  messageId: Snowflake
+): Promise<Message<true> | null> {
+  const channelId = Deno.env.get("CHANNEL_ID")
+  if (!channelId) {
+    throw new Error("CHANNEL_ID is not set in environment variables.")
+  }
+
+  const channel = guild.channels.resolve(channelId) as TextChannel
+  if (!channel) {
+    throw new Error(`Channel with ID ${channelId} not found.`)
+  }
+
+  try {
+    const message = await channel.messages.fetch(messageId)
+    return message as Message<true>
+  } catch (error) {
+    console.error(`Failed to fetch message with ID ${messageId}:`, error)
+    return null // Return null if the message is not found or another error occurs
+  }
 }
