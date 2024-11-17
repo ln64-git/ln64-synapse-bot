@@ -102,6 +102,13 @@ export async function generateConversations(
     }
   }
 
+  // Sort messages in each conversation from first to last
+  conversations.forEach((conv) => {
+    conv.messages.sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+    );
+  });
+
   // Remove embeddings before saving or returning
   const conversationsWithoutEmbeddings = conversations.map((conv) => ({
     ...conv,
