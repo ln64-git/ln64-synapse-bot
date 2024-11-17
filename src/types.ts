@@ -9,6 +9,7 @@ export interface Conversation {
   id: number;
   messages: FiresideMessage[];
   participants: string[];
+  startTime: Date;
   lastActive: Date;
   conversationEmbedding?: number[];
   embeddingSum?: number[];
@@ -19,7 +20,7 @@ export type FiresideMessage = {
   messageContent?: string;
   attachments?: FiresideAttachment[];
   timestamp: string;
-  embedding: number[];
+  embedding: number[] | null;
 };
 
 export type FiresideAttachment = {
