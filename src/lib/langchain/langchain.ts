@@ -1,5 +1,5 @@
 import { callModel } from "./model.ts";
-import { ChatPromptTemplate } from "npm:@langchain/core/prompts";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
 
 export async function gernerateSentimentAnalysis(
     conversation: string,
@@ -50,13 +50,16 @@ export async function generateCypherQuery(question: string): Promise<string> {
         throw new Error("Failed to generate Cypher query.");
     }
     // Replace curly braces with parentheses
-    cypherQuery = cypherQuery.replace(/\{days: (\d+)\}/g, 'duration({days: $1})');
+    cypherQuery = cypherQuery.replace(
+        /\{days: (\d+)\}/g,
+        "duration({days: $1})",
+    );
     // Replace size() with COUNT {}
-    cypherQuery = cypherQuery.replace(/size\(\(([^)]+)\)\)/g, 'COUNT($1)');
+    cypherQuery = cypherQuery.replace(/size\(\(([^)]+)\)\)/g, "COUNT($1)");
     // Ensure correct syntax for labels and properties
-    cypherQuery = cypherQuery.replace(/:\s*([A-Za-z]+)/g, ':$1');
+    cypherQuery = cypherQuery.replace(/:\s*([A-Za-z]+)/g, ":$1");
     // Ensure variables are properly defined
-    cypherQuery = cypherQuery.replace(/(\w+)\s*=\s*\(([^)]+)\)/g, '($2) AS $1');
+    cypherQuery = cypherQuery.replace(/(\w+)\s*=\s*\(([^)]+)\)/g, "($2) AS $1");
     return cypherQuery;
 }
 

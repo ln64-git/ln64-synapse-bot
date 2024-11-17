@@ -1,5 +1,8 @@
 # Based on https://raw.githubusercontent.com/github/gitignore/main/Node.gitignore
 
+ln64-synapse-bot-7b618e20f7b1.json
+
+
 .env
 output/
 

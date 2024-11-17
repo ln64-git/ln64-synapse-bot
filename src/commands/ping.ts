@@ -1,5 +1,5 @@
-import { ChatInputCommandInteraction } from "npm:discord.js";
-import { SlashCommandBuilder } from "npm:@discordjs/builders";
+import { ChatInputCommandInteraction } from "discord.js";
+import { SlashCommandBuilder } from "@discordjs/builders";
 
 export const data = new SlashCommandBuilder()
     .setName("ping")

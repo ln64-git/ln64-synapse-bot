@@ -1,23 +1,33 @@
 // main.ts
 
-import { Client } from "npm:discord.js";
-import { REST } from "npm:@discordjs/rest";
-import { walk } from "https://deno.land/std@0.224.0/fs/walk.ts";
-import { join, relative } from "https://deno.land/std@0.224.0/path/mod.ts";
-import "https://deno.land/x/dotenv@v3.2.2/load.ts";
-import type { RESTPostAPIApplicationCommandsJSONBody } from "npm:discord-api-types/v9";
-import { GatewayIntentBits, Routes } from "npm:discord-api-types/v10";
-import type { Interaction } from "npm:discord.js";
-import { getMessageById } from "./lib/discord/discord.ts";
-import { extractMediaAttachments } from "./utils/generateAttachment.ts";
+import { Client } from "discord.js";
+import { REST } from "@discordjs/rest";
+import dotenv from "dotenv";
+import type { RESTPostAPIApplicationCommandsJSONBody } from "discord-api-types/v9";
+import { GatewayIntentBits, Routes } from "discord-api-types/v10";
+import type { Interaction } from "discord.js";
+import { getMessageById } from "./lib/discord/discord";
+import { extractMediaAttachments } from "./utils/generateAttachment";
+import { readdir } from "fs/promises";
+import { join, relative } from "path";
+import { deriveConversations } from "./utils/deriveConversations";
 
-const botToken = Deno.env.get("BOT_TOKEN")!;
-const clientId = Deno.env.get("CLIENT_ID")!;
-const guildId = Deno.env.get("GUILD_ID")!;
+dotenv.config();
+
+const botToken = process.env.BOT_TOKEN!;
+const clientId = process.env.CLIENT_ID!;
+const guildId = process.env.GUILD_ID!;
 if (!botToken || !clientId || !guildId) {
   throw new Error(
     "Missing BOT_TOKEN, CLIENT_ID, or GUILD_ID environment variables.",
   );
+}
+
+interface ExtendedClient extends Client {
+  commands: Map<
+    string,
+    { data: RESTPostAPIApplicationCommandsJSONBody; execute: Function }
+  >;
 }
 
 const client = new Client({
@@ -28,7 +38,7 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildVoiceStates,
   ],
-});
+}) as ExtendedClient;
 
 async function main() {
   client.commands = new Map();
@@ -38,12 +48,9 @@ async function main() {
   client.once("ready", async () => {
     console.log(`Logged in as ${client.user?.tag}!`);
     try {
-      // const messages = await getFiresideMessages(guild)
-      // const conversations = await deriveConversations(messages)
-      // console.log("Conversations derived successfully:", conversations)
-
       const guild = await client.guilds.fetch(guildId);
       const message = await getMessageById(guild, "1307503405648052325");
+      deriveConversations([message]);
       if (message) {
         extractMediaAttachments(message);
       } else {
@@ -55,7 +62,6 @@ async function main() {
   });
 
   client.on("interactionCreate", handleInteraction);
-  // client.on("voiceStateUpdate", handleVoiceStateUpdate);
   await client.login(botToken);
 }
 
@@ -63,16 +69,20 @@ main();
 
 async function loadCommands() {
   const commands: RESTPostAPIApplicationCommandsJSONBody[] = [];
-  const commandFiles = walk(join(Deno.cwd(), "src/commands"), {
-    exts: [".ts"],
-    includeDirs: false,
-  });
-  for await (const entry of commandFiles) {
-    const { data, execute } = await import(
-      `./${relative(join(Deno.cwd(), "src"), entry.path).replace(/\\/g, "/")}`
-    );
-    client.commands.set(data.name, { data, execute });
-    commands.push(data.toJSON());
+  const commandFiles = await readdir(join(process.cwd(), "src/commands"));
+  for (const file of commandFiles) {
+    if (file.endsWith(".ts")) {
+      const { data, execute } = await import(
+        `./${
+          relative(
+            join(process.cwd(), "src"),
+            join(process.cwd(), "src/commands", file),
+          ).replace(/\\/g, "/")
+        }`
+      );
+      client.commands.set(data.name, { data, execute });
+      commands.push(data.toJSON());
+    }
   }
   return commands;
 }

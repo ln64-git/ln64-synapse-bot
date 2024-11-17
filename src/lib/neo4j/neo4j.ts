@@ -4,17 +4,17 @@ import {
     GuildMember,
     Message,
     TextChannel,
-} from "npm:discord.js";
-import { ChannelType } from "npm:discord-api-types/v10";
-import neo4j, { Transaction } from "npm:neo4j-driver";
-import dotenv from "npm:dotenv";
+} from "discord.js";
+import { ChannelType } from "discord-api-types/v10";
+import neo4j, { Transaction, Driver } from "neo4j-driver";
+import dotenv from "dotenv";
 import process from "node:process";
 
 dotenv.config();
 
-const neo4jUri = Deno.env.get("NEO4J_URI");
-const neo4jUser = Deno.env.get("NEO4J_USERNAME");
-const neo4jPassword = Deno.env.get("NEO4J_PASSWORD");
+const neo4jUri = process.env.NEO4J_URI;
+const neo4jUser = process.env.NEO4J_USERNAME;
+const neo4jPassword = process.env.NEO4J_PASSWORD;
 
 if (!neo4jUri || !neo4jUser || !neo4jPassword) {
     console.error("Error: Missing required environment variables.");
@@ -29,9 +29,9 @@ const driver = neo4j.driver(
 export async function executeCypherQuery(
     cypherQuery: string,
 ): Promise<Record<string, unknown>[]> {
-    const neo4jUri = Deno.env.get("NEO4J_URI");
-    const neo4jUser = Deno.env.get("NEO4J_USERNAME");
-    const neo4jPassword = Deno.env.get("NEO4J_PASSWORD");
+    const neo4jUri = process.env.NEO4J_URI;
+    const neo4jUser = process.env.NEO4J_USERNAME;
+    const neo4jPassword = process.env.NEO4J_PASSWORD;
 
     if (!neo4jUri || !neo4jUser || !neo4jPassword) {
         throw new Error("Missing Neo4j environment variables.");
@@ -301,7 +301,7 @@ async function syncChannel(
 
 async function syncMessages(
     channel: TextChannel,
-    driver: neo4j.Driver,
+    driver: Driver,
 ): Promise<number> {
     const batchSize = 100;
     let lastMessageId: string | undefined;
@@ -348,7 +348,18 @@ async function syncMessages(
 
                 const session = driver.session();
 
-                await session.writeTransaction(async (tx) => {
+                interface MessageData {
+                    id: string;
+                    content: string;
+                    authorId: string;
+                    createdAt: string;
+                    channelId: string;
+                    attachments: string;
+                    mentions: string[];
+                    referenceId: string | null;
+                }
+
+                await session.writeTransaction(async (tx: Transaction) => {
                     // Merge messages
                     await tx.run(
                         `
@@ -409,7 +420,9 @@ async function syncMessages(
                     );
 
                     // Create NEXT_MESSAGE relationships
-                    const messageArray = Array.from(messages.values());
+                    const messageArray: Message[] = Array.from(
+                        messages.values(),
+                    );
                     for (let i = 0; i < messageArray.length - 1; i++) {
                         const currentMessage = messageArray[i];
                         const nextMessage = messageArray[i + 1];

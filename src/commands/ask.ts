@@ -1,8 +1,8 @@
 // src/commands/ask.ts
 
-import dotenv from "npm:dotenv";
-import { ChatInputCommandInteraction } from "npm:discord.js";
-import { SlashCommandBuilder } from "npm:@discordjs/builders";
+import dotenv from "dotenv";
+import { ChatInputCommandInteraction } from "discord.js";
+import { SlashCommandBuilder } from "@discordjs/builders";
 import {
     generateCypherQuery,
     generateNaturalLanguageResponse,
