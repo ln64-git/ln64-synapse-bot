@@ -6,11 +6,11 @@ import dotenv from "dotenv";
 import type { RESTPostAPIApplicationCommandsJSONBody } from "discord-api-types/v9";
 import { GatewayIntentBits, Routes } from "discord-api-types/v10";
 import type { Interaction } from "discord.js";
-import { getMessageById } from "./lib/discord/discord";
+import { getFiresideMessages, getMessageById } from "./lib/discord/discord";
 import { extractMediaAttachments } from "./utils/generateAttachment";
 import { readdir } from "fs/promises";
 import { join, relative } from "path";
-import { deriveConversations } from "./utils/deriveConversations";
+import { generateConversations } from "./utils/generateConversations";
 
 dotenv.config();
 
@@ -49,13 +49,7 @@ async function main() {
     console.log(`Logged in as ${client.user?.tag}!`);
     try {
       const guild = await client.guilds.fetch(guildId);
-      const message = await getMessageById(guild, "1307503405648052325");
-      deriveConversations([message]);
-      if (message) {
-        extractMediaAttachments(message);
-      } else {
-        console.error("Message not found");
-      }
+      generateConversations(guild);
     } catch (error) {
       console.error("Error fetching guild or processing messages:", error);
     }
