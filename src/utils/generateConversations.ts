@@ -1,5 +1,4 @@
 // deriveConversations.ts
-// deriveConversations.ts
 
 import type { Guild, Message } from "discord.js";
 import { getFiresideMessages } from "../lib/discord/discord.ts";
@@ -96,7 +95,6 @@ export async function generateConversations(
           const refDisplayName = referencedMessage.member?.displayName ||
             referencedMessage.author.username;
 
-          // Ensure conversationEmbedding is defined
           let conversationEmbedding = messageEmbeddings[referencedMessageId];
           if (!conversationEmbedding) {
             console.warn(
@@ -122,7 +120,6 @@ export async function generateConversations(
           );
         }
       } else {
-        // Referenced message not found, proceed to assign based on mentions, time, and similarity
         console.log(
           `Referenced message by ${displayName} at ${message.createdAt.toISOString()} not found. Proceeding to assign based on mentions, time, and similarity.`,
         );
@@ -130,13 +127,11 @@ export async function generateConversations(
     }
 
     if (!assigned && message.mentions.users.size > 0) {
-      // Get mentions as display names
       const mentionDisplayNames = message.mentions.users.map((user) => {
         const member = message.guild?.members.cache.get(user.id);
         return member?.displayName || user.username;
       });
 
-      // Check if any existing conversation has participants matching the mentions
       for (const conv of conversations) {
         const participantSet = new Set(conv.participants);
         const mentionsSet = new Set(mentionDisplayNames);
@@ -144,7 +139,6 @@ export async function generateConversations(
           [...participantSet].filter((x) => mentionsSet.has(x)),
         );
         if (intersection.size > 0) {
-          // Assign message to this conversation
           conv.messages.push(message);
           if (!conv.participants.includes(displayName)) {
             conv.participants.push(displayName);
@@ -160,7 +154,6 @@ export async function generateConversations(
       }
 
       if (!assigned) {
-        // Create a new conversation
         const newConversation: Conversation = {
           id: conversationIdCounter++,
           messages: [message],
@@ -179,17 +172,13 @@ export async function generateConversations(
     }
 
     if (!assigned) {
-      // Proceed with existing logic: time and similarity
       for (const conv of conversations) {
         const timeDiff = message.createdTimestamp - conv.startTime.getTime();
-
         if (timeDiff < timeThreshold) {
-          // Compare message embedding with conversation's first message embedding
           const similarity = cosineSimilarity(
             embedding,
             conv.conversationEmbedding!,
           );
-
           console.log(
             `Similarity between message at ${message.createdAt.toISOString()} and conversation ID ${conv.id}: ${
               similarity.toFixed(2)
@@ -197,7 +186,6 @@ export async function generateConversations(
           );
 
           if (similarity > similarityThreshold) {
-            // Assign message to this conversation
             conv.messages.push(message);
             if (!conv.participants.includes(displayName)) {
               conv.participants.push(displayName);
@@ -215,14 +203,13 @@ export async function generateConversations(
     }
 
     if (!assigned) {
-      // Create new conversation
       const newConversation: Conversation = {
         id: conversationIdCounter++,
         messages: [message],
         participants: [displayName],
         startTime: message.createdAt,
         lastActive: message.createdAt,
-        conversationEmbedding: embedding.slice(), // Use first message embedding
+        conversationEmbedding: embedding.slice(),
       };
       conversations.push(newConversation);
       messageIdToConversationId[message.id] = newConversation.id;
@@ -232,16 +219,13 @@ export async function generateConversations(
     }
   }
 
-  // Sort messages in each conversation from first to last
   conversations.forEach((conv) => {
     conv.messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
   });
 
-  // Remove embeddings before saving or returning
   const conversationsWithoutEmbeddings = conversations.map((conv) => ({
     ...conv,
     messages: conv.messages.map((message) => {
-      // Extract necessary properties from Message for saving
       const displayName = message.member?.displayName ||
         message.author.username;
       return {
@@ -254,19 +238,16 @@ export async function generateConversations(
     conversationEmbedding: undefined,
   }));
 
-  // Save the conversations to a JSON file
   const json = JSON.stringify(conversationsWithoutEmbeddings, null, 2);
   fs.writeFileSync("./logs/conversations.json", json);
   console.log("Conversations successfully derived and saved.");
   return conversations;
 }
 
-// Updated getEmbeddingBatch function
 async function getEmbeddingBatch(
   texts: string[],
   retryCount = 0,
 ): Promise<(number[] | null)[]> {
-  // Filter out invalid texts
   const validTexts = texts.map((text) => text.trim()).filter((text) =>
     text && !/https?:\/\/\S+/.test(text)
   );
@@ -301,7 +282,6 @@ async function getEmbeddingBatch(
       console.error("Embedding API error:", response.statusText, errorData);
 
       if (response.status === 429 && retryCount < 5) {
-        // Rate limit exceeded, retry with backoff
         const waitTime = Math.pow(2, retryCount) * 1000;
         console.log(`Rate limit hit. Retrying in ${waitTime}ms...`);
         await new Promise((resolve) => setTimeout(resolve, waitTime));
@@ -315,7 +295,6 @@ async function getEmbeddingBatch(
 
     const embeddings = data.data.map((item: any) => item.embedding);
 
-    // Map back embeddings to original texts
     const results: (number[] | null)[] = [];
     let embeddingIndex = 0;
     for (const text of texts) {

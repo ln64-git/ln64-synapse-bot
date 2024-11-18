@@ -9,6 +9,7 @@ import type { Interaction } from "discord.js";
 import { readdir } from "fs/promises";
 import { join, relative } from "path";
 import { generateConversations } from "./utils/generateConversations";
+import { extractMediaAttachments } from "./utils/generateAttachment";
 
 dotenv.config();
 
@@ -46,7 +47,17 @@ async function main() {
   client.once("ready", async () => {
     console.log(`Logged in as ${client.user?.tag}!`);
     try {
+      // const messageId = "1307921354661822514";
+      // const channelId = "1004111008337502270";
       const guild = await client.guilds.fetch(guildId);
+      // const channel = await guild.channels.fetch(channelId);
+      // if (channel?.isTextBased()) {
+      //   const message = await channel.messages.fetch(messageId);
+      //   extractMediaAttachments(message);
+      //   console.log(`Fetched message: ${message.content}`);
+      // } else {
+      //   console.error("Channel is not text-based or does not exist.");
+      // }
       generateConversations(guild);
     } catch (error) {
       console.error("Error fetching guild or processing messages:", error);

@@ -30,19 +30,6 @@ async function analyzeImage(url: string): Promise<string> {
   return labels.map((label) => label.description).join(", ");
 }
 
-// async function analyzeImage(url: string): Promise<string> {
-//   const client = new vision.ImageAnnotatorClient({});
-
-//   // Assuming you download the image file locally first or work with URLs supported by Vision API
-//   const [result] = await client.annotateImage({
-//     image: { source: { imageUri: url } },
-//     features: [{ type: "LABEL_DETECTION" }],
-//   });
-
-//   const labels = result.labelAnnotations || [];
-//   return labels.map((label) => label.description).join(", ");
-// }
-
 async function fetchAttachmentDetails(attachment: Attachment) {
   const url = attachment.url;
   if (isMediaUrl(url)) {
