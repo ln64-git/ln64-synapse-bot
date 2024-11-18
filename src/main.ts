@@ -6,8 +6,6 @@ import dotenv from "dotenv";
 import type { RESTPostAPIApplicationCommandsJSONBody } from "discord-api-types/v9";
 import { GatewayIntentBits, Routes } from "discord-api-types/v10";
 import type { Interaction } from "discord.js";
-import { getFiresideMessages, getMessageById } from "./lib/discord/discord";
-import { extractMediaAttachments } from "./utils/generateAttachment";
 import { readdir } from "fs/promises";
 import { join, relative } from "path";
 import { generateConversations } from "./utils/generateConversations";

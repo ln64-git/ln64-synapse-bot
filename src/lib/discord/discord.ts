@@ -8,11 +8,11 @@ import {
   type Snowflake,
   TextChannel,
 } from "discord.js";
-import type { FiresideMessage } from "../../types";
+import * as fs from "fs/promises"; // Use promises version of fs
 
 export async function getFiresideMessages(
   guild: Guild,
-): Promise<FiresideMessage[]> {
+): Promise<Message<true>[]> {
   const channelId = process.env.CHANNEL_ID;
   if (!channelId) {
     throw new Error("CHANNEL_ID is not set in environment variables.");
@@ -24,58 +24,36 @@ export async function getFiresideMessages(
   }
 
   // Fetch messages and ensure correct type
-  const fetchedMessages: Collection<
-    Snowflake,
-    Message<true>
-  > = await channel.messages.fetch({ limit: 100 });
+  const fetchedMessages: Collection<Snowflake, Message<true>> = await channel
+    .messages.fetch({ limit: 100 });
 
   // Convert Collection to an array of Message<true>
   const messagesArray: Message<true>[] = Array.from(fetchedMessages.values());
 
-  // Map over the array
-  const firesideMessages: FiresideMessage[] = messagesArray.map((message) => ({
+  // Optionally, sort messages
+  const sortedMessages = messagesArray.sort(
+    (a, b) => a.createdTimestamp - b.createdTimestamp,
+  );
+
+  // Optionally, write messages to JSON for logging purposes
+  const messagesForLogging = sortedMessages.map((message) => ({
+    id: message.id,
+    content: message.content,
     displayName: message.member?.displayName || message.author.username,
-    messageContent: message.content,
+    timestamp: message.createdAt.toISOString(),
     attachments: message.attachments.map((attachment: DiscordAttachment) => ({
       url: attachment.url,
-      // Initialize summary and ocrText as empty strings; they'll be populated later
-      summary: "",
-      ocrText: "",
+      name: attachment.name,
     })),
-    timestamp: message.createdAt.toISOString(),
-    embedding: [],
+    mentions: message.mentions.users.map((user) => ({
+      id: user.id,
+      username: user.username,
+    })),
+    referencedMessageId: message.reference?.messageId || null,
   }));
 
-  // Sort messages and save to JSON
-  const sortedMessages = firesideMessages.sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-  );
-  const encoder = new TextEncoder();
-  const json = JSON.stringify(sortedMessages, null, 2);
-  const fs = require("fs").promises;
-  await fs.writeFile("./logs/messages.json", encoder.encode(json));
+  const json = JSON.stringify(messagesForLogging, null, 2);
+  await fs.writeFile("./logs/messages.json", json);
+
   return sortedMessages;
-}
-
-export async function getMessageById(
-  guild: Guild,
-  messageId: Snowflake,
-): Promise<Message<true> | null> {
-  const channelId = process.env.CHANNEL_ID;
-  if (!channelId) {
-    throw new Error("CHANNEL_ID is not set in environment variables.");
-  }
-
-  const channel = guild.channels.resolve(channelId) as TextChannel;
-  if (!channel) {
-    throw new Error(`Channel with ID ${channelId} not found.`);
-  }
-
-  try {
-    const message = await channel.messages.fetch(messageId);
-    return message as Message<true>;
-  } catch (error) {
-    console.error(`Failed to fetch message with ID ${messageId}:`, error);
-    return null; // Return null if the message is not found or another error occurs
-  }
 }

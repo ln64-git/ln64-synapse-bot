@@ -1,6 +1,7 @@
 // deriveConversations.ts
+// deriveConversations.ts
 
-import type { Guild } from "discord.js";
+import type { Guild, Message } from "discord.js";
 import { getFiresideMessages } from "../lib/discord/discord.ts";
 import type { Conversation } from "../types.ts";
 import * as fs from "fs";
@@ -14,73 +15,201 @@ export async function generateConversations(
   const timeThreshold = 5 * 60 * 1000; // 5 minutes
   const similarityThreshold = 0.75; // Adjusted threshold
 
-  const messages = await getFiresideMessages(guild);
+  const messages = await getFiresideMessages(guild); // messages is Message<true>[]
+
   const sortedMessages = messages.sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+    (a, b) => a.createdTimestamp - b.createdTimestamp,
   );
+
+  // Create mappings for quick lookups
+  const messageIdToMessage: { [key: string]: Message<true> } = {};
+  const messageIdToConversationId: { [key: string]: number } = {};
+
+  sortedMessages.forEach((message) => {
+    messageIdToMessage[message.id] = message;
+  });
 
   const limit = pLimit(5); // Limit concurrent API calls
 
   // Generate embeddings for each message in batches
   const batchSize = 20; // Adjust batch size as needed
-  const batchedMessages = [];
+  const batchedMessages: Message<true>[][] = [];
 
   for (let i = 0; i < sortedMessages.length; i += batchSize) {
     batchedMessages.push(sortedMessages.slice(i, i + batchSize));
   }
 
+  // Map to store embeddings
+  const messageEmbeddings: { [key: string]: number[] | null } = {};
+
   for (const batch of batchedMessages) {
     console.log(
-      `Processing batch starting at message timestamp ${batch[0].timestamp}`,
+      `Processing batch starting at message timestamp ${
+        batch[0].createdAt.toISOString()
+      }`,
     );
     await limit(async () => {
-      const texts = batch.map((message) =>
-        message.messageContent?.trim() || ""
-      );
+      const texts = batch.map((message) => message.content?.trim() || "");
       const embeddings = await getEmbeddingBatch(texts);
 
       embeddings.forEach((embedding, index) => {
-        batch[index].embedding = embedding;
+        const messageId = batch[index].id;
+        messageEmbeddings[messageId] = embedding;
       });
     });
   }
 
-  // Assign messages to conversations based on time and similarity
+  // Assign messages to conversations based on replies, mentions, time, and similarity
   for (const message of sortedMessages) {
+    const embedding = messageEmbeddings[message.id];
     // Skip messages without embeddings
-    if (!message.embedding) {
+    if (!embedding) {
       continue;
     }
 
     let assigned = false;
 
-    for (const conv of conversations) {
-      const timeDiff = new Date(message.timestamp).getTime() -
-        new Date(conv.startTime).getTime();
+    // Get displayName
+    const displayName = message.member?.displayName || message.author.username;
 
-      if (timeDiff < timeThreshold) {
-        // Compare message embedding with conversation's first message embedding
-        const similarity = cosineSimilarity(
-          message.embedding,
-          conv.conversationEmbedding!,
-        );
+    // Check if message is a reply to another message
+    const referencedMessageId = message.reference?.messageId || null;
+    if (referencedMessageId) {
+      const referencedMessage = messageIdToMessage[referencedMessageId];
+      if (referencedMessage) {
+        const conversationId = messageIdToConversationId[referencedMessageId];
+        if (conversationId !== undefined) {
+          // Add the current message to the same conversation, regardless of timeframe
+          const conv = conversations.find((c) => c.id === conversationId)!;
+          conv.messages.push(message);
+          if (!conv.participants.includes(displayName)) {
+            conv.participants.push(displayName);
+          }
+          conv.lastActive = message.createdAt;
+          messageIdToConversationId[message.id] = conversationId;
+          assigned = true;
+          console.log(
+            `Assigned message by ${displayName} at ${message.createdAt.toISOString()} to conversation ID ${conv.id} (reply to message in same conversation)`,
+          );
+        } else {
+          // Referenced message is not in a conversation, create new conversation with both messages
+          const refDisplayName = referencedMessage.member?.displayName ||
+            referencedMessage.author.username;
 
+          // Ensure conversationEmbedding is defined
+          let conversationEmbedding = messageEmbeddings[referencedMessageId];
+          if (!conversationEmbedding) {
+            console.warn(
+              `Embedding for referenced message ID ${referencedMessageId} is undefined. Using current message's embedding.`,
+            );
+            conversationEmbedding = embedding;
+          }
+
+          const newConversation: Conversation = {
+            id: conversationIdCounter++,
+            messages: [referencedMessage, message],
+            participants: [refDisplayName, displayName],
+            startTime: referencedMessage.createdAt,
+            lastActive: message.createdAt,
+            conversationEmbedding: conversationEmbedding.slice(),
+          };
+          conversations.push(newConversation);
+          messageIdToConversationId[referencedMessageId] = newConversation.id;
+          messageIdToConversationId[message.id] = newConversation.id;
+          assigned = true;
+          console.log(
+            `Created new conversation ID ${newConversation.id} for message by ${displayName} at ${message.createdAt.toISOString()} (reply to message not in any conversation)`,
+          );
+        }
+      } else {
+        // Referenced message not found, proceed to assign based on mentions, time, and similarity
         console.log(
-          `Similarity between message at ${message.timestamp} and conversation ID ${conv.id}: ${
-            similarity.toFixed(2)
-          }`,
+          `Referenced message by ${displayName} at ${message.createdAt.toISOString()} not found. Proceeding to assign based on mentions, time, and similarity.`,
         );
+      }
+    }
 
-        if (similarity > similarityThreshold) {
+    if (!assigned && message.mentions.users.size > 0) {
+      // Get mentions as display names
+      const mentionDisplayNames = message.mentions.users.map((user) => {
+        const member = message.guild?.members.cache.get(user.id);
+        return member?.displayName || user.username;
+      });
+
+      // Check if any existing conversation has participants matching the mentions
+      for (const conv of conversations) {
+        const participantSet = new Set(conv.participants);
+        const mentionsSet = new Set(mentionDisplayNames);
+        const intersection = new Set(
+          [...participantSet].filter((x) => mentionsSet.has(x)),
+        );
+        if (intersection.size > 0) {
           // Assign message to this conversation
           conv.messages.push(message);
-          if (!conv.participants.includes(message.displayName)) {
-            conv.participants.push(message.displayName);
+          if (!conv.participants.includes(displayName)) {
+            conv.participants.push(displayName);
           }
-          // Do not update conversationEmbedding
-          conv.lastActive = new Date(message.timestamp);
+          conv.lastActive = message.createdAt;
+          messageIdToConversationId[message.id] = conv.id;
           assigned = true;
+          console.log(
+            `Assigned message by ${displayName} at ${message.createdAt.toISOString()} to conversation ID ${conv.id} (mentions participant)`,
+          );
           break;
+        }
+      }
+
+      if (!assigned) {
+        // Create a new conversation
+        const newConversation: Conversation = {
+          id: conversationIdCounter++,
+          messages: [message],
+          participants: [displayName, ...mentionDisplayNames],
+          startTime: message.createdAt,
+          lastActive: message.createdAt,
+          conversationEmbedding: embedding.slice(),
+        };
+        conversations.push(newConversation);
+        messageIdToConversationId[message.id] = newConversation.id;
+        assigned = true;
+        console.log(
+          `Created new conversation ID ${newConversation.id} for message by ${displayName} at ${message.createdAt.toISOString()} (mentions)`,
+        );
+      }
+    }
+
+    if (!assigned) {
+      // Proceed with existing logic: time and similarity
+      for (const conv of conversations) {
+        const timeDiff = message.createdTimestamp - conv.startTime.getTime();
+
+        if (timeDiff < timeThreshold) {
+          // Compare message embedding with conversation's first message embedding
+          const similarity = cosineSimilarity(
+            embedding,
+            conv.conversationEmbedding!,
+          );
+
+          console.log(
+            `Similarity between message at ${message.createdAt.toISOString()} and conversation ID ${conv.id}: ${
+              similarity.toFixed(2)
+            }`,
+          );
+
+          if (similarity > similarityThreshold) {
+            // Assign message to this conversation
+            conv.messages.push(message);
+            if (!conv.participants.includes(displayName)) {
+              conv.participants.push(displayName);
+            }
+            conv.lastActive = message.createdAt;
+            messageIdToConversationId[message.id] = conv.id;
+            assigned = true;
+            console.log(
+              `Assigned message by ${displayName} at ${message.createdAt.toISOString()} to conversation ID ${conv.id} (similarity)`,
+            );
+            break;
+          }
         }
       }
     }
@@ -90,29 +219,38 @@ export async function generateConversations(
       const newConversation: Conversation = {
         id: conversationIdCounter++,
         messages: [message],
-        participants: [message.displayName],
-        startTime: new Date(message.timestamp),
-        lastActive: new Date(message.timestamp),
-        conversationEmbedding: message.embedding.slice(), // Use first message embedding
+        participants: [displayName],
+        startTime: message.createdAt,
+        lastActive: message.createdAt,
+        conversationEmbedding: embedding.slice(), // Use first message embedding
       };
       conversations.push(newConversation);
+      messageIdToConversationId[message.id] = newConversation.id;
       console.log(
-        `Created new conversation ID ${newConversation.id} for message by ${message.displayName} at ${message.timestamp}`,
+        `Created new conversation ID ${newConversation.id} for message by ${displayName} at ${message.createdAt.toISOString()}`,
       );
     }
   }
 
   // Sort messages in each conversation from first to last
   conversations.forEach((conv) => {
-    conv.messages.sort(
-      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-    );
+    conv.messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
   });
 
   // Remove embeddings before saving or returning
   const conversationsWithoutEmbeddings = conversations.map((conv) => ({
     ...conv,
-    messages: conv.messages.map(({ embedding, ...rest }) => rest),
+    messages: conv.messages.map((message) => {
+      // Extract necessary properties from Message for saving
+      const displayName = message.member?.displayName ||
+        message.author.username;
+      return {
+        id: message.id,
+        content: message.content,
+        author: displayName,
+        timestamp: message.createdAt.toISOString(),
+      };
+    }),
     conversationEmbedding: undefined,
   }));
 

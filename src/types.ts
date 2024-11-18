@@ -7,12 +7,11 @@ export interface DiscordMessageWithEmbedding extends Message {
 
 export interface Conversation {
   id: number;
-  messages: FiresideMessage[];
+  messages: Message<true>[];
   participants: string[];
   startTime: Date;
   lastActive: Date;
   conversationEmbedding?: number[];
-  embeddingSum?: number[];
 }
 
 export type FiresideMessage = {
@@ -21,6 +20,14 @@ export type FiresideMessage = {
   attachments?: FiresideAttachment[];
   timestamp: string;
   embedding: number[] | null;
+  id: string; // Add id property
+  createdAt: Date; // Add createdAt property
+  content: string; // Add content property
+  member?: { displayName: string }; // Add member property
+  author: { username: string }; // Add author property
+  reference?: { messageId: string }; // Add reference property
+  mentions: { users: { id: string }[] }; // Add mentions property
+  guild?: { members: { cache: Map<string, { displayName: string }> } }; // Add guild property
 };
 
 export type FiresideAttachment = {
