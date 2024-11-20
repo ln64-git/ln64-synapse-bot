@@ -8,8 +8,8 @@ import { GatewayIntentBits, Routes } from "discord-api-types/v10";
 import type { Interaction } from "discord.js";
 import { readdir } from "fs/promises";
 import { join, relative } from "path";
-import { generateConversations } from "./utils/generateConversations";
-import { extractMediaAttachments } from "./utils/generateAttachment";
+import { generateConversations } from "./function/generateConversations";
+import { extractMediaAttachments } from "./function/generateAttachment";
 
 dotenv.config();
 
@@ -47,9 +47,9 @@ async function main() {
   client.once("ready", async () => {
     console.log(`Logged in as ${client.user?.tag}!`);
     try {
+      const guild = await client.guilds.fetch(guildId);
       // const messageId = "1307921354661822514";
       // const channelId = "1004111008337502270";
-      const guild = await client.guilds.fetch(guildId);
       // const channel = await guild.channels.fetch(channelId);
       // if (channel?.isTextBased()) {
       //   const message = await channel.messages.fetch(messageId);
