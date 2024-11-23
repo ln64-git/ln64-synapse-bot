@@ -8,10 +8,11 @@ import { GatewayIntentBits, Routes } from "discord-api-types/v10";
 import type { Interaction } from "discord.js";
 import { readdir } from "fs/promises";
 import { join, relative } from "path";
-import { generateConversations } from "./function/generateConversations";
-import { extractMediaAttachments } from "./function/generateAttachment";
-import { ask } from "./function/ask";
-import { syncChannelToDatabase, syncDatabase } from "./lib/neo4j/neo4j";
+import {
+  syncAllChannels,
+  syncChannelToDatabase,
+  syncGuildData,
+} from "./lib/neo4j/neo4j";
 
 dotenv.config();
 
@@ -49,24 +50,19 @@ async function main() {
   client.once("ready", async () => {
     console.log(`Logged in as ${client.user?.tag}!`);
     try {
-      const guild = await client.guilds.fetch(guildId);
       // const messageId = "1307921354661822514";
       const channelId = "1004111008337502270";
-      // const channel = await guild.channels.fetch(channelId);
-      // if (channel?.isTextBased()) {
-      //   const message = await channel.messages.fetch(messageId);
-      //   extractMediaAttachments(message);
-      //   console.log(`Fetched message: ${message.content}`);
-      // } else {
-      //   console.error("Channel is not text-based or does not exist.");
-      // }
-      // syncDatabase(guild);
-      // TODO Sync one day worth of Fireside messages
-      // This means I will need to update the neo4j schema
-      // neo4j schema should sync guild data with a focus on users and their relationships based off of conversations
-      // ask("What is the average number of messages sent per user?");
-      // generateConversations(guild);
-      syncChannelToDatabase(guild, channelId);
+      const guild = await client.guilds.fetch(guildId);
+      console.log("Fetched guild:", guild.name);
+      await syncGuildData(guild);
+      console.log("Synced guild data.");
+      await syncChannelToDatabase(guild, channelId);
+      // await syncAllChannels(guild);
+      console.log("Synced all channels.");
+
+      // syncAllChannels(guild);
+      // console.log("Synced all channels.");
+      // syncChannelToDatabase(guild, channelId);
     } catch (error) {
       console.error("Error fetching guild or processing messages:", error);
     }

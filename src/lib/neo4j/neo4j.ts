@@ -1,11 +1,12 @@
 import {
     CategoryChannel,
+    Collection,
     Guild,
     GuildMember,
     Message,
     TextChannel,
 } from "discord.js";
-import { ChannelType } from "discord-api-types/v10";
+import { ChannelType, type Snowflake } from "discord-api-types/v10";
 import neo4j, { Driver, Transaction } from "neo4j-driver";
 import dotenv from "dotenv";
 import process from "node:process";
@@ -13,6 +14,7 @@ import {
     ConversationManager,
     processMessageBatch,
 } from "../../function/generateConversations";
+import type { Conversation } from "../../types";
 
 dotenv.config();
 
@@ -27,6 +29,7 @@ if (!neo4jUri || !neo4jUser || !neo4jPassword) {
 const driver = neo4j.driver(
     neo4jUri,
     neo4j.auth.basic(neo4jUser, neo4jPassword),
+    // { logging: neo4j.logging.console("debug") },
 );
 
 export async function executeCypherQuery(
@@ -42,7 +45,7 @@ export async function executeCypherQuery(
     }
 }
 
-export async function syncDatabase(guild: Guild) {
+export async function syncGuildData(guild: Guild) {
     const session = driver.session();
     const tx = session.beginTransaction();
     console.log(`Syncing data for guild '${guild.name}'...`);
@@ -60,12 +63,46 @@ export async function syncDatabase(guild: Guild) {
     } catch (error) {
         console.error("Error syncing data to Neo4j:", error);
         await tx.rollback();
-        return;
     } finally {
         await session.close();
     }
+}
 
-    // Sync channels and messages separately in independent transactions
+export async function syncChannelData(
+    guild: Guild,
+    channel: TextChannel | CategoryChannel,
+) {
+    const channelSession = driver.session();
+    const channelTx = channelSession.beginTransaction();
+
+    try {
+        console.log(`Syncing channel '${channel.name}'...`);
+
+        await syncChannel(guild.id, channel, channelTx);
+        await channelTx.commit();
+        console.log(`Synced channel '${channel.name}' data.`);
+
+        if (channel.type === ChannelType.GuildText) {
+            await syncMessages(channel as TextChannel);
+        }
+    } catch (error) {
+        if ((error as { code?: number }).code === 50001) { // Missing Access
+            console.warn(
+                `Skipped channel '${channel.name}' due to Missing Access.`,
+            );
+        } else {
+            console.error(
+                `Error syncing channel '${channel.name}':`,
+                error,
+            );
+        }
+        await channelTx.rollback();
+    } finally {
+        await channelSession.close();
+    }
+}
+
+export async function syncAllChannels(guild: Guild) {
     const channels = guild.channels.cache.filter(
         (channel: { type: ChannelType }) =>
             channel.type === ChannelType.GuildText ||
@@ -73,38 +110,7 @@ export async function syncDatabase(guild: Guild) {
     );
 
     for (const channel of channels.values()) {
-        const channelSession = driver.session();
-        const channelTx = channelSession.beginTransaction();
-
-        try {
-            console.log(`Syncing channel '${channel.name}'...`);
-
-            await syncChannel(
-                guild.id,
-                channel as TextChannel | CategoryChannel,
-                channelTx,
-            );
-            await channelTx.commit();
-            console.log(`Synced channel '${channel.name}' data.`);
-
-            if (channel.type === ChannelType.GuildText) {
-                await syncMessages(channel as TextChannel, driver);
-            }
-        } catch (error) {
-            if ((error as { code?: number }).code === 50001) { // Missing Access
-                console.warn(
-                    `Skipped channel '${channel.name}' due to Missing Access.`,
-                );
-            } else {
-                console.error(
-                    `Error syncing channel '${channel.name}':`,
-                    error,
-                );
-            }
-            await channelTx.rollback();
-        } finally {
-            await channelSession.close();
-        }
+        await syncChannelData(guild, channel as TextChannel | CategoryChannel);
     }
 }
 
@@ -128,7 +134,7 @@ export async function syncChannelToDatabase(guild: Guild, channelId: string) {
         console.log(`Synced channel '${channel.name}' data.`);
 
         if (channel.type === ChannelType.GuildText) {
-            await syncMessages(channel as TextChannel, driver);
+            await syncMessages(channel as TextChannel);
         }
     } catch (error) {
         if ((error as { code?: number }).code === 50001) { // Missing Access
@@ -159,46 +165,44 @@ async function syncGuild(
         memberCount: guild.memberCount,
         updatedAt: new Date().toISOString(),
     };
+    console.log("newGuildData: ", newGuildData);
     const result = await tx.run(
         `
         MATCH (g:Guild {id: $id})
-        RETURN g
+        RETURN g {.*} AS g
         `,
         { id: guildId },
     );
     const existingGuild = result.records[0]?.get("g") || null;
 
-    if (existingGuild) {
-        const existingProperties = existingGuild.properties;
-        const hasChanges = Object.keys(newGuildData).some((key) => {
-            const newValue = newGuildData[key as keyof typeof newGuildData];
-            const existingValue =
-                existingProperties[key as keyof typeof existingProperties];
-            return newValue !== existingValue;
-        });
-        if (!hasChanges) {
-            await tx.run(
-                `
-                MERGE (g:Guild {id: $id})
-                ON CREATE SET g.name = $name,
-                              g.createdAt = $createdAt,
-                              g.ownerId = $ownerId,
-                              g.iconURL = $iconURL,
-                              g.description = $description,
-                              g.memberCount = $memberCount
-                ON MATCH SET g.name = COALESCE($name, g.name),
-                             g.updatedAt = $updatedAt
-                `,
-                newGuildData,
-            );
-            console.log(`Guild ${guild.name} synchronized successfully.`);
-        } else {
-            console.log(
-                `No changes detected for guild ${guild.name}. Skipping update.`,
-            );
-            return; // Exit if no changes detected
-        }
+    if (!existingGuild) {
+        console.log(
+            `Guild ${guild.name} does not exist in the database. Creating...`,
+        );
+    } else {
+        console.log(`Guild ${guild.name} exists. Updating...`);
     }
+
+    // Always run the MERGE statement
+    await tx.run(
+        `
+        MERGE (g:Guild {id: $id})
+        ON CREATE SET g.name = $name,
+                      g.createdAt = $createdAt,
+                      g.ownerId = $ownerId,
+                      g.iconURL = $iconURL,
+                      g.description = $description,
+                      g.memberCount = $memberCount,
+                      g.updatedAt = $updatedAt
+        ON MATCH SET g.name = $name,
+                     g.updatedAt = $updatedAt,
+                     g.iconURL = $iconURL,
+                     g.description = $description,
+                     g.memberCount = $memberCount
+        `,
+        newGuildData,
+    );
+    console.log(`Guild ${guild.name} synchronized successfully.`);
 }
 
 async function syncMembers(
@@ -323,7 +327,6 @@ async function syncChannel(
 
 export async function syncMessages(
     channel: TextChannel,
-    driver: Driver,
 ): Promise<number> {
     const conversationManager = new ConversationManager();
     console.log(`Entered syncMessages for channel: ${channel.name}`);
@@ -343,12 +346,14 @@ export async function syncMessages(
     while (true) {
         const options = { limit: batchSize, before: lastMessageId };
         let retries = 0;
+        let messagesCollection:
+            | Collection<Snowflake, Message<true>>
+            | undefined;
 
         while (retries < maxRetries) {
             try {
-                const messagesCollection = await channel.messages.fetch(
-                    options,
-                );
+                // Fetch a batch of messages
+                messagesCollection = await channel.messages.fetch(options);
 
                 if (messagesCollection.size === 0) {
                     console.log(
@@ -358,64 +363,20 @@ export async function syncMessages(
                 }
 
                 const messagesArray = [...messagesCollection.values()];
-                await processMessageBatch(messagesArray, conversationManager);
+                for (const message of messagesArray.reverse()) {
+                    // Add the individual message to the conversation manager
+                    await conversationManager.addMessageToConversations(
+                        message,
+                        null, // Replace `null` with embedding logic if needed
+                    );
+                }
 
-                const session = driver.session();
-
-                await session.writeTransaction(async (tx: Transaction) => {
-                    const conversations = conversationManager
-                        .getConversations();
-
-                    for (const conversation of conversations) {
-                        const conversationId = conversation.id.toString();
-
-                        await tx.run(
-                            `
-                MERGE (conv:Conversation {id: $id})
-                ON CREATE SET conv.startTime = $startTime,
-                              conv.lastActive = $lastActive,
-                              conv.participants = $participants
-                `,
-                            {
-                                id: conversationId,
-                                startTime: conversation.startTime.toISOString(),
-                                lastActive: conversation.lastActive
-                                    .toISOString(),
-                                participants: conversation.participants,
-                            },
-                        );
-
-                        for (const message of conversation.messages) {
-                            await tx.run(
-                                `
-                  MATCH (m:Message {id: $messageId})
-                  MATCH (conv:Conversation {id: $conversationId})
-                  MERGE (m)-[:PART_OF]->(conv)
-                  `,
-                                {
-                                    messageId: message.id,
-                                    conversationId,
-                                },
-                            );
-                        }
-
-                        for (const participant of conversation.participants) {
-                            await tx.run(
-                                `
-                  MATCH (u:User {username: $participant})
-                  MATCH (conv:Conversation {id: $conversationId})
-                  MERGE (u)-[:PARTICIPATED_IN]->(conv)
-                  `,
-                                {
-                                    participant,
-                                    conversationId,
-                                },
-                            );
-                        }
-                    }
-                });
-
-                await session.close();
+                // Save all conversations up to this point
+                const updatedConversations = conversationManager
+                    .getConversations();
+                for (const conversation of updatedConversations) {
+                    await saveConversationToDatabase(conversation); // Save each conversation
+                }
 
                 totalMessagesInChannel += messagesCollection.size;
                 lastMessageId = messagesCollection.last()?.id;
@@ -424,27 +385,79 @@ export async function syncMessages(
                 );
                 break; // Break retry loop on success
             } catch (error) {
-                if ((error as { code?: number }).code === 50001) { // Missing Access
-                    console.warn(
-                        `Missing Access for channel '${channel.name}'. Skipping message sync.`,
-                    );
-                    return totalMessagesInChannel; // Stop further syncing
-                }
-
-                console.error(`Error fetching messages: ${error}`);
-                retries += 1;
-
-                if (retries >= maxRetries) {
-                    console.error(
-                        `Max retries reached for fetching messages in channel '${channel.name}'`,
-                    );
-                    return totalMessagesInChannel; // Skip remaining messages
-                }
-
-                console.log(
-                    `Retrying fetch messages... (${retries}/${maxRetries})`,
+                retries++;
+                console.error(
+                    `Error fetching messages in channel '${channel.name}', retrying (${retries}/${maxRetries}):`,
+                    error,
                 );
             }
         }
+
+        if (
+            retries >= maxRetries ||
+            !lastMessageId ||
+            (messagesCollection && messagesCollection.size === 0)
+        ) {
+            break; // Exit loop if max retries reached or no more messages
+        }
+    }
+
+    return totalMessagesInChannel;
+}
+
+async function saveConversationToDatabase(conversation: Conversation) {
+    const session = driver.session();
+    try {
+        // Structure your conversation data
+        const conversationData = {
+            id: conversation.id,
+            participants: conversation.participants,
+            startTime: conversation.startTime.toISOString(),
+            lastActive: conversation.lastActive.toISOString(),
+            messages: conversation.messages.map((msg, index, array) => ({
+                id: msg.id,
+                content: msg.content,
+                createdAt: msg.createdAt.toISOString(),
+                authorId: msg.author.id,
+                displayName: msg.member?.displayName || msg.author.username,
+                nextMessageId: array[index + 1]?.id || null, // Add next message ID
+            })),
+        };
+
+        // Save conversation and messages with `NEXT_MESSAGE` relationship
+        await session.run(
+            `
+            MERGE (c:Conversation {id: $id})
+            ON CREATE SET c.participants = $participants,
+                          c.startTime = $startTime,
+                          c.lastActive = $lastActive
+            ON MATCH SET c.lastActive = $lastActive
+
+            WITH c
+            UNWIND $messages AS message
+            MERGE (m:Message {id: message.id})
+            ON CREATE SET m.content = message.content,
+                          m.createdAt = message.createdAt,
+                          m.authorId = message.authorId,
+                          m.displayName = message.displayName
+            MERGE (c)-[:HAS_MESSAGE]->(m)
+            
+            // Create the NEXT_MESSAGE relationship
+            FOREACH (nextMessage IN CASE WHEN message.nextMessageId IS NOT NULL THEN [message.nextMessageId] ELSE [] END |
+                MERGE (next:Message {id: nextMessage})
+                MERGE (m)-[:NEXT_MESSAGE]->(next)
+            )
+            `,
+            conversationData,
+        );
+
+        console.log(`Saved conversation ${conversation.id} with message order to the database.`);
+    } catch (error) {
+        console.error(
+            `Error saving conversation ${conversation.id} to the database:`,
+            error,
+        );
+    } finally {
+        await session.close();
     }
 }
