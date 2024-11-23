@@ -11,7 +11,7 @@ import { join, relative } from "path";
 import { generateConversations } from "./function/generateConversations";
 import { extractMediaAttachments } from "./function/generateAttachment";
 import { ask } from "./function/ask";
-import { syncDatabase } from "./lib/neo4j/neo4j";
+import { syncChannelToDatabase, syncDatabase } from "./lib/neo4j/neo4j";
 
 dotenv.config();
 
@@ -51,7 +51,7 @@ async function main() {
     try {
       const guild = await client.guilds.fetch(guildId);
       // const messageId = "1307921354661822514";
-      // const channelId = "1004111008337502270";
+      const channelId = "1004111008337502270";
       // const channel = await guild.channels.fetch(channelId);
       // if (channel?.isTextBased()) {
       //   const message = await channel.messages.fetch(messageId);
@@ -66,7 +66,7 @@ async function main() {
       // neo4j schema should sync guild data with a focus on users and their relationships based off of conversations
       // ask("What is the average number of messages sent per user?");
       // generateConversations(guild);
-      syncDatabase(guild);
+      syncChannelToDatabase(guild, channelId);
     } catch (error) {
       console.error("Error fetching guild or processing messages:", error);
     }

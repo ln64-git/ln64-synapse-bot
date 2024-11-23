@@ -9,7 +9,10 @@ import { ChannelType } from "discord-api-types/v10";
 import neo4j, { Driver, Transaction } from "neo4j-driver";
 import dotenv from "dotenv";
 import process from "node:process";
-import { generateConversations } from "../../function/generateConversations";
+import {
+    ConversationManager,
+    processMessageBatch,
+} from "../../function/generateConversations";
 
 dotenv.config();
 
@@ -102,6 +105,42 @@ export async function syncDatabase(guild: Guild) {
         } finally {
             await channelSession.close();
         }
+    }
+}
+
+export async function syncChannelToDatabase(guild: Guild, channelId: string) {
+    const channel = guild.channels.cache.get(channelId) as
+        | TextChannel
+        | CategoryChannel;
+    if (!channel) {
+        console.error(`Channel with ID '${channelId}' not found.`);
+        return;
+    }
+
+    const channelSession = driver.session();
+    const channelTx = channelSession.beginTransaction();
+
+    try {
+        console.log(`Syncing channel '${channel.name}'...`);
+
+        await syncChannel(guild.id, channel, channelTx);
+        await channelTx.commit();
+        console.log(`Synced channel '${channel.name}' data.`);
+
+        if (channel.type === ChannelType.GuildText) {
+            await syncMessages(channel as TextChannel, driver);
+        }
+    } catch (error) {
+        if ((error as { code?: number }).code === 50001) { // Missing Access
+            console.warn(
+                `Skipped channel '${channel.name}' due to Missing Access.`,
+            );
+        } else {
+            console.error(`Error syncing channel '${channel.name}':`, error);
+        }
+        await channelTx.rollback();
+    } finally {
+        await channelSession.close();
     }
 }
 
@@ -282,10 +321,11 @@ async function syncChannel(
     }
 }
 
-async function syncMessages(
+export async function syncMessages(
     channel: TextChannel,
     driver: Driver,
 ): Promise<number> {
+    const conversationManager = new ConversationManager();
     console.log(`Entered syncMessages for channel: ${channel.name}`);
 
     if (!channel.messages) {
@@ -309,81 +349,33 @@ async function syncMessages(
                 const messagesCollection = await channel.messages.fetch(
                     options,
                 );
-                // console.log("Fetched messagesCollection:", messagesCollection);
-                // console.log(
-                //     "messagesCollection.size:",
-                //     messagesCollection.size,
-                // );
 
                 if (messagesCollection.size === 0) {
                     console.log(
                         `Total messages collected for channel '${channel.name}': ${totalMessagesInChannel}`,
                     );
-                    return totalMessagesInChannel;
+                    break;
                 }
 
                 const messagesArray = [...messagesCollection.values()];
-                // console.log(
-                //     "messagesArray is array:",
-                //     Array.isArray(messagesArray),
-                // );
-                // console.log("messagesArray length:", messagesArray.length);
-                // console.log("First message in array:", messagesArray[0]);
-
-                // Generate conversations
-                const conversations = await generateConversations(
-                    messagesArray,
-                );
-                if (messagesCollection.size === 0) {
-                    console.log(
-                        `Total messages collected for channel '${channel.name}': ${totalMessagesInChannel}`,
-                    );
-                    return totalMessagesInChannel;
-                }
+                await processMessageBatch(messagesArray, conversationManager);
 
                 const session = driver.session();
 
                 await session.writeTransaction(async (tx: Transaction) => {
-                    // Persist messages to Neo4j
-                    const messageData = messagesArray.map((message) => ({
-                        id: message.id,
-                        content: message.content,
-                        authorId: message.author.id,
-                        createdAt: message.createdAt.toISOString(),
-                        channelId: message.channel.id,
-                        attachments: JSON.stringify(
-                            message.attachments.map((attachment) => ({
-                                id: attachment.id,
-                                url: attachment.url,
-                            })),
-                        ),
-                        mentions: message.mentions.users.map((user) => user.id),
-                        referenceId: message.reference?.messageId || null,
-                    }));
+                    const conversations = conversationManager
+                        .getConversations();
 
-                    await tx.run(
-                        `
-                        UNWIND $messages AS message
-                        MERGE (m:Message {id: message.id})
-                        ON CREATE SET m.content = message.content,
-                                      m.createdAt = message.createdAt,
-                                      m.attachments = message.attachments
-                        `,
-                        { messages: messageData },
-                    );
-
-                    // Persist conversations
                     for (const conversation of conversations) {
                         const conversationId = conversation.id.toString();
 
-                        // Create Conversation node
                         await tx.run(
                             `
-                            MERGE (conv:Conversation {id: $id})
-                            ON CREATE SET conv.startTime = $startTime,
-                                          conv.lastActive = $lastActive,
-                                          conv.participants = $participants
-                            `,
+                MERGE (conv:Conversation {id: $id})
+                ON CREATE SET conv.startTime = $startTime,
+                              conv.lastActive = $lastActive,
+                              conv.participants = $participants
+                `,
                             {
                                 id: conversationId,
                                 startTime: conversation.startTime.toISOString(),
@@ -393,14 +385,13 @@ async function syncMessages(
                             },
                         );
 
-                        // Relate messages to conversations
                         for (const message of conversation.messages) {
                             await tx.run(
                                 `
-                                MATCH (m:Message {id: $messageId})
-                                MATCH (conv:Conversation {id: $conversationId})
-                                MERGE (m)-[:PART_OF]->(conv)
-                                `,
+                  MATCH (m:Message {id: $messageId})
+                  MATCH (conv:Conversation {id: $conversationId})
+                  MERGE (m)-[:PART_OF]->(conv)
+                  `,
                                 {
                                     messageId: message.id,
                                     conversationId,
@@ -408,14 +399,13 @@ async function syncMessages(
                             );
                         }
 
-                        // Relate users to conversations
                         for (const participant of conversation.participants) {
                             await tx.run(
                                 `
-                                MATCH (u:User {username: $participant})
-                                MATCH (conv:Conversation {id: $conversationId})
-                                MERGE (u)-[:PARTICIPATED_IN]->(conv)
-                                `,
+                  MATCH (u:User {username: $participant})
+                  MATCH (conv:Conversation {id: $conversationId})
+                  MERGE (u)-[:PARTICIPATED_IN]->(conv)
+                  `,
                                 {
                                     participant,
                                     conversationId,
