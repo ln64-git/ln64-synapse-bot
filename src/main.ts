@@ -10,6 +10,8 @@ import { readdir } from "fs/promises";
 import { join, relative } from "path";
 import { generateConversations } from "./function/generateConversations";
 import { extractMediaAttachments } from "./function/generateAttachment";
+import { ask } from "./function/ask";
+import { syncDatabase } from "./lib/neo4j/neo4j";
 
 dotenv.config();
 
@@ -58,7 +60,13 @@ async function main() {
       // } else {
       //   console.error("Channel is not text-based or does not exist.");
       // }
-      generateConversations(guild);
+      // syncDatabase(guild);
+      // TODO Sync one day worth of Fireside messages
+      // This means I will need to update the neo4j schema
+      // neo4j schema should sync guild data with a focus on users and their relationships based off of conversations
+      // ask("What is the average number of messages sent per user?");
+      // generateConversations(guild);
+      syncDatabase(guild);
     } catch (error) {
       console.error("Error fetching guild or processing messages:", error);
     }

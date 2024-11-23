@@ -6,16 +6,16 @@ import {
     TextChannel,
 } from "discord.js";
 import { ChannelType } from "discord-api-types/v10";
-import neo4j, { Transaction, Driver } from "neo4j-driver";
+import neo4j, { Driver, Transaction } from "neo4j-driver";
 import dotenv from "dotenv";
 import process from "node:process";
+import { generateConversations } from "../../function/generateConversations";
 
 dotenv.config();
 
 const neo4jUri = process.env.NEO4J_URI;
 const neo4jUser = process.env.NEO4J_USERNAME;
 const neo4jPassword = process.env.NEO4J_PASSWORD;
-
 if (!neo4jUri || !neo4jUser || !neo4jPassword) {
     console.error("Error: Missing required environment variables.");
     process.exit(1);
@@ -29,20 +29,7 @@ const driver = neo4j.driver(
 export async function executeCypherQuery(
     cypherQuery: string,
 ): Promise<Record<string, unknown>[]> {
-    const neo4jUri = process.env.NEO4J_URI;
-    const neo4jUser = process.env.NEO4J_USERNAME;
-    const neo4jPassword = process.env.NEO4J_PASSWORD;
-
-    if (!neo4jUri || !neo4jUser || !neo4jPassword) {
-        throw new Error("Missing Neo4j environment variables.");
-    }
-
-    const driver = neo4j.driver(
-        neo4jUri,
-        neo4j.auth.basic(neo4jUser, neo4jPassword),
-    );
     const session = driver.session();
-
     try {
         const result = await session.run(cypherQuery);
         return result.records.map((record) => record.toObject());
@@ -55,18 +42,14 @@ export async function executeCypherQuery(
 export async function syncDatabase(guild: Guild) {
     const session = driver.session();
     const tx = session.beginTransaction();
-
+    console.log(`Syncing data for guild '${guild.name}'...`);
     try {
-        console.log(`Syncing data for guild '${guild.name}'...`);
-
-        // Sync guild, members, and roles in one transaction
         await syncGuild(guild.id, guild, tx);
+        console.log("Synced guild data.");
         await syncMembers(guild.id, guild, tx);
         console.log("Synced guild members.");
-
         await syncRoles(guild, tx);
         console.log("Synced guild roles.");
-
         await tx.commit();
         console.log(
             "Transaction committed for guild data before syncing channels and messages.",
@@ -303,9 +286,15 @@ async function syncMessages(
     channel: TextChannel,
     driver: Driver,
 ): Promise<number> {
+    console.log(`Entered syncMessages for channel: ${channel.name}`);
+
+    if (!channel.messages) {
+        console.error(`Channel '${channel.name}' does not have messages.`);
+        return 0;
+    }
+
     const batchSize = 100;
     let lastMessageId: string | undefined;
-    let previousMessageId: string | undefined;
     let totalMessagesInChannel = 0;
     const maxRetries = 3;
 
@@ -317,50 +306,61 @@ async function syncMessages(
 
         while (retries < maxRetries) {
             try {
-                const messages = await channel.messages.fetch(options);
+                const messagesCollection = await channel.messages.fetch(
+                    options,
+                );
+                // console.log("Fetched messagesCollection:", messagesCollection);
+                // console.log(
+                //     "messagesCollection.size:",
+                //     messagesCollection.size,
+                // );
 
-                if (messages.size === 0) {
+                if (messagesCollection.size === 0) {
                     console.log(
                         `Total messages collected for channel '${channel.name}': ${totalMessagesInChannel}`,
                     );
                     return totalMessagesInChannel;
                 }
 
-                const messageData = messages.map((message: Message) => ({
-                    id: message.id,
-                    content: message.content,
-                    authorId: message.author.id,
-                    createdAt: message.createdAt.toISOString(),
-                    channelId: message.channel.id,
-                    attachments: JSON.stringify(
-                        message.attachments.map((
-                            attachment: { id: string; url: string },
-                        ) => ({
-                            id: attachment.id,
-                            url: attachment.url,
-                        })),
-                    ),
-                    mentions: message.mentions.users.map((
-                        user: { id: string },
-                    ) => user.id),
-                    referenceId: message.reference?.messageId || null,
-                }));
+                const messagesArray = [...messagesCollection.values()];
+                // console.log(
+                //     "messagesArray is array:",
+                //     Array.isArray(messagesArray),
+                // );
+                // console.log("messagesArray length:", messagesArray.length);
+                // console.log("First message in array:", messagesArray[0]);
+
+                // Generate conversations
+                const conversations = await generateConversations(
+                    messagesArray,
+                );
+                if (messagesCollection.size === 0) {
+                    console.log(
+                        `Total messages collected for channel '${channel.name}': ${totalMessagesInChannel}`,
+                    );
+                    return totalMessagesInChannel;
+                }
 
                 const session = driver.session();
 
-                interface MessageData {
-                    id: string;
-                    content: string;
-                    authorId: string;
-                    createdAt: string;
-                    channelId: string;
-                    attachments: string;
-                    mentions: string[];
-                    referenceId: string | null;
-                }
-
                 await session.writeTransaction(async (tx: Transaction) => {
-                    // Merge messages
+                    // Persist messages to Neo4j
+                    const messageData = messagesArray.map((message) => ({
+                        id: message.id,
+                        content: message.content,
+                        authorId: message.author.id,
+                        createdAt: message.createdAt.toISOString(),
+                        channelId: message.channel.id,
+                        attachments: JSON.stringify(
+                            message.attachments.map((attachment) => ({
+                                id: attachment.id,
+                                url: attachment.url,
+                            })),
+                        ),
+                        mentions: message.mentions.users.map((user) => user.id),
+                        referenceId: message.reference?.messageId || null,
+                    }));
+
                     await tx.run(
                         `
                         UNWIND $messages AS message
@@ -372,97 +372,65 @@ async function syncMessages(
                         { messages: messageData },
                     );
 
-                    // Create SENT_BY relationships
-                    await tx.run(
-                        `
-                        UNWIND $messages AS message
-                        MATCH (u:User {id: message.authorId})
-                        MATCH (m:Message {id: message.id})
-                        MERGE (u)-[:SENT_MESSAGE]->(m)
-                        `,
-                        { messages: messageData },
-                    );
+                    // Persist conversations
+                    for (const conversation of conversations) {
+                        const conversationId = conversation.id.toString();
 
-                    // Create IN_CHANNEL relationships
-                    await tx.run(
-                        `
-                        UNWIND $messages AS message
-                        MATCH (c:Channel {id: message.channelId})
-                        MATCH (m:Message {id: message.id})
-                        MERGE (m)-[:IN_CHANNEL]->(c)
-                        `,
-                        { messages: messageData },
-                    );
-
-                    // Handle mentions
-                    await tx.run(
-                        `
-                        UNWIND $messages AS message
-                        UNWIND message.mentions AS mentionId
-                        MATCH (m:Message {id: message.id})
-                        MATCH (u:User {id: mentionId})
-                        MERGE (m)-[:MENTIONS]->(u)
-                        `,
-                        { messages: messageData },
-                    );
-
-                    // Handle replies
-                    await tx.run(
-                        `
-                        UNWIND $messages AS message
-                        WITH message
-                        WHERE message.referenceId IS NOT NULL
-                        MATCH (m:Message {id: message.id})
-                        MATCH (ref:Message {id: message.referenceId})
-                        MERGE (m)-[:REPLIES_TO]->(ref)
-                        `,
-                        { messages: messageData },
-                    );
-
-                    // Create NEXT_MESSAGE relationships
-                    const messageArray: Message[] = Array.from(
-                        messages.values(),
-                    );
-                    for (let i = 0; i < messageArray.length - 1; i++) {
-                        const currentMessage = messageArray[i];
-                        const nextMessage = messageArray[i + 1];
-
+                        // Create Conversation node
                         await tx.run(
                             `
-                            MATCH (m1:Message {id: $currentMessageId})
-                            MATCH (m2:Message {id: $nextMessageId})
-                            MERGE (m1)-[:NEXT_MESSAGE]->(m2)
+                            MERGE (conv:Conversation {id: $id})
+                            ON CREATE SET conv.startTime = $startTime,
+                                          conv.lastActive = $lastActive,
+                                          conv.participants = $participants
                             `,
                             {
-                                currentMessageId: currentMessage.id,
-                                nextMessageId: nextMessage.id,
+                                id: conversationId,
+                                startTime: conversation.startTime.toISOString(),
+                                lastActive: conversation.lastActive
+                                    .toISOString(),
+                                participants: conversation.participants,
                             },
                         );
-                    }
 
-                    // Link the last message of the previous batch to the first message of this batch
-                    if (previousMessageId && messageArray.length > 0) {
-                        await tx.run(
-                            `
-                            MATCH (prev:Message {id: $previousMessageId})
-                            MATCH (first:Message {id: $firstMessageId})
-                            MERGE (prev)-[:NEXT_MESSAGE]->(first)
-                            `,
-                            {
-                                previousMessageId,
-                                firstMessageId: messageArray[0].id,
-                            },
-                        );
+                        // Relate messages to conversations
+                        for (const message of conversation.messages) {
+                            await tx.run(
+                                `
+                                MATCH (m:Message {id: $messageId})
+                                MATCH (conv:Conversation {id: $conversationId})
+                                MERGE (m)-[:PART_OF]->(conv)
+                                `,
+                                {
+                                    messageId: message.id,
+                                    conversationId,
+                                },
+                            );
+                        }
+
+                        // Relate users to conversations
+                        for (const participant of conversation.participants) {
+                            await tx.run(
+                                `
+                                MATCH (u:User {username: $participant})
+                                MATCH (conv:Conversation {id: $conversationId})
+                                MERGE (u)-[:PARTICIPATED_IN]->(conv)
+                                `,
+                                {
+                                    participant,
+                                    conversationId,
+                                },
+                            );
+                        }
                     }
                 });
 
                 await session.close();
 
-                totalMessagesInChannel += messages.size;
-                lastMessageId = messages.last()?.id;
-                previousMessageId = messages.first()?.id;
+                totalMessagesInChannel += messagesCollection.size;
+                lastMessageId = messagesCollection.last()?.id;
                 console.log(
-                    `Fetched ${messages.size} messages, total so far: ${totalMessagesInChannel}`,
+                    `Fetched ${messagesCollection.size} messages, total so far: ${totalMessagesInChannel}`,
                 );
                 break; // Break retry loop on success
             } catch (error) {

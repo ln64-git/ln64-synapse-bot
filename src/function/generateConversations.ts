@@ -7,14 +7,19 @@ import * as fs from "fs";
 import pLimit from "p-limit";
 
 export async function generateConversations(
-  guild: Guild,
+  messages: Message<true>[],
 ): Promise<Conversation[]> {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    console.warn("No messages to process.");
+    console.log("Messages type:", typeof messages);
+    return [];
+  }
+
+  // console.log("Processing messages in generateConversations:", messages);
   const conversations: Conversation[] = [];
   let conversationIdCounter = 0;
   const timeThreshold = 5 * 60 * 1000; // 5 minutes
   const similarityThreshold = 0.75; // Adjusted threshold
-
-  const messages = await getFiresideMessages(guild); // messages is Message<true>[]
 
   const sortedMessages = messages.sort(
     (a, b) => a.createdTimestamp - b.createdTimestamp,
