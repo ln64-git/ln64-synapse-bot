@@ -11,7 +11,7 @@ export class ConversationManager {
   private messageIdToConversationId: { [key: string]: number } = {};
   private conversationIdCounter = 0;
   private timeThreshold = 5 * 60 * 1000; // 5 minutes
-  private similarityThreshold = 0.75; // Adjusted threshold
+  private similarityThreshold = 0.45; // Adjusted threshold
 
   constructor() {}
 
@@ -109,19 +109,56 @@ export class ConversationManager {
     }
 
     if (!assigned) {
-      const newConversation: Conversation = {
-        id: this.conversationIdCounter++,
-        messages: [message],
-        participants: [displayName],
-        startTime: message.createdAt,
-        lastActive: message.createdAt,
-        conversationEmbedding: embedding ? embedding.slice() : undefined,
-      };
-      this.conversations.push(newConversation);
-      this.messageIdToConversationId[message.id] = newConversation.id;
+      for (const conv of this.conversations) {
+        const timeDiff = Math.abs(
+          conv.lastActive.getTime() - message.createdAt.getTime(),
+        );
+        const withinTime = timeDiff < this.timeThreshold;
+        const participantOverlap = conv.participants.includes(displayName);
+
+        console.log(
+          `Checking message ${message.id} against conversation ${conv.id}:`,
+          {
+            timeDiff,
+            withinTime,
+            participants: conv.participants,
+            displayName,
+            participantOverlap,
+          },
+        );
+
+        if (withinTime && participantOverlap) {
+          console.log(`Message ${message.id} added to conversation ${conv.id}`);
+          conv.messages.push(message);
+
+          if (!conv.participants.includes(displayName)) {
+            conv.participants.push(displayName);
+          }
+
+          conv.lastActive = message.createdAt;
+          this.messageIdToConversationId[message.id] = conv.id;
+          assigned = true;
+          break;
+        }
+      }
+
+      if (!assigned) {
+        console.log(
+          `No matching conversation found for message ${message.id}. Creating a new conversation.`,
+        );
+        const newConversation: Conversation = {
+          id: this.conversationIdCounter++,
+          messages: [message],
+          participants: [displayName],
+          startTime: message.createdAt,
+          lastActive: message.createdAt,
+          conversationEmbedding: embedding ? embedding.slice() : undefined,
+        };
+        this.conversations.push(newConversation);
+        this.messageIdToConversationId[message.id] = newConversation.id;
+      }
     }
   }
-
   public getConversations(): Conversation[] {
     return this.conversations;
   }

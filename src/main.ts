@@ -9,10 +9,12 @@ import type { Interaction } from "discord.js";
 import { readdir } from "fs/promises";
 import { join, relative } from "path";
 import {
+  getConversationsByUserId,
   syncAllChannels,
   syncChannelToDatabase,
   syncGuildData,
 } from "./lib/neo4j/neo4j";
+import { ask } from "./function/ask";
 
 dotenv.config();
 
@@ -50,16 +52,21 @@ async function main() {
   client.once("ready", async () => {
     console.log(`Logged in as ${client.user?.tag}!`);
     try {
-      // const messageId = "1307921354661822514";
+      const messageId = "1307921354661822514";
       const channelId = "1004111008337502270";
+      const userId = "487026109083418642";
       const guild = await client.guilds.fetch(guildId);
-      console.log("Fetched guild:", guild.name);
-      await syncGuildData(guild);
-      console.log("Synced guild data.");
-      await syncChannelToDatabase(guild, channelId);
+      // console.log("Fetched guild:", guild.name);
+      // await syncGuildData(guild);
+      // console.log("Synced guild data.");
       // await syncAllChannels(guild);
-      console.log("Synced all channels.");
-
+      // console.log("Synced all channels.");
+      // const conversations = await getConversationsByUserId(userId);
+      // console.log("conversations: ", conversations);
+      ask(
+        "What is the name of the person with the most messages?",
+      );
+      // await syncChannelToDatabase(guild, channelId);
       // syncAllChannels(guild);
       // console.log("Synced all channels.");
       // syncChannelToDatabase(guild, channelId);

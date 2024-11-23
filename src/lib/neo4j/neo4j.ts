@@ -15,6 +15,8 @@ import {
     processMessageBatch,
 } from "../../function/generateConversations";
 import type { Conversation } from "../../types";
+import fs from "fs";
+import path from "path";
 
 dotenv.config();
 
@@ -370,12 +372,12 @@ export async function syncMessages(
                         null, // Replace `null` with embedding logic if needed
                     );
                 }
-
                 // Save all conversations up to this point
                 const updatedConversations = conversationManager
                     .getConversations();
                 for (const conversation of updatedConversations) {
-                    await saveConversationToDatabase(conversation); // Save each conversation
+                    await saveConversationToDatabase(conversation);
+                    // await saveConversationToFile(conversation); // Save each conversation
                 }
 
                 totalMessagesInChannel += messagesCollection.size;
@@ -424,7 +426,7 @@ async function saveConversationToDatabase(conversation: Conversation) {
             })),
         };
 
-        // Save conversation and messages with `NEXT_MESSAGE` relationship
+        // Save conversation and messages with `SENT_MESSAGE` relationship
         await session.run(
             `
             MERGE (c:Conversation {id: $id})
@@ -451,12 +453,131 @@ async function saveConversationToDatabase(conversation: Conversation) {
             conversationData,
         );
 
-        console.log(`Saved conversation ${conversation.id} with message order to the database.`);
+        console.log(
+            `Saved conversation ${conversation.id} with message order to the database.`,
+        );
     } catch (error) {
         console.error(
             `Error saving conversation ${conversation.id} to the database:`,
             error,
         );
+    } finally {
+        await session.close();
+    }
+}
+
+async function saveConversationToFile(conversation: Conversation) {
+    const logFilePath = path.join(
+        __dirname,
+        "../../../logs/conversations.json",
+    );
+    let existingConversations: {
+        id: string;
+        messages: { author: string; content: string }[];
+        participants: string[];
+    }[] = [];
+
+    try {
+        if (fs.existsSync(logFilePath)) {
+            const fileContent = fs.readFileSync(logFilePath, "utf-8");
+            existingConversations = JSON.parse(fileContent);
+        }
+    } catch (error) {
+        console.error("Error reading existing conversations log file:", error);
+    }
+
+    // Extract clean content and authors from the conversation
+    const cleanConversation = {
+        id: conversation.id.toString(),
+        messages: conversation.messages.map((msg) => ({
+            author: msg.member?.displayName || msg.author.username,
+            content: msg.content,
+        })),
+        participants: conversation.participants,
+    };
+
+    // Check if the conversation already exists, and update it if found
+    const existingIndex = existingConversations.findIndex(
+        (conv) => conv.id === cleanConversation.id,
+    );
+
+    if (existingIndex !== -1) {
+        // Update the existing conversation
+        existingConversations[existingIndex] = cleanConversation;
+    } else {
+        // Add the new conversation to the beginning of the array
+        existingConversations.unshift(cleanConversation);
+    }
+
+    // Ensure that conversations are ordered with the most recent at the front
+    existingConversations.sort((a, b) => {
+        const aTimestamp = new Date(
+            a.messages[a.messages.length - 1]?.content ?? 0,
+        ).getTime();
+        const bTimestamp = new Date(
+            b.messages[b.messages.length - 1]?.content ?? 0,
+        ).getTime();
+        return bTimestamp - aTimestamp;
+    });
+
+    try {
+        fs.writeFileSync(
+            logFilePath,
+            JSON.stringify(existingConversations, null, 2),
+        );
+        console.log(`Saved conversation ${conversation.id} to log file.`);
+    } catch (error) {
+        console.error("Error writing conversation to log file:", error);
+    }
+}
+
+export async function getConversationsByUserId(
+    userId: string,
+): Promise<Conversation[]> {
+    const session = driver.session();
+    try {
+        const result = await session.run(
+            `
+            MATCH (u:User {id: $userId})-[:SENT_MESSAGE]->(m:Message)<-[:HAS_MESSAGE]-(c:Conversation)
+            RETURN c { 
+                id: c.id, 
+                participants: c.participants, 
+                startTime: c.startTime, 
+                lastActive: c.lastActive, 
+                messages: collect(m { 
+                    id: m.id, 
+                    content: m.content, 
+                    createdAt: m.createdAt, 
+                    authorId: m.authorId, 
+                    displayName: m.displayName 
+                }) 
+            } AS conversation
+            `,
+            { userId },
+        );
+
+        return result.records.map((record) => {
+            const conversation = record.get("conversation");
+            return {
+                id: conversation.id,
+                participants: conversation.participants,
+                startTime: new Date(conversation.startTime),
+                lastActive: new Date(conversation.lastActive),
+                messages: conversation.messages.map((msg: any) => ({
+                    id: msg.id,
+                    content: msg.content,
+                    createdAt: new Date(msg.createdAt),
+                    author: { id: msg.authorId, username: msg.displayName },
+                    member: null, // Populate member if needed
+                })),
+            };
+        });
+    } catch (error) {
+        console.error(
+            `Error fetching conversations for user ${userId}:`,
+            error,
+        );
+        return [];
     } finally {
         await session.close();
     }

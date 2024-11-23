@@ -1,7 +1,7 @@
 import { callModel } from "./model.ts";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 
-export async function gernerateSentimentAnalysis(
+export async function generateSentimentAnalysis(
     conversation: string,
 ): Promise<string> {
     const formattedPrompt = await ChatPromptTemplate.fromTemplate(`
@@ -21,9 +21,9 @@ export async function gernerateSentimentAnalysis(
 }
 
 export async function generateCypherQuery(question: string): Promise<string> {
-    const nodes = ["User", "Message", "Channel", "Guild"];
+    const nodes = ["User", "Message", "Channel", "Guild", "Role"];
     const relationships = [
-        "SENT_MESSAGE",
+        "HAS_MESSAGE",
         "IN_CHANNEL",
         "MENTIONS",
         "HAS_MEMBER",
