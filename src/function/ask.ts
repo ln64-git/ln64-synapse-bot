@@ -1,24 +1,31 @@
-import { executeCypherQuery } from "../lib/neo4j/neo4j";
 import {
     generateCypherQuery,
     generateNaturalLanguageResponse,
 } from "../lib/langchain/langchain";
+import { executeCypherQuery } from "../lib/neo4j/neo4j";
 
 export async function ask(question: string): Promise<string> {
-    // Step 1: Process question from user
-    // This includes breaking down the question and identifying the necessary tools and data required to accurately execute the user's query
-    const cypherQuery = await generateCypherQuery(question);
-    console.log(`Generated Cypher Query: ${cypherQuery}`);
+    try {
+        console.log(`Received question: "${question}"`);
 
-    // Step 2: Assimulate the necessary data
-    // This includes using the response from Step 1 to accurately query the database to retrieve the data necessary needed for the user's query
-    const records = await executeCypherQuery(cypherQuery);
-    console.log(`Query Records: ${JSON.stringify(records, null, 2)}`);
+        const cypherQuery = await generateCypherQuery(question);
+        console.log(`Generated Cypher Query: ${cypherQuery}`);
 
-    // Step 3: Assimulate the final response prompt
-    // This will take the user's query and the data retrieved from the database to provide a detailed response to the user's query
-    const response = await generateNaturalLanguageResponse(records);
-    console.log(`Generated Response: ${response}`);
+        const records = await executeCypherQuery(cypherQuery);
+        if (!records || records.length === 0) {
+            console.warn(
+                "Query returned no results. Ensure the database contains relevant data.",
+            );
+            return "No results found for your query.";
+        }
 
-    return response;
+        const topUser = records[0]["userName"] || "Unknown User";
+        const response = `The person with the most messages is: ${topUser}.`;
+        console.log(`Generated Response: ${response}`);
+
+        return response;
+    } catch (error) {
+        console.error("Error in ask function:", error);
+        return "An error occurred while processing your query. Please try again.";
+    }
 }

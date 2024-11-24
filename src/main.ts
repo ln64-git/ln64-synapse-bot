@@ -64,7 +64,7 @@ async function main() {
       // const conversations = await getConversationsByUserId(userId);
       // console.log("conversations: ", conversations);
       ask(
-        "What is the name of the person with the most messages?",
+        "How many messages have been sent in the server this month?",
       );
       // await syncChannelToDatabase(guild, channelId);
       // syncAllChannels(guild);

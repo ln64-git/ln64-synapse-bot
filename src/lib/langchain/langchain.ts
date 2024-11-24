@@ -21,45 +21,23 @@ export async function generateSentimentAnalysis(
 }
 
 export async function generateCypherQuery(question: string): Promise<string> {
-    const nodes = ["User", "Message", "Channel", "Guild", "Role"];
-    const relationships = [
-        "HAS_MESSAGE",
-        "IN_CHANNEL",
-        "MENTIONS",
-        "HAS_MEMBER",
-        "HAS_ROLE",
-        "ASSIGNED_TO",
-        "HAS_CHANNEL",
-        "PARENT_OF",
-        "NEXT_MESSAGE",
-        "REPLIES_TO",
-    ];
     const formattedPrompt = await ChatPromptTemplate.fromTemplate(`
-    You are an AI assistant that translates English questions into Cypher queries for a Neo4j database. The database contains nodes labeled ${
-        nodes.join(", ")
-    }, with relationships such as ${relationships.join(", ")}.
-    Translate the following question into a Cypher query. Only provide the Cypher query and nothing else.
-    Question: "${question}"
-    Cypher Query:
-  `).format({
-            question: question,
-        });
+      You are an AI assistant that translates English questions into Cypher queries for a Neo4j database. 
+      The database contains nodes labeled User, Message, Conversation, Channel, Guild, and Role, 
+      with relationships such as HAS_MEMBER, HAS_MESSAGE, IN_CHANNEL, MENTIONS, and NEXT_MESSAGE.
+      When generating a query, ensure the correct property for a user's name is queried (e.g., COALESCE(u.displayName, u.username)).
+      Translate the following question into a Cypher query. Only provide the Cypher query and nothing else.
+      Question: "${question}"
+      Cypher Query:
+      `).format({ question });
+
     const response = await callModel(formattedPrompt);
-    let cypherQuery = response.trim();
+    const cypherQuery = response.trim();
+
     if (!cypherQuery) {
         throw new Error("Failed to generate Cypher query.");
     }
-    // Replace curly braces with parentheses
-    cypherQuery = cypherQuery.replace(
-        /\{days: (\d+)\}/g,
-        "duration({days: $1})",
-    );
-    // Replace size() with COUNT {}
-    cypherQuery = cypherQuery.replace(/size\(\(([^)]+)\)\)/g, "COUNT($1)");
-    // Ensure correct syntax for labels and properties
-    cypherQuery = cypherQuery.replace(/:\s*([A-Za-z]+)/g, ":$1");
-    // Ensure variables are properly defined
-    cypherQuery = cypherQuery.replace(/(\w+)\s*=\s*\(([^)]+)\)/g, "($2) AS $1");
+
     return cypherQuery;
 }
 

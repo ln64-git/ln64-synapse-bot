@@ -39,11 +39,17 @@ export async function executeCypherQuery(
 ): Promise<Record<string, unknown>[]> {
     const session = driver.session();
     try {
+        console.log(`Executing Cypher Query: ${cypherQuery}`);
         const result = await session.run(cypherQuery);
-        return result.records.map((record) => record.toObject());
+
+        const records = result.records.map((record) => record.toObject());
+        console.log(`Query returned ${records.length} record(s).`);
+        return records;
+    } catch (error) {
+        console.error("Error executing Cypher query:", error);
+        throw error;
     } finally {
         await session.close();
-        await driver.close();
     }
 }
 
@@ -327,9 +333,7 @@ async function syncChannel(
     }
 }
 
-export async function syncMessages(
-    channel: TextChannel,
-): Promise<number> {
+export async function syncMessages(channel: TextChannel): Promise<number> {
     const conversationManager = new ConversationManager();
     console.log(`Entered syncMessages for channel: ${channel.name}`);
 
@@ -371,13 +375,16 @@ export async function syncMessages(
                         message,
                         null, // Replace `null` with embedding logic if needed
                     );
+
+                    // Sync the user-to-message relationship
+                    await syncUserToMessage(message);
                 }
+
                 // Save all conversations up to this point
                 const updatedConversations = conversationManager
                     .getConversations();
                 for (const conversation of updatedConversations) {
                     await saveConversationToDatabase(conversation);
-                    // await saveConversationToFile(conversation); // Save each conversation
                 }
 
                 totalMessagesInChannel += messagesCollection.size;
@@ -405,6 +412,49 @@ export async function syncMessages(
     }
 
     return totalMessagesInChannel;
+}
+
+/**
+ * Syncs the relationship between a user and a message in the database.
+ */
+async function syncUserToMessage(message: Message): Promise<void> {
+    const session = driver.session();
+    try {
+        await session.run(
+            `
+            MERGE (u:User {id: $authorId})
+            ON CREATE SET 
+                u.username = $username,
+                u.displayName = $displayName,
+                u.avatarURL = $avatarURL
+            MERGE (m:Message {id: $messageId})
+            ON CREATE SET 
+                m.content = $content, 
+                m.createdAt = $createdAt
+            MERGE (u)-[:HAS_MESSAGE]->(m)
+            `,
+            {
+                authorId: message.author.id,
+                username: message.author.username,
+                displayName: message.member?.displayName ||
+                    message.author.username,
+                avatarURL: message.author.displayAvatarURL(),
+                messageId: message.id,
+                content: message.content,
+                createdAt: message.createdAt.toISOString(),
+            },
+        );
+        console.log(
+            `Synced User ${message.author.id} with username "${message.author.username}" and displayName "${message.member?.displayName}" to Message ${message.id}`,
+        );
+    } catch (error) {
+        console.error(
+            `Error syncing User ${message.author.id} to Message ${message.id}:`,
+            error,
+        );
+    } finally {
+        await session.close();
+    }
 }
 
 async function saveConversationToDatabase(conversation: Conversation) {
