@@ -1,9 +1,7 @@
 // conversationManager.ts
 
-import type { Guild, Message } from "discord.js";
-import { getFiresideMessages } from "../lib/discord/discord.ts";
+import type { Message } from "discord.js";
 import type { Conversation } from "../types.ts";
-import * as fs from "fs";
 import pLimit from "p-limit";
 
 export class ConversationManager {
@@ -11,7 +9,7 @@ export class ConversationManager {
   private messageIdToConversationId: { [key: string]: number } = {};
   private conversationIdCounter = 0;
   private timeThreshold = 5 * 60 * 1000; // 5 minutes
-  private similarityThreshold = 0.45; // Adjusted threshold
+  private similarityThreshold = 0.75; // Adjusted threshold
 
   constructor() {}
 
@@ -37,128 +35,86 @@ export class ConversationManager {
 
   public async addMessageToConversations(
     message: Message<true>,
-    embedding: number[] | null,
   ): Promise<void> {
     const displayName = message.member?.displayName || message.author.username;
     const referencedMessageId = message.reference?.messageId || null;
+    const timestamp = message.createdAt.getTime();
+
+    // Attempt to find an existing conversation
     let assigned = false;
 
-    if (referencedMessageId) {
-      const conversationId =
-        this.messageIdToConversationId[referencedMessageId];
-      if (conversationId !== undefined) {
-        const conv = this.conversations.find((c) => c.id === conversationId)!;
-        conv.messages.push(message);
-        if (!conv.participants.includes(displayName)) {
-          conv.participants.push(displayName);
-        }
-        conv.lastActive = message.createdAt;
-        this.messageIdToConversationId[message.id] = conversationId;
-        assigned = true;
+    // 1. Check references: If the new message references a known message, join that conversation.
+    if (
+      referencedMessageId &&
+      this.messageIdToConversationId[referencedMessageId] !== undefined
+    ) {
+      const refConvId = this.messageIdToConversationId[referencedMessageId];
+      const refConv = this.conversations.find((c) => c.id === refConvId)!;
+      refConv.messages.push(message);
+      if (!refConv.participants.includes(displayName)) {
+        refConv.participants.push(displayName);
       }
+      refConv.lastActive = message.createdAt;
+      this.messageIdToConversationId[message.id] = refConvId;
+      assigned = true;
     }
 
-    if (!assigned && message.mentions.users.size > 0) {
-      const mentionDisplayNames = message.mentions.users.map((user) => {
-        const member = message.guild?.members.cache.get(user.id);
-        return member?.displayName || user.username;
-      });
-
-      for (const conv of this.conversations) {
-        const participantSet = new Set(conv.participants);
-        const mentionsSet = new Set(mentionDisplayNames);
-        const intersection = new Set(
-          [...participantSet].filter((x) => mentionsSet.has(x)),
-        );
-        if (intersection.size > 0) {
-          conv.messages.push(message);
-          if (!conv.participants.includes(displayName)) {
-            conv.participants.push(displayName);
-          }
-          conv.lastActive = message.createdAt;
-          this.messageIdToConversationId[message.id] = conv.id;
-          assigned = true;
-          break;
-        }
-      }
-    }
-
-    if (!assigned && embedding) {
-      for (const conv of this.conversations) {
-        // Add this check to ensure conv.conversationEmbedding is defined
-        if (!conv.conversationEmbedding) {
-          continue; // Skip this conversation if it doesn't have an embedding
-        }
-
-        const similarity = this.cosineSimilarity(
-          embedding,
-          conv.conversationEmbedding,
-        );
-
-        if (similarity > this.similarityThreshold) {
-          conv.messages.push(message);
-          if (!conv.participants.includes(displayName)) {
-            conv.participants.push(displayName);
-          }
-          conv.lastActive = message.createdAt;
-          this.messageIdToConversationId[message.id] = conv.id;
-          assigned = true;
-          break;
-        }
-      }
-    }
-
+    // 2. If no reference found, try participant/time-based heuristic:
     if (!assigned) {
-      for (const conv of this.conversations) {
-        const timeDiff = Math.abs(
-          conv.lastActive.getTime() - message.createdAt.getTime(),
-        );
-        const withinTime = timeDiff < this.timeThreshold;
-        const participantOverlap = conv.participants.includes(displayName);
-
-        console.log(
-          `Checking message ${message.id} against conversation ${conv.id}:`,
-          {
-            timeDiff,
-            withinTime,
-            participants: conv.participants,
-            displayName,
-            participantOverlap,
-          },
+      // Sort conversations by last active time if needed, or just check the most recent first.
+      const recentConversation =
+        this.conversations[this.conversations.length - 1];
+      if (recentConversation) {
+        const timeGap = timestamp - recentConversation.lastActive.getTime();
+        const withinTime = timeGap < this.timeThreshold;
+        const participantOverlap = recentConversation.participants.includes(
+          displayName,
         );
 
+        // If the author is already in the recent conversation and message is in short time gap, add it.
         if (withinTime && participantOverlap) {
-          console.log(`Message ${message.id} added to conversation ${conv.id}`);
-          conv.messages.push(message);
-
-          if (!conv.participants.includes(displayName)) {
-            conv.participants.push(displayName);
+          recentConversation.messages.push(message);
+          if (!recentConversation.participants.includes(displayName)) {
+            recentConversation.participants.push(displayName);
           }
-
-          conv.lastActive = message.createdAt;
-          this.messageIdToConversationId[message.id] = conv.id;
+          recentConversation.lastActive = message.createdAt;
+          this.messageIdToConversationId[message.id] = recentConversation.id;
           assigned = true;
-          break;
         }
       }
+    }
 
-      if (!assigned) {
-        console.log(
-          `No matching conversation found for message ${message.id}. Creating a new conversation.`,
-        );
-        const newConversation: Conversation = {
-          id: this.conversationIdCounter++,
-          messages: [message],
-          participants: [displayName],
-          startTime: message.createdAt,
-          lastActive: message.createdAt,
-          conversationEmbedding: embedding ? embedding.slice() : undefined,
-        };
-        this.conversations.push(newConversation);
-        this.messageIdToConversationId[message.id] = newConversation.id;
-      }
+    // 3. If still not assigned, start a new conversation
+    if (!assigned) {
+      const newConversation: Conversation = {
+        id: this.conversationIdCounter++,
+        messages: [message],
+        participants: [displayName],
+        startTime: message.createdAt,
+        lastActive: message.createdAt,
+        // Skip embeddings initially or set them later if needed
+      };
+      this.conversations.push(newConversation);
+      this.messageIdToConversationId[message.id] = newConversation.id;
     }
   }
+
+  // If using embeddings
+  private updateConversationEmbedding(
+    conv: Conversation,
+    newMessageEmbedding: number[],
+  ): void {
+    if (!conv.conversationEmbedding) {
+      conv.conversationEmbedding = newMessageEmbedding.slice();
+    } else {
+      // Average the embeddings
+      const length = conv.messages.length;
+      conv.conversationEmbedding = conv.conversationEmbedding.map((val, i) =>
+        (val * (length - 1) + newMessageEmbedding[i]) / length
+      );
+    }
+  }
+
   public getConversations(): Conversation[] {
     return this.conversations;
   }
@@ -243,7 +199,7 @@ async function getEmbeddingBatch(
 export async function processMessageBatch(
   messages: Message<true>[],
   conversationManager: ConversationManager,
-): Promise<void> {
+): Promise<Conversation[]> {
   const limit = pLimit(5); // Limit concurrent API calls
   const batchSize = 20; // Adjust batch size as needed
   const batchedMessages: Message<true>[][] = [];
@@ -265,9 +221,9 @@ export async function processMessageBatch(
       for (let i = 0; i < batch.length; i++) {
         await conversationManager.addMessageToConversations(
           batch[i],
-          embeddings[i],
         );
       }
     });
   }
+  return conversationManager.getConversations();
 }

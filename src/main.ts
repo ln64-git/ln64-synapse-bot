@@ -15,6 +15,15 @@ import {
   syncGuildData,
 } from "./lib/neo4j/neo4j";
 import { ask } from "./function/ask";
+import { getFiresideMessages } from "./lib/discord/discord";
+import {
+  ConversationManager,
+  processMessageBatch as processConversatations,
+} from "./function/generateConversations";
+import {
+  saveAllConversationsToFile,
+  saveConversationToFile,
+} from "./utils/utils";
 
 dotenv.config();
 
@@ -56,6 +65,14 @@ async function main() {
       const channelId = "1004111008337502270";
       const userId = "487026109083418642";
       const guild = await client.guilds.fetch(guildId);
+      const firesideMessages = await getFiresideMessages(guild);
+      const conversationManager = new ConversationManager();
+      const conversations = await processConversatations(
+        firesideMessages,
+        conversationManager,
+      );
+      await saveAllConversationsToFile(conversations);
+
       // console.log("Fetched guild:", guild.name);
       // await syncGuildData(guild);
       // console.log("Synced guild data.");
@@ -63,9 +80,9 @@ async function main() {
       // console.log("Synced all channels.");
       // const conversations = await getConversationsByUserId(userId);
       // console.log("conversations: ", conversations);
-      ask(
-        "How many messages have been sent in the server this month?",
-      );
+      // ask(
+      //   "How many messages have been sent in the server this month?",
+      // );
       // await syncChannelToDatabase(guild, channelId);
       // syncAllChannels(guild);
       // console.log("Synced all channels.");
