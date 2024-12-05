@@ -9,29 +9,27 @@ export class ConversationManager {
   private messageIdToConversationId: { [key: string]: number } = {};
   private conversationIdCounter = 0;
 
-  // Time threshold and similarity threshold for conversation matching
-  private timeThreshold = 5 * 60 * 1000; // 5 minutes
-  private similarityThreshold = 0.75; // Adjust this as needed
+  // Configurable thresholds
+  private timeThreshold = 5 * 60 * 1000; // 5 minutes for recent participant match
+  private similarityThreshold = 0.85; // Slightly increased from 0.8
+  private stalenessThreshold = 30 * 60 * 1000; // 30 minutes stale
+  private minSimilarityForConversation = 0.6; // Increased from 0.5
+  private hardTimeGap = 60 * 60 * 1000; // 1 hour
+  private shortMessageWordCount = 3; // If message <= 3 words, treat as short
+  private localContextSize = 3; // Number of recent messages to consider for local context
+  private driftThreshold = 0.3; // If last message differs a lot from convo embedding, consider topic shift
 
   constructor() {}
 
   private cosineSimilarity(vecA: number[], vecB: number[]): number {
     if (vecA.length !== vecB.length || vecA.length === 0) {
-      console.warn(
-        "Vectors have different lengths or are empty. Returning 0 similarity.",
-      );
       return 0;
     }
 
     const dotProduct = vecA.reduce((sum, val, i) => sum + val * vecB[i], 0);
     const magnitudeA = Math.sqrt(vecA.reduce((sum, val) => sum + val * val, 0));
     const magnitudeB = Math.sqrt(vecB.reduce((sum, val) => sum + val * val, 0));
-    if (magnitudeA === 0 || magnitudeB === 0) {
-      console.warn(
-        "One of the vectors has zero magnitude. Returning 0 similarity.",
-      );
-      return 0;
-    }
+    if (magnitudeA === 0 || magnitudeB === 0) return 0;
     return dotProduct / (magnitudeA * magnitudeB);
   }
 
@@ -40,13 +38,11 @@ export class ConversationManager {
     newEmbedding: number[],
   ) {
     if (!conv.conversationEmbedding) {
-      // If there's no existing embedding, just use the new one
       conv.conversationEmbedding = newEmbedding.slice();
       return;
     }
 
-    // Average the embeddings: new mean = old_mean * (n/(n+1)) + new_vec/(n+1)
-    const count = conv.messages.length; // after adding this message
+    const count = conv.messages.length;
     const oldEmbedding = conv.conversationEmbedding;
     for (let i = 0; i < oldEmbedding.length; i++) {
       oldEmbedding[i] = (oldEmbedding[i] * (count - 1) + newEmbedding[i]) /
@@ -55,115 +51,253 @@ export class ConversationManager {
     conv.conversationEmbedding = oldEmbedding;
   }
 
+  private getMessageEmbedding(msg: Message<true>): number[] | undefined {
+    return (msg as any).embedding;
+  }
+
+  private assignMessageToConversation(
+    conv: Conversation,
+    message: Message<true>,
+    embedding: number[] | null,
+    displayName: string,
+  ) {
+    conv.messages.push(message);
+    if (!conv.participants.includes(displayName)) {
+      conv.participants.push(displayName);
+    }
+
+    conv.lastActive = message.createdAt;
+    this.messageIdToConversationId[message.id] = conv.id;
+
+    if (embedding) {
+      (message as any).embedding = embedding;
+      this.updateConversationEmbedding(conv, embedding);
+
+      // Check for drift:
+      const sim = this.cosineSimilarity(embedding, conv.conversationEmbedding!);
+      if (1 - sim > this.driftThreshold) {
+        // We've detected a large drift. We might consider
+        // raising thresholds or simply accept that the next semantically distant message starts a new convo.
+        // For simplicity, let's just store a flag:
+        (conv as any).driftDetected = true;
+      }
+    }
+  }
+
+  private findRecentConversationForUser(
+    displayName: string,
+    timestamp: number,
+  ): Conversation | null {
+    for (let i = this.conversations.length - 1; i >= 0; i--) {
+      const conv = this.conversations[i];
+      const timeDiff = timestamp - conv.lastActive.getTime();
+      const withinTime = timeDiff < this.timeThreshold;
+      const participantOverlap = conv.participants.includes(displayName);
+      if (withinTime && participantOverlap) {
+        return conv;
+      }
+    }
+    return null;
+  }
+
+  private averageEmbeddings(embeddings: number[][]): number[] {
+    if (embeddings.length === 0) return [];
+    const length = embeddings[0].length;
+    const avg = new Array(length).fill(0);
+    for (const emb of embeddings) {
+      for (let i = 0; i < length; i++) {
+        avg[i] += emb[i];
+      }
+    }
+    for (let i = 0; i < length; i++) {
+      avg[i] /= embeddings.length;
+    }
+    return avg;
+  }
+
+  private getLocalContextEmbedding(conv: Conversation): number[] | null {
+    // Take the last few message embeddings and average them
+    const embeddings: number[][] = [];
+    for (
+      let i = conv.messages.length - 1;
+      i >= 0 && i >= conv.messages.length - this.localContextSize;
+      i--
+    ) {
+      const e = this.getMessageEmbedding(conv.messages[i]);
+      if (e) embeddings.push(e);
+    }
+
+    if (embeddings.length === 0) return null;
+    return this.averageEmbeddings(embeddings);
+  }
+
+  private findBestConversationByEmbedding(
+    embedding: number[],
+    timestamp: number,
+  ): Conversation | null {
+    let bestConv: Conversation | null = null;
+    let bestSimilarity = -1;
+
+    for (const conv of this.conversations) {
+      if (!conv.conversationEmbedding) continue;
+
+      const similarity = this.cosineSimilarity(
+        embedding,
+        conv.conversationEmbedding,
+      );
+      const timeDiff = timestamp - conv.lastActive.getTime();
+      const isStale = timeDiff > this.stalenessThreshold;
+
+      let requiredSim = this.similarityThreshold;
+      if (isStale) requiredSim = Math.max(requiredSim, 0.9);
+
+      const isVeryOld = timeDiff > this.hardTimeGap;
+      if (isVeryOld) requiredSim = Math.max(requiredSim, 0.95);
+
+      // If drift was detected in this conversation, be even stricter:
+      if ((conv as any).driftDetected) {
+        requiredSim = Math.max(requiredSim, 0.9);
+      }
+
+      if (
+        similarity >= this.minSimilarityForConversation &&
+        similarity > bestSimilarity &&
+        similarity >= requiredSim
+      ) {
+        // Additional local context check:
+        const localEmbedding = this.getLocalContextEmbedding(conv);
+        if (localEmbedding) {
+          const localSim = this.cosineSimilarity(embedding, localEmbedding);
+          if (localSim < this.minSimilarityForConversation) {
+            // Doesn't match local context well enough, skip
+            continue;
+          }
+        }
+
+        bestSimilarity = similarity;
+        bestConv = conv;
+      }
+    }
+
+    return bestConv;
+  }
+
+  private startNewConversation(
+    message: Message<true>,
+    embedding: number[] | null,
+    displayName: string,
+  ) {
+    const newConversation: Conversation = {
+      id: this.conversationIdCounter++,
+      messages: [message],
+      participants: [displayName],
+      startTime: message.createdAt,
+      lastActive: message.createdAt,
+      conversationEmbedding: embedding ? embedding.slice() : undefined,
+    };
+    if (embedding) (message as any).embedding = embedding;
+    this.conversations.push(newConversation);
+    this.messageIdToConversationId[message.id] = newConversation.id;
+  }
+
+  private isShortMessage(content: string): boolean {
+    const words = content.trim().split(/\s+/);
+    return words.length <= this.shortMessageWordCount;
+  }
+
   public async addMessageToConversations(
     message: Message<true>,
     embedding: number[] | null,
   ): Promise<void> {
     const displayName = message.member?.displayName || message.author.username;
-    const referencedMessageId = message.reference?.messageId || null;
+    const referencedMessageId = message.reference?.messageId;
     const timestamp = message.createdAt.getTime();
+    const content = message.content?.trim() || "";
+    const shortMessage = this.isShortMessage(content);
 
     let assigned = false;
 
-    // 1. Reference-based assignment
+    // 1. Reference-based
     if (
       referencedMessageId &&
       this.messageIdToConversationId[referencedMessageId] !== undefined
     ) {
-      const refConvId = this.messageIdToConversationId[referencedMessageId];
-      const refConv = this.conversations.find((c) => c.id === refConvId)!;
-      refConv.messages.push(message);
-      if (!refConv.participants.includes(displayName)) {
-        refConv.participants.push(displayName);
-      }
-      refConv.lastActive = message.createdAt;
-      this.messageIdToConversationId[message.id] = refConvId;
-
-      // Update embedding if possible
-      if (embedding) {
-        this.updateConversationEmbedding(refConv, embedding);
-      }
-
+      const convId = this.messageIdToConversationId[referencedMessageId];
+      const conv = this.conversations.find((c) => c.id === convId)!;
+      this.assignMessageToConversation(conv, message, embedding, displayName);
       assigned = true;
     }
 
-    // 2. Participant/time-based assignment if not assigned by reference
-    if (!assigned && this.conversations.length > 0) {
-      // Check the most recently active conversation (or potentially iterate all)
-      const recentConversation =
-        this.conversations[this.conversations.length - 1];
-
-      if (recentConversation) {
-        const timeGap = timestamp - recentConversation.lastActive.getTime();
-        const withinTime = timeGap < this.timeThreshold;
-        const participantOverlap = recentConversation.participants.includes(
-          displayName,
-        );
-
-        if (withinTime && participantOverlap) {
-          recentConversation.messages.push(message);
-          if (!recentConversation.participants.includes(displayName)) {
-            recentConversation.participants.push(displayName);
+    // 2. Participant/time-based
+    if (!assigned) {
+      const recentConv = this.findRecentConversationForUser(
+        displayName,
+        timestamp,
+      );
+      if (recentConv) {
+        // Check local continuity: if embedding is available, verify it's not drastically off-topic
+        if (embedding) {
+          const localEmb = this.getLocalContextEmbedding(recentConv);
+          if (localEmb) {
+            const localSim = this.cosineSimilarity(embedding, localEmb);
+            if (localSim < this.minSimilarityForConversation) {
+              // Too different from recent context, do not assign here
+            } else {
+              this.assignMessageToConversation(
+                recentConv,
+                message,
+                embedding,
+                displayName,
+              );
+              assigned = true;
+            }
+          } else {
+            // No local embedding or no embedding, just assign on participant/time basis
+            this.assignMessageToConversation(
+              recentConv,
+              message,
+              embedding,
+              displayName,
+            );
+            assigned = true;
           }
-          recentConversation.lastActive = message.createdAt;
-          this.messageIdToConversationId[message.id] = recentConversation.id;
-
-          // Update embedding if we have one
-          if (embedding) {
-            this.updateConversationEmbedding(recentConversation, embedding);
-          }
-
+        } else {
+          // No embedding, trust participant/time heuristic
+          this.assignMessageToConversation(
+            recentConv,
+            message,
+            embedding,
+            displayName,
+          );
           assigned = true;
         }
       }
     }
 
-    // 3. Embedding-based assignment if not assigned by reference or time/participants
+    // 3. Embedding-based
     if (!assigned && embedding) {
-      // We have an embedding, let's try to find a similar conversation
-      let bestConv: Conversation | null = null;
-      let bestSimilarity = -1;
-
-      for (const conv of this.conversations) {
-        if (conv.conversationEmbedding) {
-          const similarity = this.cosineSimilarity(
-            embedding,
-            conv.conversationEmbedding,
-          );
-          if (similarity > bestSimilarity) {
-            bestSimilarity = similarity;
-            bestConv = conv;
-          }
-        }
-      }
-
-      // If the best similarity exceeds the threshold, assign the message to that conversation
-      if (bestConv && bestSimilarity >= this.similarityThreshold) {
-        bestConv.messages.push(message);
-        if (!bestConv.participants.includes(displayName)) {
-          bestConv.participants.push(displayName);
-        }
-        bestConv.lastActive = message.createdAt;
-        this.messageIdToConversationId[message.id] = bestConv.id;
-
-        // Update embedding
-        this.updateConversationEmbedding(bestConv, embedding);
+      // If the message is short and we have no matches yet, be cautious
+      // If short message does not strongly match a conversation, start new one
+      const bestConv = this.findBestConversationByEmbedding(
+        embedding,
+        timestamp,
+      );
+      if (bestConv) {
+        this.assignMessageToConversation(
+          bestConv,
+          message,
+          embedding,
+          displayName,
+        );
         assigned = true;
+      } else if (shortMessage) {
+        // Short message not fitting anywhere strongly -> new conversation
       }
     }
 
-    // 4. If still not assigned, start a new conversation
+    // 4. Start a new conversation if still not assigned
     if (!assigned) {
-      const newConversation: Conversation = {
-        id: this.conversationIdCounter++,
-        messages: [message],
-        participants: [displayName],
-        startTime: message.createdAt,
-        lastActive: message.createdAt,
-        conversationEmbedding: embedding ? embedding.slice() : undefined,
-      };
-      this.conversations.push(newConversation);
-      this.messageIdToConversationId[message.id] = newConversation.id;
+      this.startNewConversation(message, embedding, displayName);
     }
   }
 
