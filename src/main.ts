@@ -1,92 +1,74 @@
 // main.ts
 
-import { Client } from "discord.js";
-import { REST } from "@discordjs/rest";
+import { Client, GatewayIntentBits, type Interaction, REST } from "discord.js";
 import dotenv from "dotenv";
+import { Routes } from "discord-api-types/v10";
 import type { RESTPostAPIApplicationCommandsJSONBody } from "discord-api-types/v9";
-import { GatewayIntentBits, Routes } from "discord-api-types/v10";
-import type { Interaction } from "discord.js";
 import { readdir } from "fs/promises";
 import { join, relative } from "path";
-import {
-  getConversationsByUserId,
-  syncAllChannels,
-  syncChannelToDatabase,
-  syncGuildData,
-} from "./lib/neo4j/neo4j";
-import { ask } from "./function/ask";
+import logger from "./function/logger";
 import { getFiresideMessages } from "./lib/discord/discord";
 import {
   ConversationManager,
-  processMessageBatch as processConversatations,
+  processMessageBatch,
 } from "./function/generateConversations";
-import {
-  saveAllConversationsToFile,
-  saveConversationToFile,
-} from "./utils/utils";
+import { saveAllConversationsToFile } from "./utils/utils";
+import { speakVoiceCall } from "./function/speakVoiceCall";
 
 dotenv.config();
 
 const botToken = process.env.BOT_TOKEN!;
 const clientId = process.env.CLIENT_ID!;
 const guildId = process.env.GUILD_ID!;
+
 if (!botToken || !clientId || !guildId) {
   throw new Error(
     "Missing BOT_TOKEN, CLIENT_ID, or GUILD_ID environment variables.",
   );
 }
 
-interface ExtendedClient extends Client {
+// Extend Client to include a `commands` property
+class ExtendedClient extends Client {
   commands: Map<
     string,
     { data: RESTPostAPIApplicationCommandsJSONBody; execute: Function }
-  >;
+  > = new Map();
 }
 
-const client = new Client({
+const client = new ExtendedClient({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMessageTyping,
   ],
-}) as ExtendedClient;
+});
 
 async function main() {
-  client.commands = new Map();
   const commands = await loadCommands();
   await registerCommands(commands);
 
   client.once("ready", async () => {
+    const messageId = "1307921354661822514";
+    const channelId = "1004111008337502270";
+    const userId = "487026109083418642";
+    const guild = await client.guilds.fetch(guildId);
+
     console.log(`Logged in as ${client.user?.tag}!`);
     try {
-      const messageId = "1307921354661822514";
-      const channelId = "1004111008337502270";
-      const userId = "487026109083418642";
-      const guild = await client.guilds.fetch(guildId);
-      const firesideMessages = await getFiresideMessages(guild);
-      const conversationManager = new ConversationManager();
-      const conversations = await processConversatations(
-        firesideMessages,
-        conversationManager,
-      );
-      await saveAllConversationsToFile(conversations);
-
-      // console.log("Fetched guild:", guild.name);
-      // await syncGuildData(guild);
-      // console.log("Synced guild data.");
-      // await syncAllChannels(guild);
-      // console.log("Synced all channels.");
-      // const conversations = await getConversationsByUserId(userId);
-      // console.log("conversations: ", conversations);
-      // ask(
-      //   "How many messages have been sent in the server this month?",
+      // const guild = await client.guilds.fetch(guildId);
+      // const firesideMessages = await getFiresideMessages(guild);
+      // const conversationManager = new ConversationManager();
+      // const conversations = await processMessageBatch(
+      //   firesideMessages,
+      //   conversationManager,
       // );
-      // await syncChannelToDatabase(guild, channelId);
-      // syncAllChannels(guild);
-      // console.log("Synced all channels.");
-      // syncChannelToDatabase(guild, channelId);
+      // await saveAllConversationsToFile(conversations);
+
+      await speakVoiceCall(guild, client);
+      await logger(client);
     } catch (error) {
       console.error("Error fetching guild or processing messages:", error);
     }
@@ -96,11 +78,14 @@ async function main() {
   await client.login(botToken);
 }
 
-main();
+main().catch((err) => {
+  console.error("Error starting the bot:", err);
+});
 
 async function loadCommands() {
   const commands: RESTPostAPIApplicationCommandsJSONBody[] = [];
   const commandFiles = await readdir(join(process.cwd(), "src/commands"));
+
   for (const file of commandFiles) {
     if (file.endsWith(".ts")) {
       const { data, execute } = await import(
@@ -115,13 +100,14 @@ async function loadCommands() {
       commands.push(data.toJSON());
     }
   }
+
   return commands;
 }
 
 async function registerCommands(
   commands: RESTPostAPIApplicationCommandsJSONBody[],
 ) {
-  const rest = new REST({ version: "9" }).setToken(botToken);
+  const rest = new REST({ version: "10" }).setToken(botToken);
   try {
     console.log("Started refreshing application (/) commands.");
     await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
@@ -135,10 +121,13 @@ async function registerCommands(
 
 async function handleInteraction(interaction: Interaction) {
   if (!interaction.isCommand()) return;
+
   const command = client.commands.get(interaction.commandName);
   if (!command) return;
+
   try {
-    await command.execute(interaction);
+    // Pass client into the command execution
+    await command.execute(interaction, client);
   } catch (error) {
     console.error("Error executing command:", error);
     const replyContent = {
