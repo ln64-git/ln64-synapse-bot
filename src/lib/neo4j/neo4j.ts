@@ -10,10 +10,7 @@ import { ChannelType, type Snowflake } from "discord-api-types/v10";
 import neo4j, { Driver, Transaction } from "neo4j-driver";
 import dotenv from "dotenv";
 import process from "node:process";
-import {
-    ConversationManager,
-    processMessageBatch,
-} from "../../function/generateConversations";
+import { ConversationManager } from "../../function/conversationManager";
 import type { Conversation } from "../../types";
 
 dotenv.config();
@@ -369,9 +366,9 @@ export async function syncMessages(channel: TextChannel): Promise<number> {
                 const messagesArray = [...messagesCollection.values()];
                 for (const message of messagesArray.reverse()) {
                     // Add the individual message to the conversation manager
-                    await conversationManager.addMessageToConversations(
-                        message,
-                    );
+                    // await conversationManager.addMessageToConversations(
+                    //     message,
+                    // );
 
                     // Sync the user-to-message relationship
                     await syncUserToMessage(message);

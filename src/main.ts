@@ -11,7 +11,7 @@ import { getFiresideMessages } from "./lib/discord/discord";
 import {
   ConversationManager,
   processMessageBatch,
-} from "./function/generateConversations";
+} from "./function/conversationManager";
 import { saveAllConversationsToFile } from "./utils/utils";
 import { speakVoiceCall } from "./function/speakVoiceCall";
 
@@ -58,14 +58,14 @@ async function main() {
 
     console.log(`Logged in as ${client.user?.tag}!`);
     try {
-      // const guild = await client.guilds.fetch(guildId);
-      // const firesideMessages = await getFiresideMessages(guild);
-      // const conversationManager = new ConversationManager();
-      // const conversations = await processMessageBatch(
-      //   firesideMessages,
-      //   conversationManager,
-      // );
-      // await saveAllConversationsToFile(conversations);
+      const guild = await client.guilds.fetch(guildId);
+      const firesideMessages = await getFiresideMessages(guild);
+      const conversationManager = new ConversationManager();
+      const conversations = await processMessageBatch(
+        firesideMessages,
+        conversationManager,
+      );
+      await saveAllConversationsToFile(conversations);
 
       await speakVoiceCall(guild, client);
       await logger(client);

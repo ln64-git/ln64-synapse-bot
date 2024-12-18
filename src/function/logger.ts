@@ -6,15 +6,49 @@ export default async function logger(client: Client) {
     // Log when the client is ready
     console.log(`Client is ready. Logged in as: ${client.user?.tag}`);
 
-    // Listen for typing in the specified channel
+    const typingUsers = new Map<string, Date>();
+
     client.on("typingStart", async (typing: Typing) => {
         if (typing.channel.id === confessionsChannelId) {
-            const logMessage =
-                `${typing.user.displayName} started typing in Confessions...`;
-            console.log(logMessage);
-            await saveLog(logMessage, "loggedMessages");
+            typingUsers.set(typing.user.id, new Date());
         }
     });
+    client.on("messageCreate", async (message) => {
+        if (message.channel.id === confessionsChannelId && message.author.bot) {
+            // Match the most recent typing user
+            const now = new Date();
+            const matchedUser = Array.from(typingUsers.entries()).find(
+                ([_, lastTyped]) => now.getTime() - lastTyped.getTime() < 5000, // 5-second window
+            );
+
+            if (matchedUser) {
+                const [userId] = matchedUser;
+                const user = await client.users.fetch(userId);
+                const logMessage =
+                    `${user.tag} likely sent a confession: "${message.content}"`;
+                console.log(logMessage);
+                await saveLog(logMessage, "confessionMessages");
+            }
+        }
+    });
+    client.on("messageUpdate", async (oldMessage, newMessage) => {
+        if (newMessage.channel.id === confessionsChannelId) {
+            const logMessage =
+                `${newMessage.author?.tag} updated their message: "${oldMessage.content}" → "${newMessage.content}"`;
+            console.log(logMessage);
+            await saveLog(logMessage, "updatedMessages");
+        }
+    });
+
+    client.on("messageCreate", async (message) => {
+        if (message.content.startsWith("/confess")) {
+            const logMessage =
+                `${message.author.tag} sent a confession: "${message.content}"`;
+            console.log(logMessage);
+            await saveLog(logMessage, "confessionCommands");
+        }
+    });
+
     // Listen for message deletions in the specified channel
     client.on("messageDelete", async (message) => {
         if (message.author?.displayName === "Euphony") {

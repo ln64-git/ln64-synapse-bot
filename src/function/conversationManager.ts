@@ -1,5 +1,3 @@
-// conversationManager.ts
-
 import type { Message } from "discord.js";
 import type { Conversation } from "../types.ts";
 import pLimit from "p-limit";
@@ -10,14 +8,14 @@ export class ConversationManager {
   private conversationIdCounter = 0;
 
   // Configurable thresholds
-  private timeThreshold = 5 * 60 * 1000; // 5 minutes for recent participant match
-  private similarityThreshold = 0.85; // Slightly increased from 0.8
-  private stalenessThreshold = 30 * 60 * 1000; // 30 minutes stale
-  private minSimilarityForConversation = 0.6; // Increased from 0.5
-  private hardTimeGap = 60 * 60 * 1000; // 1 hour
+  private timeThreshold = 2 * 60 * 1000; // 2 minutes for recent participant match
+  private similarityThreshold = 0.9; // Increased for stricter similarity checks
+  private stalenessThreshold = 15 * 60 * 1000; // 15 minutes stale
+  private minSimilarityForConversation = 0.7; // Slightly stricter context matching
+  private hardTimeGap = 30 * 60 * 1000; // 30 minutes
   private shortMessageWordCount = 3; // If message <= 3 words, treat as short
-  private localContextSize = 3; // Number of recent messages to consider for local context
-  private driftThreshold = 0.3; // If last message differs a lot from convo embedding, consider topic shift
+  private localContextSize = 5; // Number of recent messages to consider for local context
+  private driftThreshold = 0.2; // Tighter drift threshold for topic shifts
 
   constructor() {}
 
@@ -76,9 +74,7 @@ export class ConversationManager {
       // Check for drift:
       const sim = this.cosineSimilarity(embedding, conv.conversationEmbedding!);
       if (1 - sim > this.driftThreshold) {
-        // We've detected a large drift. We might consider
-        // raising thresholds or simply accept that the next semantically distant message starts a new convo.
-        // For simplicity, let's just store a flag:
+        // Detected topic shift; flagging the conversation for stricter handling.
         (conv as any).driftDetected = true;
       }
     }
@@ -149,14 +145,14 @@ export class ConversationManager {
       const isStale = timeDiff > this.stalenessThreshold;
 
       let requiredSim = this.similarityThreshold;
-      if (isStale) requiredSim = Math.max(requiredSim, 0.9);
+      if (isStale) requiredSim = Math.max(requiredSim, 0.95);
 
       const isVeryOld = timeDiff > this.hardTimeGap;
-      if (isVeryOld) requiredSim = Math.max(requiredSim, 0.95);
+      if (isVeryOld) requiredSim = Math.max(requiredSim, 0.98);
 
       // If drift was detected in this conversation, be even stricter:
       if ((conv as any).driftDetected) {
-        requiredSim = Math.max(requiredSim, 0.9);
+        requiredSim = Math.max(requiredSim, 0.95);
       }
 
       if (

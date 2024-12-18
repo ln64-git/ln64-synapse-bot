@@ -37,19 +37,12 @@ export async function getFiresideMessages(
 
   // Optionally, write messages to JSON for logging purposes
   const messagesForLogging = sortedMessages.map((message) => ({
-    id: message.id,
     content: message.content,
     displayName: message.member?.displayName || message.author.username,
-    timestamp: message.createdAt.toISOString(),
-    attachments: message.attachments.map((attachment: DiscordAttachment) => ({
-      url: attachment.url,
-      name: attachment.name,
-    })),
     mentions: message.mentions.users.map((user) => ({
       id: user.id,
       username: user.username,
     })),
-    referencedMessageId: message.reference?.messageId || null,
   }));
 
   const json = JSON.stringify(messagesForLogging, null, 2);
@@ -57,4 +50,3 @@ export async function getFiresideMessages(
 
   return sortedMessages;
 }
-

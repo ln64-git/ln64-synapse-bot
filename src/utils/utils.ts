@@ -25,7 +25,9 @@ export async function saveAllConversationsToFile(
     if (fs.existsSync(logFilePath)) {
         try {
             const fileContent = fs.readFileSync(logFilePath, "utf-8");
-            existingConversations = JSON.parse(fileContent);
+            if (fileContent.trim()) {
+                existingConversations = JSON.parse(fileContent);
+            }
         } catch (error) {
             console.error(
                 "Error reading or parsing existing conversations log file:",
