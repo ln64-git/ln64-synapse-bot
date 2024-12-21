@@ -12,6 +12,7 @@ export interface Conversation {
   startTime: Date;
   lastActive: Date;
   conversationEmbedding?: number[];
+  keywords?: string[];
 }
 
 export type FiresideMessage = {

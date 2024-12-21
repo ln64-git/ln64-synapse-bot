@@ -13,6 +13,7 @@ export async function saveAllConversationsToFile(
             content: msg.content,
         })),
         participants: conversation.participants,
+        keywords: conversation.keywords || [], // Include keywords in the output
     }));
 
     // Optionally merge with existing file data
@@ -20,6 +21,7 @@ export async function saveAllConversationsToFile(
         id: string;
         messages: { author: string; content: string }[];
         participants: string[];
+        keywords?: string[];
     }[] = [];
 
     if (fs.existsSync(logFilePath)) {
@@ -33,7 +35,6 @@ export async function saveAllConversationsToFile(
                 "Error reading or parsing existing conversations log file:",
                 error,
             );
-            // Handle the error, e.g., by initializing an empty array
             existingConversations = [];
         }
     }
