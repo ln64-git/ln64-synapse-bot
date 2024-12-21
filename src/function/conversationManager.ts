@@ -1,6 +1,8 @@
 import type { Message } from "discord.js";
-import type { Conversation } from "../types.ts";
+import type { Conversation } from "../types/types.ts";
 import pLimit from "p-limit";
+import natural, { TfIdf } from "natural";
+import { NlpManager } from "node-nlp"; // Add node-nlp for simple NER
 
 export class ConversationManager {
   private conversations: Conversation[] = [];
@@ -15,6 +17,9 @@ export class ConversationManager {
 
   constructor() {}
 
+
+  
+
   private cosineSimilarity(vecA: number[], vecB: number[]): number {
     if (vecA.length !== vecB.length || vecA.length === 0) return 0;
 
@@ -25,180 +30,153 @@ export class ConversationManager {
     return dotProduct / (magnitudeA * magnitudeB);
   }
 
-  private findExistingConversation(
-    message: Message<true>,
-    embedding: number[] | null,
-    displayName: string,
-  ): Conversation | null {
-    // Check if a matching conversation already exists
-    const timestamp = message.createdAt.getTime();
-    for (const conv of this.conversations) {
-      const timeDiff = timestamp - conv.lastActive.getTime();
-
-      // Match by participants and time
-      if (
-        conv.participants.includes(displayName) && timeDiff < this.timeThreshold
-      ) {
-        return conv;
-      }
-
-      // Match by semantic similarity if embedding exists
-      if (embedding && conv.conversationEmbedding) {
-        const similarity = this.cosineSimilarity(
-          embedding,
-          conv.conversationEmbedding,
-        );
-        if (similarity >= this.similarityThreshold) {
-          return conv;
-        }
-      }
-    }
-
-    return null;
-  }
-
   public async addMessageToConversations(
     message: Message<true>,
-    embedding: number[] | null,
   ): Promise<void> {
     const displayName = message.member?.displayName || message.author.username;
     const referencedMessageId = message.reference?.messageId;
 
-    // Step 1: Handle direct replies
+    // Generate keywords for the message
+    const messageKeywords = this.extractKeywords(message.content);
+
+    // Handle direct replies
     if (
       referencedMessageId &&
       this.messageIdToConversationId[referencedMessageId] !== undefined
     ) {
       const convId = this.messageIdToConversationId[referencedMessageId];
       const conv = this.conversations.find((c) => c.id === convId)!;
-      this.assignMessageToConversation(conv, message, embedding, displayName);
-      return;
-    }
-
-    // Step 2: Check for an existing conversation
-    const existingConversation = this.findExistingConversation(
-      message,
-      embedding,
-      displayName,
-    );
-    if (existingConversation) {
       this.assignMessageToConversation(
-        existingConversation,
+        conv,
         message,
-        embedding,
+        messageKeywords,
         displayName,
       );
       return;
     }
 
-    // Step 3: Start a new conversation
-    this.startNewConversation(message, embedding, displayName);
-  }
+    // Find an existing conversation by keyword similarity
+    const existingConversation = this.findExistingConversationByKeywords(
+      messageKeywords,
+    );
 
-  private updateConversationEmbedding(
-    conv: Conversation,
-    newEmbedding: number[],
-  ) {
-    if (!conv.conversationEmbedding) {
-      conv.conversationEmbedding = newEmbedding.slice();
+    if (existingConversation) {
+      this.assignMessageToConversation(
+        existingConversation,
+        message,
+        messageKeywords,
+        displayName,
+      );
       return;
     }
 
-    const count = conv.messages.length;
-    conv.conversationEmbedding = conv.conversationEmbedding.map((val, i) =>
-      (val * (count - 1) + newEmbedding[i]) / count
-    );
+    // Start a new conversation
+    this.startNewConversation(message, messageKeywords, displayName);
+  }
+
+  private findExistingConversationByKeywords(
+    keywords: string[],
+  ): Conversation | null {
+    return this.conversations.find((conv) => {
+      // Skip stale conversations
+      if (Date.now() - conv.lastActive.getTime() > this.stalenessThreshold) {
+        return false;
+      }
+
+      // Calculate keyword overlap
+      const overlap = keywords.filter((keyword) =>
+        conv.keywords?.includes(keyword)
+      );
+      const overlapRatio = overlap.length /
+        Math.max(keywords.length, conv.keywords?.length ?? 0);
+
+      return overlapRatio > 0.5; // Threshold for keyword similarity (adjust as needed)
+    }) || null;
   }
 
   private assignMessageToConversation(
     conv: Conversation,
     message: Message<true>,
-    embedding: number[] | null,
+    messageKeywords: string[],
     displayName: string,
   ) {
     conv.messages.push(message);
+
+    // Add the participant if not already present
     if (!conv.participants.includes(displayName)) {
       conv.participants.push(displayName);
     }
 
+    // Update the last active timestamp
     conv.lastActive = message.createdAt;
-    this.messageIdToConversationId[message.id] = conv.id;
 
-    if (embedding) {
-      this.updateConversationEmbedding(conv, embedding);
-    }
-
-    // Generate keywords for the message and add them to the conversation
-    const keywords = this.extractKeywords(message.content);
+    // Merge the message's keywords into the conversation's keywords
     conv.keywords = Array.from(
-      new Set([...(conv.keywords || []), ...keywords]),
+      new Set([...(conv.keywords || []), ...messageKeywords]),
     );
+
+    // Map the message ID to the conversation ID
+    this.messageIdToConversationId[message.id] = conv.id;
   }
 
-  private extractKeywords(content: string): string[] {
-    // Basic keyword extraction logic (replace with a more advanced NLP library if needed)
-    return content
-      .toLowerCase()
-      .split(/\W+/)
-      .filter((word) => word.length > 3); // Filter out short/common words
-  }
+  private async extractKeywordEmbeddings(
+    keywords: string[],
+  ): Promise<number[][]> {
+    if (keywords.length === 0) return [];
 
-  private findRecentConversationForUser(
-    displayName: string,
-    timestamp: number,
-  ): Conversation | null {
-    return this.conversations
-      .filter((conv) =>
-        conv.participants.includes(displayName) &&
-        timestamp - conv.lastActive.getTime() < this.timeThreshold
-      )
-      .pop() || null;
-  }
+    try {
+      const response = await fetch("https://api.openai.com/v1/embeddings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          input: keywords,
+          model: "text-embedding-ada-002",
+        }),
+      });
 
-  private findBestConversationByEmbedding(
-    embedding: number[],
-    timestamp: number,
-  ): Conversation | null {
-    let bestConv: Conversation | null = null;
-    let bestSimilarity = -1;
-
-    for (const conv of this.conversations) {
-      if (!conv.conversationEmbedding) continue;
-
-      const similarity = this.cosineSimilarity(
-        embedding,
-        conv.conversationEmbedding,
-      );
-      const timeDiff = timestamp - conv.lastActive.getTime();
-      const isStale = timeDiff > this.stalenessThreshold;
-      const requiredSim = isStale
-        ? Math.max(this.similarityThreshold, 0.95)
-        : this.similarityThreshold;
-
-      if (similarity >= requiredSim && similarity > bestSimilarity) {
-        bestSimilarity = similarity;
-        bestConv = conv;
+      if (!response.ok) {
+        console.error("Failed to fetch keyword embeddings");
+        return [];
       }
-    }
 
-    return bestConv;
+      const data = await response.json();
+      return data.data.map((item: any) => item.embedding);
+    } catch (error) {
+      console.error("Error fetching keyword embeddings:", error);
+      return [];
+    }
+  }
+
+  private tfidf = new TfIdf(); // For TF-IDF calculations
+  private extractKeywords(content: string): string[] {
+    // Tokenize the content
+    const tokenizer = new natural.WordTokenizer();
+    const tokens = tokenizer.tokenize(content);
+
+    // Filter tokens to include only meaningful words
+    const filteredTokens = tokens
+      .map((word) => word.toLowerCase())
+      .filter((word) => word.length > 3 && !natural.stopwords.includes(word));
+
+    // Remove duplicates
+    return Array.from(new Set(filteredTokens));
   }
 
   private startNewConversation(
     message: Message<true>,
-    embedding: number[] | null,
+    messageKeywords: string[],
     displayName: string,
   ) {
-    const keywords = this.extractKeywords(message.content);
-
     const newConversation: Conversation = {
       id: this.conversationIdCounter++,
       messages: [message],
       participants: [displayName],
       startTime: message.createdAt,
       lastActive: message.createdAt,
-      conversationEmbedding: embedding ? embedding.slice() : undefined,
-      keywords,
+      keywords: messageKeywords,
     };
 
     this.conversations.push(newConversation);
@@ -219,17 +197,10 @@ export async function processMessageBatch(
 
   for (let i = 0; i < messages.length; i += batchSize) {
     const batch = messages.slice(i, i + batchSize);
-    const texts = batch.map((msg) => msg.content.trim());
-    const embeddings = await getEmbeddingBatch(texts);
 
     await Promise.all(
-      batch.map((message, index) =>
-        limit(() =>
-          conversationManager.addMessageToConversations(
-            message,
-            embeddings[index],
-          )
-        )
+      batch.map((message) =>
+        limit(() => conversationManager.addMessageToConversations(message))
       ),
     );
   }

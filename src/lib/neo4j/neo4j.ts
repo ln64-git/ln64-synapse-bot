@@ -11,7 +11,7 @@ import neo4j, { Driver, Transaction } from "neo4j-driver";
 import dotenv from "dotenv";
 import process from "node:process";
 import { ConversationManager } from "../../function/conversationManager";
-import type { Conversation } from "../../types";
+import type { Conversation } from "../../types/types";
 
 dotenv.config();
 

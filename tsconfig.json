@@ -1,5 +1,9 @@
 {
   "compilerOptions": {
+    
+    // Base configuration
+    "typeRoots": ["node_modules/@types", "src/@types"],
+    
     // Enable latest features
     "lib": ["ESNext", "DOM"],
     "target": "ESNext",

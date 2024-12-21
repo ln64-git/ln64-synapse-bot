@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import type { Conversation } from "../types";
+import type { Conversation } from "../types/types";
 
 export async function saveAllConversationsToFile(
     conversations: Conversation[],
