@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
-import type { Conversation } from "../types/types";
+import type { Conversation, TrimmedMessage } from "../types/types";
+import type { Message } from "discord.js";
 
 export async function saveAllConversationsToFile(
     conversations: Conversation[],
@@ -54,4 +55,24 @@ export async function saveAllConversationsToFile(
     );
 
     console.log(`Saved ${conversations.length} conversations to log file.`);
+}
+
+export function convertToTrimmedMessage(message: Message): TrimmedMessage {
+    return {
+        timestamp: new Date(message.createdTimestamp).toISOString(),
+        server: message.guild?.name || "Direct Message",
+        channel: message.channel.isTextBased() && "name" in message.channel &&
+                message.channel.name
+            ? message.channel.name
+            : "Unknown Channel",
+        message: {
+            content: message.content || "[No Content]",
+            author: `${message.author.displayName}`,
+            embeds: message.embeds,
+            attachments: Array.from(message.attachments.values()).map((a) =>
+                a.url
+            ),
+            editedTimestamp: message.editedTimestamp,
+        },
+    };
 }

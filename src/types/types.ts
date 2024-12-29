@@ -37,3 +37,16 @@ export type FiresideAttachment = {
   summary?: string;
   ocrText?: string;
 };
+
+export type TrimmedMessage = {
+  timestamp: string;
+  server: string;
+  channel: string;
+  message: {
+    content: string;
+    author: string;
+    embeds: any[];
+    attachments: string[];
+    editedTimestamp: number | null;
+  };
+};

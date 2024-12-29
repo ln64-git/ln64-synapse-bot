@@ -1,81 +1,37 @@
-import { ChannelType, type Client, type Typing } from "discord.js";
+import { type Client, Message } from "discord.js";
+import type { TrimmedMessage } from "../types/types";
+import { convertToTrimmedMessage } from "../utils/utils";
 
 export default async function logger(client: Client) {
-    const confessionsChannelId = "1268661902834274448";
-
     // Log when the client is ready
     console.log(`Client is ready. Logged in as: ${client.user?.tag}`);
 
-    const typingUsers = new Map<string, Date>();
-
-    client.on("typingStart", async (typing: Typing) => {
-        if (typing.channel.id === confessionsChannelId) {
-            typingUsers.set(typing.user.id, new Date());
-        }
-    });
-    client.on("messageCreate", async (message) => {
-        if (message.channel.id === confessionsChannelId && message.author.bot) {
-            // Match the most recent typing user
-            const now = new Date();
-            const matchedUser = Array.from(typingUsers.entries()).find(
-                ([_, lastTyped]) => now.getTime() - lastTyped.getTime() < 5000, // 5-second window
-            );
-
-            if (matchedUser) {
-                const [userId] = matchedUser;
-                const user = await client.users.fetch(userId);
-                const logMessage =
-                    `${user.tag} likely sent a confession: "${message.content}"`;
-                console.log(logMessage);
-                await saveLog(logMessage, "confessionMessages");
-            }
-        }
-    });
-    client.on("messageUpdate", async (oldMessage, newMessage) => {
-        if (newMessage.channel.id === confessionsChannelId) {
-            const logMessage =
-                `${newMessage.author?.tag} updated their message: "${oldMessage.content}" → "${newMessage.content}"`;
-            console.log(logMessage);
-            await saveLog(logMessage, "updatedMessages");
-        }
-    });
-
-    client.on("messageCreate", async (message) => {
-        if (message.content.startsWith("/confess")) {
-            const logMessage =
-                `${message.author.tag} sent a confession: "${message.content}"`;
-            console.log(logMessage);
-            await saveLog(logMessage, "confessionCommands");
-        }
-    });
-
-    // Listen for message deletions in the specified channel
     client.on("messageDelete", async (message) => {
-        if (message.author?.displayName === "Euphony") {
+        let fullMessage: Message | null = null;
+        try {
+            fullMessage = message.partial ? await message.fetch() : message;
+        } catch (err) {
+            console.error("Failed to fetch the partial message:", err);
             return;
         }
-        const channelName = message.channel.type === ChannelType.GuildText
-            ? message.channel.name
-            : "unknown channel";
-        const logMessage =
-            `${message.author?.displayName} deleted a message: "${message.content}" in ${channelName}`;
-        console.log(logMessage);
-        await saveLog(logMessage, "deletedMessages");
+        if (fullMessage) {
+            await saveLog(fullMessage, "deletedMessages");
+        }
     });
 }
 
-async function saveLog(message: string, fileName: string) {
-    const fs = await import("fs");
+export async function saveLog(message: Message, fileName: string) {
+    const fs = await import("fs/promises");
     const logFilePath =
         `/home/ln64/Source/ln64-synapse-bot/logs/${fileName}.log`;
-
-    fs.appendFile(
-        logFilePath,
-        `${new Date().toISOString()} - ${message}\n`,
-        (err) => {
-            if (err) {
-                console.error("Failed to save log:", err);
-            }
-        },
-    );
+    const trimmedMessage = convertToTrimmedMessage(message);
+    try {
+        await fs.appendFile(
+            logFilePath,
+            JSON.stringify(trimmedMessage, null, 2) + ",\n",
+            "utf8",
+        );
+    } catch (err) {
+        console.error("Failed to save log:", err);
+    }
 }

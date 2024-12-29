@@ -8,7 +8,7 @@ import {
   type Snowflake,
   TextChannel,
 } from "discord.js";
-import * as fs from "fs/promises"; // Use promises version of fs
+import { saveLog } from "../../function/logger";
 
 export async function getFiresideMessages(
   guild: Guild,
@@ -34,19 +34,8 @@ export async function getFiresideMessages(
   const sortedMessages = messagesArray.sort(
     (a, b) => a.createdTimestamp - b.createdTimestamp,
   );
-
-  // Optionally, write messages to JSON for logging purposes
-  const messagesForLogging = sortedMessages.map((message) => ({
-    content: message.content,
-    displayName: message.member?.displayName || message.author.username,
-    mentions: message.mentions.users.map((user) => ({
-      id: user.id,
-      username: user.username,
-    })),
-  }));
-
-  const json = JSON.stringify(messagesForLogging, null, 2);
-  await fs.writeFile("./logs/messages.json", json);
-
+  for (const message of sortedMessages) {
+    await saveLog(message, "fetchedMessages");
+  }
   return sortedMessages;
 }

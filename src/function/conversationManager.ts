@@ -8,27 +8,9 @@ export class ConversationManager {
   private conversations: Conversation[] = [];
   private messageIdToConversationId: { [key: string]: number } = {};
   private conversationIdCounter = 0;
-
-  // Configurable thresholds
-  private timeThreshold = 2 * 60 * 1000; // 2 minutes for recent participant match
-  private similarityThreshold = 0.9; // Similarity threshold for embeddings
   private stalenessThreshold = 15 * 60 * 1000; // 15 minutes for stale conversations
-  private localContextSize = 5; // Number of recent messages to consider for context
 
   constructor() {}
-
-
-  
-
-  private cosineSimilarity(vecA: number[], vecB: number[]): number {
-    if (vecA.length !== vecB.length || vecA.length === 0) return 0;
-
-    const dotProduct = vecA.reduce((sum, val, i) => sum + val * vecB[i], 0);
-    const magnitudeA = Math.sqrt(vecA.reduce((sum, val) => sum + val * val, 0));
-    const magnitudeB = Math.sqrt(vecB.reduce((sum, val) => sum + val * val, 0));
-    if (magnitudeA === 0 || magnitudeB === 0) return 0;
-    return dotProduct / (magnitudeA * magnitudeB);
-  }
 
   public async addMessageToConversations(
     message: Message<true>,
@@ -119,6 +101,38 @@ export class ConversationManager {
     this.messageIdToConversationId[message.id] = conv.id;
   }
 
+  private startNewConversation(
+    message: Message<true>,
+    messageKeywords: string[],
+    displayName: string,
+  ) {
+    const newConversation: Conversation = {
+      id: this.conversationIdCounter++,
+      messages: [message],
+      participants: [displayName],
+      startTime: message.createdAt,
+      lastActive: message.createdAt,
+      keywords: messageKeywords,
+    };
+
+    this.conversations.push(newConversation);
+    this.messageIdToConversationId[message.id] = newConversation.id;
+  }
+
+  private extractKeywords(content: string): string[] {
+    // Tokenize the content
+    const tokenizer = new natural.WordTokenizer();
+    const tokens = tokenizer.tokenize(content);
+
+    // Filter tokens to include only meaningful words
+    const filteredTokens = tokens
+      .map((word) => word.toLowerCase())
+      .filter((word) => word.length > 3 && !natural.stopwords.includes(word));
+
+    // Remove duplicates
+    return Array.from(new Set(filteredTokens));
+  }
+
   private async extractKeywordEmbeddings(
     keywords: string[],
   ): Promise<number[][]> {
@@ -150,37 +164,14 @@ export class ConversationManager {
     }
   }
 
-  private tfidf = new TfIdf(); // For TF-IDF calculations
-  private extractKeywords(content: string): string[] {
-    // Tokenize the content
-    const tokenizer = new natural.WordTokenizer();
-    const tokens = tokenizer.tokenize(content);
+  private cosineSimilarity(vecA: number[], vecB: number[]): number {
+    if (vecA.length !== vecB.length || vecA.length === 0) return 0;
 
-    // Filter tokens to include only meaningful words
-    const filteredTokens = tokens
-      .map((word) => word.toLowerCase())
-      .filter((word) => word.length > 3 && !natural.stopwords.includes(word));
-
-    // Remove duplicates
-    return Array.from(new Set(filteredTokens));
-  }
-
-  private startNewConversation(
-    message: Message<true>,
-    messageKeywords: string[],
-    displayName: string,
-  ) {
-    const newConversation: Conversation = {
-      id: this.conversationIdCounter++,
-      messages: [message],
-      participants: [displayName],
-      startTime: message.createdAt,
-      lastActive: message.createdAt,
-      keywords: messageKeywords,
-    };
-
-    this.conversations.push(newConversation);
-    this.messageIdToConversationId[message.id] = newConversation.id;
+    const dotProduct = vecA.reduce((sum, val, i) => sum + val * vecB[i], 0);
+    const magnitudeA = Math.sqrt(vecA.reduce((sum, val) => sum + val * val, 0));
+    const magnitudeB = Math.sqrt(vecB.reduce((sum, val) => sum + val * val, 0));
+    if (magnitudeA === 0 || magnitudeB === 0) return 0;
+    return dotProduct / (magnitudeA * magnitudeB);
   }
 
   public getConversations(): Conversation[] {

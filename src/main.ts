@@ -6,7 +6,7 @@ import { Routes } from "discord-api-types/v10";
 import type { RESTPostAPIApplicationCommandsJSONBody } from "discord-api-types/v9";
 import { readdir } from "fs/promises";
 import { join, relative } from "path";
-import logger from "./function/logger";
+import logger, { saveLog } from "./function/logger";
 import { getFiresideMessages } from "./lib/discord/discord";
 import {
   ConversationManager,
@@ -65,9 +65,9 @@ async function main() {
         firesideMessages,
         conversationManager,
       );
-      await saveAllConversationsToFile(conversations);
+      // await saveAllConversationsToFile(conversations);
 
-      await speakVoiceCall(guild, client);
+      // await speakVoiceCall(guild, client);
       await logger(client);
     } catch (error) {
       console.error("Error fetching guild or processing messages:", error);
