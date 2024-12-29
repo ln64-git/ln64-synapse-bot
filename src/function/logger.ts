@@ -19,14 +19,18 @@ export default async function logger(client: Client) {
         }
     });
 }
-
 export async function saveLog(data: object[], baseFileName: string) {
     const fs = await import("fs/promises");
     const path = await import("path");
 
     const logsDir = path.join(process.cwd(), "logs");
-    const oldLogsDir = path.join(logsDir, "old");
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const timestamp = new Date();
+    const formattedDate = timestamp.toISOString().split("T")[0].replace(
+        /-/g,
+        "-",
+    ); // Format: 12-03-2024
+    const oldLogsDir = path.join(logsDir, "old", formattedDate); // Use date as folder name
+    const formattedTimestamp = timestamp.toISOString().replace(/[:.]/g, "-");
     const currentLogFile = path.join(logsDir, `${baseFileName}.json`); // Single main file
 
     try {
@@ -41,12 +45,10 @@ export async function saveLog(data: object[], baseFileName: string) {
             .catch(() => false);
 
         if (logExists) {
-            // Move the current log file to the old directory
-            const oldFileName = `${baseFileName}-${timestamp}.json`;
+            // Move the current log file to the date-named folder
+            const oldFileName = `${baseFileName}-${formattedTimestamp}.json`;
             const oldFilePath = path.join(oldLogsDir, oldFileName);
             await fs.rename(currentLogFile, oldFilePath);
-            console.log("log: ", oldLogsDir);
-            console.log(`Moved existing log to: ${oldFilePath}`);
         }
 
         // Save only the latest 100 messages in the new log file

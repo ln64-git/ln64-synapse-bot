@@ -10,7 +10,7 @@ import logger, { saveLog } from "./function/logger";
 import { getFiresideMessages } from "./lib/discord/discord";
 import {
   ConversationManager,
-  processMessageBatch,
+  processMessageBatch as processMessages,
 } from "./function/conversationManager";
 import { saveAllConversationsToFile } from "./utils/utils";
 import { speakVoiceCall } from "./function/speakVoiceCall";
@@ -56,10 +56,12 @@ async function main() {
       // const hearth = await client.guilds.fetch(guildId);
       const firesideMessages = await getFiresideMessages(client);
       const conversationManager = new ConversationManager();
-      // const conversations = await processMessageBatch(
-      //   firesideMessages,
-      //   conversationManager,
-      // );
+      const conversations = await processMessages(
+        firesideMessages,
+        conversationManager,
+      );
+
+
 
       await speakVoiceCall(client);
       await logger(client);
