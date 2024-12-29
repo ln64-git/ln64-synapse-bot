@@ -19,11 +19,10 @@ dotenv.config();
 
 const botToken = process.env.BOT_TOKEN!;
 const clientId = process.env.CLIENT_ID!;
-const guildId = process.env.GUILD_ID!;
 
-if (!botToken || !clientId || !guildId) {
+if (!botToken || !clientId) {
   throw new Error(
-    "Missing BOT_TOKEN, CLIENT_ID, or GUILD_ID environment variables.",
+    "Missing BOT_TOKEN or CLIENT_ID environment variables.",
   );
 }
 
@@ -51,26 +50,21 @@ async function main() {
   await registerCommands(commands);
 
   client.once("ready", async () => {
-    const messageId = "1307921354661822514";
-    const channelId = "1004111008337502270";
-    const userId = "487026109083418642";
-    const guild = await client.guilds.fetch(guildId);
-
     console.log(`Logged in as ${client.user?.tag}!`);
-    try {
-      const guild = await client.guilds.fetch(guildId);
-      const firesideMessages = await getFiresideMessages(guild);
-      const conversationManager = new ConversationManager();
-      const conversations = await processMessageBatch(
-        firesideMessages,
-        conversationManager,
-      );
-      // await saveAllConversationsToFile(conversations);
 
-      // await speakVoiceCall(guild, client);
+    try {
+      // const hearth = await client.guilds.fetch(guildId);
+      const firesideMessages = await getFiresideMessages(client);
+      const conversationManager = new ConversationManager();
+      // const conversations = await processMessageBatch(
+      //   firesideMessages,
+      //   conversationManager,
+      // );
+
+      await speakVoiceCall(client);
       await logger(client);
     } catch (error) {
-      console.error("Error fetching guild or processing messages:", error);
+      console.error("Error initializing voice state monitoring:", error);
     }
   });
 
@@ -109,13 +103,13 @@ async function registerCommands(
 ) {
   const rest = new REST({ version: "10" }).setToken(botToken);
   try {
-    console.log("Started refreshing application (/) commands.");
-    await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
+    console.log("Started refreshing global application (/) commands.");
+    await rest.put(Routes.applicationCommands(clientId), {
       body: commands,
     });
-    console.log("Successfully reloaded application (/) commands.");
+    console.log("Successfully registered global application (/) commands.");
   } catch (error) {
-    console.error("Error registering commands:", error);
+    console.error("Error registering global commands:", error);
   }
 }
 
