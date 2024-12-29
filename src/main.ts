@@ -8,12 +8,9 @@ import { readdir } from "fs/promises";
 import { join, relative } from "path";
 import logger, { saveLog } from "./function/logger";
 import { getFiresideMessages } from "./lib/discord/discord";
-import {
-  ConversationManager,
-  processMessageBatch as processMessages,
-} from "./function/conversationManager";
-import { saveAllConversationsToFile } from "./utils/utils";
+import { ConversationManager } from "./function/conversationManager";
 import { speakVoiceCall } from "./function/speakVoiceCall";
+import { convertToTrimmedMessage } from "./utils/utils";
 
 dotenv.config();
 
@@ -54,14 +51,23 @@ async function main() {
 
     try {
       // const hearth = await client.guilds.fetch(guildId);
-      const firesideMessages = await getFiresideMessages(client);
       const conversationManager = new ConversationManager();
-      const conversations = await processMessages(
-        firesideMessages,
-        conversationManager,
+      const firesideMessages = await getFiresideMessages(client);
+
+      await Promise.all(
+        firesideMessages.map((message) =>
+          conversationManager.addMessageToConversations(message)
+        ),
       );
-
-
+      const trimmedConversations = conversationManager
+        .getConversations()
+        .map((conversation) => ({
+          ...conversation,
+          messages: conversation.messages.map((message) =>
+            convertToTrimmedMessage(message)
+          ),
+        }));
+      await saveLog(trimmedConversations, "conversations");
 
       await speakVoiceCall(client);
       await logger(client);

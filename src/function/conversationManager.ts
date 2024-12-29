@@ -84,6 +84,9 @@ export class ConversationManager {
   ) {
     conv.messages.push(message);
 
+    // Increment the message count
+    conv.messageCount += 1;
+
     // Add the participant if not already present
     if (!conv.participants.includes(displayName)) {
       conv.participants.push(displayName);
@@ -108,6 +111,7 @@ export class ConversationManager {
   ) {
     const newConversation: Conversation = {
       id: this.conversationIdCounter++,
+      messageCount: 1, // Initialize messageCount
       messages: [message],
       participants: [displayName],
       startTime: message.createdAt,
@@ -133,70 +137,20 @@ export class ConversationManager {
     return Array.from(new Set(filteredTokens));
   }
 
-  private async extractKeywordEmbeddings(
-    keywords: string[],
-  ): Promise<number[][]> {
-    if (keywords.length === 0) return [];
-
-    try {
-      const response = await fetch("https://api.openai.com/v1/embeddings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          input: keywords,
-          model: "text-embedding-ada-002",
-        }),
-      });
-
-      if (!response.ok) {
-        console.error("Failed to fetch keyword embeddings");
-        return [];
-      }
-
-      const data = await response.json();
-      return data.data.map((item: any) => item.embedding);
-    } catch (error) {
-      console.error("Error fetching keyword embeddings:", error);
-      return [];
-    }
-  }
-
-  private cosineSimilarity(vecA: number[], vecB: number[]): number {
-    if (vecA.length !== vecB.length || vecA.length === 0) return 0;
-
-    const dotProduct = vecA.reduce((sum, val, i) => sum + val * vecB[i], 0);
-    const magnitudeA = Math.sqrt(vecA.reduce((sum, val) => sum + val * val, 0));
-    const magnitudeB = Math.sqrt(vecB.reduce((sum, val) => sum + val * val, 0));
-    if (magnitudeA === 0 || magnitudeB === 0) return 0;
-    return dotProduct / (magnitudeA * magnitudeB);
-  }
-
   public getConversations(): Conversation[] {
     return this.conversations;
   }
 }
 
-export async function processMessageBatch(
+export async function processMessages(
   messages: Message<true>[],
   conversationManager: ConversationManager,
-): Promise<Conversation[]> {
-  const limit = pLimit(5);
-  const batchSize = 20;
-
-  for (let i = 0; i < messages.length; i += batchSize) {
-    const batch = messages.slice(i, i + batchSize);
-
-    await Promise.all(
-      batch.map((message) =>
-        limit(() => conversationManager.addMessageToConversations(message))
-      ),
-    );
-  }
-
-  return conversationManager.getConversations();
+) {
+  await Promise.all(
+    messages.map((message) =>
+      conversationManager.addMessageToConversations(message)
+    ),
+  );
 }
 
 async function getEmbeddingBatch(

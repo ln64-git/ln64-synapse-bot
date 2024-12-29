@@ -68,11 +68,9 @@ export function convertToTrimmedMessage(message: Message): TrimmedMessage {
         message: {
             content: message.content || "[No Content]",
             author: `${message.author.displayName}`,
-            embeds: message.embeds,
             attachments: Array.from(message.attachments.values()).map((a) =>
                 a.url
             ),
-            editedTimestamp: message.editedTimestamp,
         },
     };
 }

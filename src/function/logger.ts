@@ -13,12 +13,20 @@ export default async function logger(client: Client) {
             console.error("Failed to fetch the partial message:", err);
             return;
         }
+
         if (fullMessage) {
+            // Ignore messages from "Euphony"
+            if (fullMessage.author.username === "Euphony") {
+                console.log("Ignoring message from Euphony:", fullMessage.id);
+                return;
+            }
+
             const trimmedData = convertToTrimmedMessage(fullMessage);
             await saveLog([trimmedData], "deletedMessages");
         }
     });
 }
+
 export async function saveLog(data: object[], baseFileName: string) {
     const fs = await import("fs/promises");
     const path = await import("path");
