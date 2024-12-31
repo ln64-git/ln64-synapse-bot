@@ -25,5 +25,6 @@ export type TrimmedMessage = {
     content: string;
     author: string;
     attachments: string[];
+    mentions: string[];
   };
 };

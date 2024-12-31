@@ -61,15 +61,16 @@ async function main() {
       );
       const trimmedConversations = conversationManager
         .getConversations()
-        .map((conversation) => ({
+        .map(({ conversationEmbedding, ...conversation }) => ({
           ...conversation,
           messages: conversation.messages.map((message) =>
             convertToTrimmedMessage(message)
           ),
         }));
+
       await saveLog(trimmedConversations, "conversations");
 
-      await speakVoiceCall(client);
+      // await speakVoiceCall(client);
       await logger(client);
     } catch (error) {
       console.error("Error initializing voice state monitoring:", error);

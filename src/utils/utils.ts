@@ -71,6 +71,7 @@ export function convertToTrimmedMessage(message: Message): TrimmedMessage {
             attachments: Array.from(message.attachments.values()).map((a) =>
                 a.url
             ),
+            mentions: message.mentions.users.map((u) => u.username),
         },
     };
 }

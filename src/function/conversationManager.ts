@@ -1,14 +1,12 @@
 import type { Message } from "discord.js";
 import type { Conversation } from "../types/types.ts";
-import pLimit from "p-limit";
-import natural, { TfIdf } from "natural";
-import { NlpManager } from "node-nlp"; // Add node-nlp for simple NER
+import natural from "natural";
 
 export class ConversationManager {
   private conversations: Conversation[] = [];
   private messageIdToConversationId: { [key: string]: number } = {};
   private conversationIdCounter = 0;
-  private stalenessThreshold = 15 * 60 * 1000; // 15 minutes for stale conversations
+  private stalenessThreshold = 10 * 60 * 1000; // 10 minutes for temporal proximity
 
   constructor() {}
 
@@ -17,128 +15,144 @@ export class ConversationManager {
   ): Promise<void> {
     const displayName = message.member?.displayName || message.author.username;
     const referencedMessageId = message.reference?.messageId;
-
-    // Generate keywords for the message
     const messageKeywords = this.extractKeywords(message.content);
 
-    // Handle direct replies
-    if (
-      referencedMessageId &&
-      this.messageIdToConversationId[referencedMessageId] !== undefined
-    ) {
-      const convId = this.messageIdToConversationId[referencedMessageId];
-      const conv = this.conversations.find((c) => c.id === convId)!;
-      this.assignMessageToConversation(
-        conv,
-        message,
-        messageKeywords,
-        displayName,
-      );
-      return;
-    }
-
-    // Find an existing conversation by keyword similarity
-    const existingConversation = this.findExistingConversationByKeywords(
-      messageKeywords,
+    const relatedConversation = this.findRelatedConversation(
+      message,
+      displayName,
+      referencedMessageId,
     );
 
-    if (existingConversation) {
+    if (relatedConversation) {
       this.assignMessageToConversation(
-        existingConversation,
+        relatedConversation,
         message,
         messageKeywords,
         displayName,
       );
-      return;
+    } else {
+      this.startNewConversation(message, messageKeywords, displayName);
     }
-
-    // Start a new conversation
-    this.startNewConversation(message, messageKeywords, displayName);
   }
 
-  private findExistingConversationByKeywords(
-    keywords: string[],
+  public getFormattedConversations(): object[] {
+    return this.getConversations().map((conversation) => ({
+      id: conversation.id,
+      messageCount: conversation.messageCount,
+      messages: conversation.messages.map((msg) => ({
+        timestamp: msg.createdTimestamp,
+        server: msg.guild.name,
+        channel: msg.channel.name,
+        message: {
+          content: msg.content,
+          author: msg.author.username,
+          attachments: msg.attachments.map((att) => att.url),
+          mentions: msg.mentions.users.map((user) => user.username),
+        },
+      })),
+      participants: conversation.participants,
+      startTime: conversation.startTime.toISOString(),
+      lastActive: conversation.lastActive.toISOString(),
+      keywords: conversation.keywords,
+    }));
+  }
+
+  private findRelatedConversation(
+    message: Message<true>,
+    displayName: string,
+    referencedMessageId?: string,
   ): Conversation | null {
+    // Check for referenced messages
+    const referencedConversation = referencedMessageId
+      ? this.conversations.find((conv) =>
+        conv.messages.some((msg) => msg.id === referencedMessageId)
+      )
+      : null;
+
+    if (referencedConversation) {
+      return referencedConversation;
+    }
+
+    // Check for relationships based on mentions or participants
     return this.conversations.find((conv) => {
-      // Skip stale conversations
-      if (Date.now() - conv.lastActive.getTime() > this.stalenessThreshold) {
-        return false;
-      }
+      const isParticipantRelated = conv.participants.includes(displayName) ||
+        message.mentions.users.some((user) =>
+          conv.participants.includes(user.username)
+        );
 
-      // Calculate keyword overlap
-      const overlap = keywords.filter((keyword) =>
-        conv.keywords?.includes(keyword)
+      const hasMentionOverlap = conv.messages.some((msg) =>
+        msg.mentions.users.some((mention) =>
+          message.mentions.users.some((user) => user.id === mention.id)
+        )
       );
-      const overlapRatio = overlap.length /
-        Math.max(keywords.length, conv.keywords?.length ?? 0);
 
-      return overlapRatio > 0.5; // Threshold for keyword similarity (adjust as needed)
+      // Relax time threshold for strong mention relationships
+      const isWithinTimeThreshold =
+        Math.abs(message.createdTimestamp - conv.lastActive.getTime()) <
+          this.stalenessThreshold;
+
+      return isParticipantRelated || hasMentionOverlap || isWithinTimeThreshold;
     }) || null;
   }
 
   private assignMessageToConversation(
-    conv: Conversation,
+    conversation: Conversation,
     message: Message<true>,
     messageKeywords: string[],
     displayName: string,
-  ) {
-    conv.messages.push(message);
+  ): void {
+    conversation.messages.push(message);
+    conversation.messageCount += 1;
+    conversation.lastActive = new Date(message.createdTimestamp);
 
-    // Increment the message count
-    conv.messageCount += 1;
-
-    // Add the participant if not already present
-    if (!conv.participants.includes(displayName)) {
-      conv.participants.push(displayName);
+    // Add author to participants
+    if (!conversation.participants.includes(displayName)) {
+      conversation.participants.push(displayName);
     }
 
-    // Update the last active timestamp
-    conv.lastActive = message.createdAt;
+    // Add mentioned users to participants
+    message.mentions.users.forEach((user) => {
+      if (!conversation.participants.includes(user.username)) {
+        conversation.participants.push(user.username);
+      }
+    });
 
-    // Merge the message's keywords into the conversation's keywords
-    conv.keywords = Array.from(
-      new Set([...(conv.keywords || []), ...messageKeywords]),
+    // Update keywords
+    conversation.keywords = Array.from(
+      new Set([...(conversation.keywords || []), ...messageKeywords]),
     );
-
-    // Map the message ID to the conversation ID
-    this.messageIdToConversationId[message.id] = conv.id;
   }
 
   private startNewConversation(
     message: Message<true>,
     messageKeywords: string[],
     displayName: string,
-  ) {
+  ): void {
     const newConversation: Conversation = {
       id: this.conversationIdCounter++,
-      messageCount: 1, // Initialize messageCount
+      messageCount: 1,
       messages: [message],
       participants: [displayName],
-      startTime: message.createdAt,
-      lastActive: message.createdAt,
+      startTime: new Date(message.createdTimestamp),
+      lastActive: new Date(message.createdTimestamp),
       keywords: messageKeywords,
     };
-
     this.conversations.push(newConversation);
     this.messageIdToConversationId[message.id] = newConversation.id;
   }
 
   private extractKeywords(content: string): string[] {
-    // Tokenize the content
     const tokenizer = new natural.WordTokenizer();
     const tokens = tokenizer.tokenize(content);
-
-    // Filter tokens to include only meaningful words
-    const filteredTokens = tokens
+    return tokens
       .map((word) => word.toLowerCase())
       .filter((word) => word.length > 3 && !natural.stopwords.includes(word));
-
-    // Remove duplicates
-    return Array.from(new Set(filteredTokens));
   }
 
   public getConversations(): Conversation[] {
-    return this.conversations;
+    return this.conversations.sort(
+      (a, b) => b.lastActive.getTime() - a.lastActive.getTime(),
+    );
   }
 }
 

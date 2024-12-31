@@ -24,7 +24,7 @@ export async function getFiresideMessages(
 
   // Fetch the latest 100 messages
   const fetchedMessages: Collection<Snowflake, Message<true>> = await channel
-    .messages.fetch({ limit: 100 });
+    .messages.fetch({ limit: 30 });
 
   // Convert Collection to an array of Message<true>
   const messagesArray: Message<true>[] = Array.from(fetchedMessages.values());
