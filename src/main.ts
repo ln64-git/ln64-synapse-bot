@@ -10,7 +10,11 @@ import logger, { saveLog } from "./function/logger";
 import { getFiresideMessages } from "./lib/discord/discord";
 import { ConversationManager } from "./function/conversationManager";
 import { speakVoiceCall } from "./function/speakVoiceCall";
-import { convertToTrimmedMessage } from "./utils/utils";
+import {
+  convertToTrimmedMessage,
+  getDeletedMessagesByUser,
+  getDeletedMessagesByUser2,
+} from "./utils/utils";
 
 dotenv.config();
 
@@ -69,8 +73,9 @@ async function main() {
         }));
 
       await saveLog(trimmedConversations, "conversations");
-
-      // await speakVoiceCall(client);
+      const data = getDeletedMessagesByUser2("belalugosisdead");
+      console.log("data: ", data);
+      await speakVoiceCall(client);
       await logger(client);
     } catch (error) {
       console.error("Error initializing voice state monitoring:", error);

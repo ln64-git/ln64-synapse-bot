@@ -75,3 +75,95 @@ export function convertToTrimmedMessage(message: Message): TrimmedMessage {
         },
     };
 }
+
+export function getDeletedMessagesByUser(author: string): TrimmedMessage[] {
+    const logsPath = path.join(__dirname, "../../logs/");
+    function collectMessages(dir: string) {
+        const entries = fs.readdirSync(dir);
+        const messages: TrimmedMessage[] = [];
+        for (const entrie in entries) {
+            const filePath = path.join(dir, entrie);
+            const stats = fs.statSync(filePath);
+            if (stats.isDirectory()) {
+                messages.push(...collectMessages(filePath));
+            } else if (filePath.startsWith("deletedMessages")) {
+                const fileContent = fs.readFileSync(filePath, "utf-8");
+                const parsedData = JSON.parse(fileContent) as TrimmedMessage[];
+                messages.push(...parsedData);
+            }
+        }
+        return messages;
+    }
+    const allMessages = collectMessages(logsPath);
+    const filteredMessages = allMessages.filter((msg) =>
+        msg.message.author == author
+    );
+    return filteredMessages;
+}
+
+export function getDeletedMessagesByUser2(author: string): TrimmedMessage[] {
+    const logsPath = path.join(__dirname, "../../logs");
+
+    // Helper function to collect messages recursively
+    function collectMessages(dir: string): TrimmedMessage[] {
+        const entries = fs.readdirSync(dir);
+        const messages: TrimmedMessage[] = [];
+
+        for (const entry of entries) {
+            const filePath = path.join(dir, entry);
+            const stats = fs.statSync(filePath);
+
+            if (stats.isDirectory()) {
+                // Recursively process subdirectories
+                messages.push(...collectMessages(filePath));
+            } else if (
+                path.basename(filePath).startsWith("deletedMessages") &&
+                filePath.endsWith(".json")
+            ) {
+                try {
+                    const fileContent = fs.readFileSync(filePath, "utf-8");
+
+                    // Check for incomplete JSON data
+                    if (!fileContent.trim()) {
+                        console.warn(
+                            `Empty or incomplete JSON file: ${filePath}`,
+                        );
+                        continue;
+                    }
+
+                    const parsedData = JSON.parse(fileContent);
+
+                    if (Array.isArray(parsedData)) {
+                        messages.push(...(parsedData as TrimmedMessage[]));
+                    } else {
+                        console.warn(
+                            `Unexpected data format in file: ${filePath}`,
+                        );
+                    }
+                } catch (error) {
+                    if (error instanceof SyntaxError) {
+                        console.error(
+                            `JSON SyntaxError in file: ${filePath}. It might be corrupted.`,
+                            error.message,
+                        );
+                    } else {
+                        console.error(
+                            `Failed to process file: ${filePath}`,
+                            error,
+                        );
+                    }
+                }
+            }
+        }
+
+        return messages;
+    }
+
+    try {
+        const allMessages = collectMessages(logsPath);
+        return allMessages.filter((msg) => msg.message.author === author);
+    } catch (error) {
+        console.error("Error collecting messages:", error);
+        return [];
+    }
+}

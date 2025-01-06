@@ -62,6 +62,8 @@ export class ConversationManager {
     displayName: string,
     referencedMessageId?: string,
   ): Conversation | null {
+    const messageKeywords = this.extractKeywords(message.content);
+
     // Check for referenced messages
     const referencedConversation = referencedMessageId
       ? this.conversations.find((conv) =>
@@ -73,7 +75,7 @@ export class ConversationManager {
       return referencedConversation;
     }
 
-    // Check for relationships based on mentions or participants
+    // Check for relationships based on mentions, participants, and keywords
     return this.conversations.find((conv) => {
       const isParticipantRelated = conv.participants.includes(displayName) ||
         message.mentions.users.some((user) =>
@@ -86,12 +88,17 @@ export class ConversationManager {
         )
       );
 
-      // Relax time threshold for strong mention relationships
+      const hasKeywordOverlap = (conv.keywords ?? []).some((keyword) =>
+        messageKeywords.includes(keyword)
+      );
+
+      // Combine proximity with logical relevance
       const isWithinTimeThreshold =
         Math.abs(message.createdTimestamp - conv.lastActive.getTime()) <
           this.stalenessThreshold;
 
-      return isParticipantRelated || hasMentionOverlap || isWithinTimeThreshold;
+      return (isParticipantRelated || hasMentionOverlap || hasKeywordOverlap) &&
+        isWithinTimeThreshold;
     }) || null;
   }
 

@@ -52,7 +52,7 @@ export async function saveLog(data: object[], baseFileName: string) {
             .then(() => true)
             .catch(() => false);
 
-        if (logExists) {
+        if (logExists && baseFileName !== "deletedMessages") {
             // Move the current log file to the date-named folder
             const oldFileName = `${baseFileName}-${formattedTimestamp}.json`;
             const oldFilePath = path.join(oldLogsDir, oldFileName);
