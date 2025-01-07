@@ -11,18 +11,6 @@ export interface DiscordMessageWithEmbedding extends Message<true> {
   cleanContentEmbedding?: number[];
 }
 
-export interface Conversation {
-  id: number;
-  messageCount: number;
-  messages: DiscordMessageWithEmbedding[]; // updated to store extended messages
-  participants: string[];
-  startTime: Date;
-  lastActive: Date;
-  conversationEmbedding?: number[];
-  keywords?: string[];
-  keywordEmbedding?: number[];
-}
-
 export type TrimmedMessage = {
   timestamp: string;
   server: string;
@@ -34,3 +22,41 @@ export type TrimmedMessage = {
     mentions: string[];
   };
 };
+// types/types.ts
+
+export interface Conversation {
+  id: number;
+  messageCount: number;
+  messages: DiscordMessageWithEmbedding[];
+  participants: string[];
+  startTime: Date;
+  lastActive: Date;
+  keywords: string[];
+  conversationEmbedding?: number[];
+}
+
+export interface DiscordMessageWithEmbedding extends Message<true> {
+  cleanContentEmbedding?: number[];
+}
+
+export interface Topic {
+  id: number;
+  messageCount: number;
+  threads: Thread[];
+  participants: string[];
+  startTime: Date;
+  lastActive: Date;
+  keywords: string[];
+  conversationEmbedding?: number[];
+}
+
+export interface Thread {
+  id: number;
+  messageCount: number;
+  messages: DiscordMessageWithEmbedding[];
+  participants: string[];
+  startTime: Date;
+  lastActive: Date;
+  keywords: string[];
+  threadEmbedding?: number[];
+}

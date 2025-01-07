@@ -375,11 +375,11 @@ export async function syncMessages(channel: TextChannel): Promise<number> {
                 }
 
                 // Save all conversations up to this point
-                const updatedConversations = conversationManager
-                    .getConversations();
-                for (const conversation of updatedConversations) {
-                    await saveConversationToDatabase(conversation);
-                }
+                // const updatedConversations = conversationManager
+                //     .getFormattedTopics();
+                // for (const conversation of updatedConversations) {
+                //     await saveConversationToDatabase(conversation);
+                // }
 
                 totalMessagesInChannel += messagesCollection.size;
                 lastMessageId = messagesCollection.last()?.id;
@@ -512,7 +512,7 @@ async function saveConversationToDatabase(conversation: Conversation) {
 
 export async function getConversationsByUserId(
     userId: string,
-): Promise<Conversation[]> {
+) {
     const session = driver.session();
     try {
         const result = await session.run(
@@ -535,22 +535,22 @@ export async function getConversationsByUserId(
             { userId },
         );
 
-        return result.records.map((record) => {
-            const conversation = record.get("conversation");
-            return {
-                id: conversation.id,
-                participants: conversation.participants,
-                startTime: new Date(conversation.startTime),
-                lastActive: new Date(conversation.lastActive),
-                messages: conversation.messages.map((msg: any) => ({
-                    id: msg.id,
-                    content: msg.content,
-                    createdAt: new Date(msg.createdAt),
-                    author: { id: msg.authorId, username: msg.displayName },
-                    member: null, // Populate member if needed
-                })),
-            };
-        });
+        // return result.records.map((record) => {
+        //     const conversation = record.get("conversation");
+        //     return {
+        //         id: conversation.id,
+        //         participants: conversation.participants,
+        //         startTime: new Date(conversation.startTime),
+        //         lastActive: new Date(conversation.lastActive),
+        //         messages: conversation.messages.map((msg: any) => ({
+        //             id: msg.id,
+        //             content: msg.content,
+        //             createdAt: new Date(msg.createdAt),
+        //             author: { id: msg.authorId, username: msg.displayName },
+        //             member: null, // Populate member if needed
+        //         })),
+        //     };
+        // });
     } catch (error) {
         console.error(
             `Error fetching conversations for user ${userId}:`,

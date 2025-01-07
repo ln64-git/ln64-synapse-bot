@@ -1,17 +1,23 @@
-// conversationManagerWithEmbeddings.ts
+// conversationManagerWithAI.ts
 
 import type { Message } from "discord.js";
-import type { Conversation, DiscordMessageWithEmbedding } from "../types/types";
-import natural from "natural";
+import type {
+  DiscordMessageWithEmbedding,
+  Thread,
+  Topic,
+} from "../types/types";
+import dotenv from "dotenv";
+import { extractKeywordsWithAI } from "./extractKeywords";
+
+dotenv.config();
 
 export class ConversationManager {
-  private conversations: Conversation[] = [];
-  private messageIdToConversationId: { [key: string]: number } = {};
+  private topics: Topic[] = [];
   private conversationIdCounter = 0;
 
   /**
    * The time threshold (in ms) for determining if a new message might still
-   * fit into an existing conversation. (Here set to 10 minutes.)
+   * fit into an existing conversation thread. (Here set to 10 minutes.)
    */
   private stalenessThreshold = 10 * 60 * 1000; // 10 minutes for temporal proximity
 
@@ -22,50 +28,124 @@ export class ConversationManager {
    */
   private SIMILARITY_THRESHOLD = 0.75;
 
-  constructor() {}
+  // Cache to store keywords and embeddings for messages to reduce redundant API calls
+  private keywordCache: Map<
+    string,
+    { keywords: string[]; embedding: number[] | null }
+  > = new Map();
+
+  constructor() {
+    // Initialize any required properties if needed
+  }
 
   /**
    * Public method to handle a new message (from your Discord fetch or event listener)
-   * and slot it into the appropriate conversation or start a new one.
-   * Notice how we embed the message (via embedNewMessage) before continuing.
+   * and slot it into the appropriate topic and thread or start a new one.
+   * Utilizes AI-based keyword extraction for enhanced accuracy.
    */
-  public async addMessageToConversations(
+  public async addMessageToTopics(
     message: Message<true>,
   ): Promise<void> {
     // Basic display name or fallback to username
     const displayName = message.member?.displayName || message.author.username;
 
     // The ID of the message that this new one is referencing (if any).
-    // This helps with "reply threading".
     const referencedMessageId = message.reference?.messageId;
 
-    // Extract simple keywords from content
-    const messageKeywords = this.extractKeywords(message.content);
+    // **Pre-Processing: Check if message contains only links, attachments, or emoticons**
+    const content = message.content.trim();
+    const hasOnlyLinks = /^https?:\/\/\S+$/.test(content);
+    const hasAttachments = message.attachments.size > 0;
+    const hasOnlyAttachments = content.length === 0 && hasAttachments;
+    const hasOnlyEmoticons = /^([^\w\s]|[\uD800-\uDBFF][\uDC00-\uDFFF])+$/.test(
+      content,
+    );
+    const MIN_CONTENT_LENGTH = 10; // Adjust based on your needs
 
-    // 1. Generate or fetch an embedding for the new message
-    const messageEmbedding = await this.embedNewMessage(message.content);
+    // Skip messages that have no meaningful textual content
+    if (
+      content.length < MIN_CONTENT_LENGTH ||
+      hasOnlyLinks ||
+      hasOnlyAttachments ||
+      hasOnlyEmoticons
+    ) {
+      console.warn(
+        `Message ID ${message.id} is insufficient for keyword extraction. Skipping.`,
+      );
+      return;
+    }
+
+    // 1. Extract keywords using AI
+    let messageKeywords: string[] = [];
+    let messageEmbedding: number[] | null = null;
+
+    if (this.keywordCache.has(message.id)) {
+      const cached = this.keywordCache.get(message.id)!;
+      messageKeywords = cached.keywords;
+      messageEmbedding = cached.embedding;
+      console.log(
+        `Retrieved cached keywords for Message ID ${message.id}:`,
+        messageKeywords,
+      );
+    } else {
+      messageKeywords = await extractKeywordsWithAI(content);
+      messageEmbedding = await this.embedNewMessage(content);
+      this.keywordCache.set(message.id, {
+        keywords: messageKeywords,
+        embedding: messageEmbedding,
+      });
+      console.log(
+        `Extracted and cached keywords for Message ID ${message.id}:`,
+        messageKeywords,
+      );
+    }
+
+    // Skip processing if no valid keywords
+    if (messageKeywords.length === 0) {
+      console.warn(`No valid keywords extracted for Message ID: ${message.id}`);
+      return;
+    }
 
     // 2. Create an extended "message" object that includes embeddings
     const messageWithEmbed = message as DiscordMessageWithEmbedding;
     messageWithEmbed.cleanContentEmbedding = messageEmbedding ?? undefined;
 
-    // 3. Attempt to find an existing conversation that this message relates to
-    const relatedConversation = this.findRelatedConversation(
+    // 3. Attempt to find an existing topic that this message relates to
+    const relatedTopic = this.findRelatedTopic(
       messageWithEmbed,
-      displayName,
-      referencedMessageId,
+      messageKeywords,
     );
 
-    // 4. Assign the message to that conversation or start a new one
-    if (relatedConversation) {
-      this.assignMessageToConversation(
-        relatedConversation,
+    // 4. Within the related topic, attempt to find a related thread
+    let relatedThread: Thread | null = null;
+    if (relatedTopic) {
+      relatedThread = this.findRelatedThread(
+        relatedTopic,
+        messageWithEmbed,
+        messageKeywords,
+        referencedMessageId,
+        displayName,
+      );
+    }
+
+    // 5. Assign the message to the appropriate thread or start a new thread within the topic
+    if (relatedTopic && relatedThread) {
+      this.assignMessageToThread(
+        relatedThread,
+        messageWithEmbed,
+        messageKeywords,
+        displayName,
+        relatedTopic,
+      );
+    } else if (relatedTopic) {
+      this.startNewThread(
+        relatedTopic,
         messageWithEmbed,
         messageKeywords,
         displayName,
       );
     } else {
-      this.startNewConversation(
+      this.startNewTopic(
         messageWithEmbed,
         messageKeywords,
         displayName,
@@ -74,156 +154,250 @@ export class ConversationManager {
   }
 
   /**
-   * Return a sorted list of conversations, typically for final consumption or logging.
+   * Return a sorted list of topics and their threads, typically for final consumption or logging.
    */
-  public getFormattedConversations(): object[] {
-    return this.getConversations().map((conversation) => ({
-      id: conversation.id,
-      messageCount: conversation.messageCount,
-      messages: conversation.messages.map((msg) => ({
-        timestamp: msg.createdTimestamp,
-        server: msg.guild?.name,
-        channel: msg.channel.name,
-        message: {
-          content: msg.content,
-          author: msg.author.username,
-          attachments: msg.attachments.map((att: { url: string }) => att.url),
-          mentions: msg.mentions.users.map((user: { username: string }) =>
-            user.username
-          ),
-        },
+  public getFormattedTopics(): object[] {
+    return this.getTopics().map((topic) => ({
+      id: topic.id,
+      keywords: topic.keywords,
+      threads: topic.threads.map((thread) => ({
+        id: thread.id,
+        messageCount: thread.messageCount,
+        messages: thread.messages.map((msg) => ({
+          timestamp: msg.createdTimestamp,
+          server: msg.guild?.name,
+          channel: msg.channel.name,
+          message: {
+            content: msg.content,
+            author: msg.author.username,
+            attachments: msg.attachments.map((att: { url: string }) => att.url),
+            mentions: msg.mentions.users.map((user: { username: string }) =>
+              user.username
+            ),
+          },
+        })),
+        participants: thread.participants,
+        startTime: thread.startTime.toISOString(),
+        lastActive: thread.lastActive.toISOString(),
+        keywords: thread.keywords,
       })),
-      participants: conversation.participants,
-      startTime: conversation.startTime.toISOString(),
-      lastActive: conversation.lastActive.toISOString(),
-      keywords: conversation.keywords,
+      lastActive: topic.lastActive.toISOString(),
     }));
   }
 
   /**
-   * Updated `findRelatedConversation` to incorporate a vector-similarity approach
-   * while still keeping your old logic for references, mentions, participants, keywords, etc.
+   * Find a related topic based on vector similarity.
+   * @param message - The message with embedding.
+   * @param messageKeywords - The extracted keywords from the message.
+   * @returns A related topic if found; otherwise, null.
    */
-  private findRelatedConversation(
+  private findRelatedTopic(
     message: DiscordMessageWithEmbedding,
-    displayName: string,
-    referencedMessageId?: string,
-  ): Conversation | null {
-    const messageKeywords = this.extractKeywords(message.content);
+    messageKeywords: string[],
+  ): Topic | null {
     const messageEmbedding = message.cleanContentEmbedding;
 
-    // 1. Check if the new message directly references a message within an existing conversation
-    const referencedConversation = referencedMessageId
-      ? this.conversations.find((conv) =>
-        conv.messages.some((msg) => msg.id === referencedMessageId)
-      )
-      : null;
-    if (referencedConversation) {
-      return referencedConversation;
+    if (!messageEmbedding) {
+      return null;
     }
 
-    // 2. Evaluate each conversation for potential match
-    let bestMatch: Conversation | null = null;
+    let bestMatch: Topic | null = null;
     let bestScore = -1;
 
-    for (const conv of this.conversations) {
-      // For convenience, check the existing participant logic, mention overlap, etc.
-      const isParticipantRelated = conv.participants.includes(displayName) ||
+    for (const topic of this.topics) {
+      if (topic.conversationEmbedding) {
+        const sim = this.cosineSimilarity(
+          messageEmbedding,
+          topic.conversationEmbedding,
+        );
+        if (sim > bestScore) {
+          bestScore = sim;
+          bestMatch = topic;
+        }
+      }
+    }
+
+    if (bestScore >= this.SIMILARITY_THRESHOLD) {
+      console.log(
+        `Found related Topic ID ${
+          bestMatch!.id
+        } with similarity score ${bestScore}`,
+      );
+      return bestMatch;
+    }
+    console.log("No related topic found based on similarity.");
+    return null;
+  }
+
+  /**
+   * Find a related thread within a topic based on references, mentions, keywords overlap, and temporal proximity.
+   * @param topic - The topic to search within.
+   * @param message - The message with embedding.
+   * @param messageKeywords - The extracted keywords from the message.
+   * @param referencedMessageId - (Optional) The ID of the referenced message.
+   * @param displayName - (Optional) The display name of the message author.
+   * @returns A related thread if found; otherwise, null.
+   */
+  private findRelatedThread(
+    topic: Topic,
+    message: DiscordMessageWithEmbedding,
+    messageKeywords: string[],
+    referencedMessageId?: string,
+    displayName?: string,
+  ): Thread | null {
+    const messageEmbedding = message.cleanContentEmbedding;
+
+    if (!messageEmbedding) {
+      return null;
+    }
+
+    // 1. Check if the new message directly references a message within an existing thread
+    if (referencedMessageId) {
+      for (const thread of topic.threads) {
+        const referencedMessage = thread.messages.find((msg) =>
+          msg.id === referencedMessageId
+        );
+        if (referencedMessage) {
+          console.log(
+            `Found referenced Thread ID ${thread.id} in Topic ID ${topic.id}`,
+          );
+          return thread;
+        }
+      }
+    }
+
+    // 2. Evaluate each thread for potential match
+    let bestMatch: Thread | null = null;
+    let bestScore = -1;
+
+    for (const thread of topic.threads) {
+      const isParticipantRelated =
+        thread.participants.includes(displayName || "") ||
         message.mentions.users.some((user) =>
-          conv.participants.includes(user.username)
+          thread.participants.includes(user.username)
         );
 
-      const hasMentionOverlap = conv.messages.some((msg) =>
+      const hasMentionOverlap = thread.messages.some((msg) =>
         msg.mentions.users.some((mention: { id: string }) =>
           message.mentions.users.some((user) => user.id === mention.id)
         )
       );
 
-      const hasKeywordOverlap = (conv.keywords ?? []).some((keyword) =>
+      const hasKeywordOverlap = (thread.keywords ?? []).some((keyword) =>
         messageKeywords.includes(keyword)
       );
 
       const isWithinTimeThreshold = Math.abs(
-        message.createdTimestamp - conv.lastActive.getTime(),
+        message.createdTimestamp - thread.lastActive.getTime(),
       ) < this.stalenessThreshold;
 
-      // 3. Combine old logic with vector similarity
-      // We only bother if there's at least some "overlap" or the conversation isn't stale.
       if (
         (isParticipantRelated || hasMentionOverlap || hasKeywordOverlap) &&
         isWithinTimeThreshold &&
         messageEmbedding &&
-        conv.conversationEmbedding
+        thread.threadEmbedding
       ) {
         const sim = this.cosineSimilarity(
           messageEmbedding,
-          conv.conversationEmbedding,
+          thread.threadEmbedding,
         );
         if (sim > bestScore) {
           bestScore = sim;
-          bestMatch = conv;
+          bestMatch = thread;
         }
       }
     }
 
-    // 4. If the best match is above some threshold, return it. Otherwise, null => new conversation.
-    if (bestScore >= this.SIMILARITY_THRESHOLD) {
+    if (bestMatch && bestScore >= this.SIMILARITY_THRESHOLD) {
+      console.log(
+        `Found related Thread ID ${bestMatch.id} with similarity score ${bestScore}`,
+      );
       return bestMatch;
     }
+
+    console.log(
+      "No related thread found within the topic based on similarity and other criteria.",
+    );
     return null;
   }
 
   /**
-   * Assign the new message to an existing conversation. Also re-average
-   * the conversation’s embedding if the new message has an embedding.
+   * Assign the new message to an existing thread. Also re-average
+   * the thread’s embedding if the new message has an embedding.
+   * @param thread - The thread to assign the message to.
+   * @param message - The message with embedding.
+   * @param messageKeywords - The extracted keywords from the message.
+   * @param displayName - The display name of the message author.
+   * @param topic - The topic to which the thread belongs.
    */
-  private assignMessageToConversation(
-    conversation: Conversation,
+  private assignMessageToThread(
+    thread: Thread,
     message: DiscordMessageWithEmbedding,
     messageKeywords: string[],
     displayName: string,
+    topic: Topic,
   ): void {
-    conversation.messages.push(message);
-    conversation.messageCount += 1;
-    conversation.lastActive = new Date(message.createdTimestamp);
+    thread.messages.push(message);
+    thread.messageCount += 1;
+    thread.lastActive = new Date(message.createdTimestamp);
 
     // Add author to participants if not present
-    if (!conversation.participants.includes(displayName)) {
-      conversation.participants.push(displayName);
+    if (!thread.participants.includes(displayName)) {
+      thread.participants.push(displayName);
     }
 
     // Add mentioned users to participants
     message.mentions.users.forEach((user) => {
-      if (!conversation.participants.includes(user.username)) {
-        conversation.participants.push(user.username);
+      if (!thread.participants.includes(user.username)) {
+        thread.participants.push(user.username);
       }
     });
 
-    // Update keywords
-    conversation.keywords = Array.from(
-      new Set([...(conversation.keywords || []), ...messageKeywords]),
+    // Update keywords ensuring uniqueness
+    thread.keywords = Array.from(
+      new Set([...(thread.keywords || []), ...messageKeywords]),
     );
 
-    // Recompute conversation embedding by averaging with the new message embedding
+    // Recompute thread embedding by averaging with the new message embedding
     if (message.cleanContentEmbedding) {
-      conversation.conversationEmbedding = this.averageEmbeddings(
-        conversation.conversationEmbedding,
+      thread.threadEmbedding = this.averageEmbeddings(
+        thread.threadEmbedding,
         message.cleanContentEmbedding,
-        conversation.messageCount,
+        thread.messageCount,
+      );
+
+      // Also update the topic's embedding
+      topic.conversationEmbedding = this.averageEmbeddings(
+        topic.conversationEmbedding,
+        message.cleanContentEmbedding,
+        topic.messageCount,
       );
     }
+
+    // Update topic's message count and last active
+    topic.messageCount += 1;
+    topic.lastActive = new Date(message.createdTimestamp);
+
+    // Log the assignment
+    console.log(
+      `Assigned Message ID ${message.id} to Thread ID ${thread.id} under Topic ID ${topic.id}.`,
+    );
   }
 
   /**
-   * Create a new conversation from a message. If the message has an embedding,
-   * initialize the conversation's embedding with it.
+   * Start a new thread within an existing topic.
+   * @param topic - The topic to which the new thread belongs.
+   * @param message - The message with embedding.
+   * @param messageKeywords - The extracted keywords from the message.
+   * @param displayName - The display name of the message author.
    */
-  private startNewConversation(
+  private startNewThread(
+    topic: Topic,
     message: DiscordMessageWithEmbedding,
     messageKeywords: string[],
     displayName: string,
   ): void {
-    const newConversation: Conversation = {
+    const newThread: Thread = {
       id: this.conversationIdCounter++,
       messageCount: 1,
       messages: [message],
@@ -231,29 +405,64 @@ export class ConversationManager {
       startTime: new Date(message.createdTimestamp),
       lastActive: new Date(message.createdTimestamp),
       keywords: messageKeywords,
+      threadEmbedding: message.cleanContentEmbedding ?? undefined,
+    };
+    topic.threads.push(newThread);
+    topic.messageCount += 1;
+    topic.lastActive = new Date(message.createdTimestamp);
+
+    // Log the new thread creation
+    console.log(
+      `Started new Thread ID ${newThread.id} under Topic ID ${topic.id}.`,
+    );
+  }
+
+  /**
+   * Start a new topic and its first thread.
+   * @param message - The message with embedding.
+   * @param messageKeywords - The extracted keywords from the message.
+   * @param displayName - The display name of the message author.
+   */
+  private startNewTopic(
+    message: DiscordMessageWithEmbedding,
+    messageKeywords: string[],
+    displayName: string,
+  ): void {
+    const newThread: Thread = {
+      id: this.conversationIdCounter++,
+      messageCount: 1,
+      messages: [message],
+      participants: [displayName],
+      startTime: new Date(message.createdTimestamp),
+      lastActive: new Date(message.createdTimestamp),
+      keywords: messageKeywords,
+      threadEmbedding: message.cleanContentEmbedding ?? undefined,
+    };
+
+    const newTopic: Topic = {
+      id: this.conversationIdCounter++,
+      messageCount: 1,
+      threads: [newThread],
+      participants: [displayName],
+      startTime: new Date(message.createdTimestamp),
+      lastActive: new Date(message.createdTimestamp),
+      keywords: messageKeywords,
       conversationEmbedding: message.cleanContentEmbedding ?? undefined,
     };
-    this.conversations.push(newConversation);
-    this.messageIdToConversationId[message.id] = newConversation.id;
+
+    this.topics.push(newTopic);
+
+    // Log the new topic creation
+    console.log(
+      `Started new Topic ID ${newTopic.id} with Thread ID ${newThread.id}.`,
+    );
   }
 
   /**
-   * A simple keyword-extraction approach using `natural.WordTokenizer`.
-   * Feel free to expand or replace for your own tokenization / keyword logic.
+   * Returns the list of topics, sorted by most recent lastActive.
    */
-  private extractKeywords(content: string): string[] {
-    const tokenizer = new natural.WordTokenizer();
-    const tokens = tokenizer.tokenize(content);
-    return tokens
-      .map((word) => word.toLowerCase())
-      .filter((word) => word.length > 3 && !natural.stopwords.includes(word));
-  }
-
-  /**
-   * Returns the list of conversations, sorted by most recent `lastActive`.
-   */
-  public getConversations(): Conversation[] {
-    return this.conversations.sort(
+  public getTopics(): Topic[] {
+    return this.topics.sort(
       (a, b) => b.lastActive.getTime() - a.lastActive.getTime(),
     );
   }
@@ -261,17 +470,26 @@ export class ConversationManager {
   /**
    * Helper to fetch an embedding for a single text using your existing getEmbeddingBatch().
    * This is a minimal wrapper; you could also do in-line calls if you prefer.
+   * @param text - The text to embed.
+   * @returns The embedding vector or null if failed.
    */
   private async embedNewMessage(text: string): Promise<number[] | null> {
-    // Reuse your getEmbeddingBatch function or similar.
-    // For single text, we can pass an array of length 1.
-    const [embedding] = await getEmbeddingBatch([text]);
-    return embedding;
+    try {
+      const [embedding] = await getEmbeddingBatch([text]);
+      return embedding;
+    } catch (error) {
+      console.error("Error embedding new message:", error);
+      return null;
+    }
   }
 
   /**
    * Utility to average embeddings for conversation-level representation.
    * Weighted by the new item count so that each message counts equally.
+   * @param existingEmbedding - The existing embedding vector.
+   * @param newEmbedding - The new embedding vector to average with.
+   * @param itemCount - The total number of items included so far.
+   * @returns The averaged embedding vector.
    */
   private averageEmbeddings(
     existingEmbedding: number[] | undefined,
@@ -290,33 +508,24 @@ export class ConversationManager {
 
   /**
    * Basic cosine similarity measure: dot product / (normA * normB).
+   * @param vec1 - First vector.
+   * @param vec2 - Second vector.
+   * @returns Cosine similarity between vec1 and vec2.
    */
   private cosineSimilarity(vec1: number[], vec2: number[]): number {
     const dot = vec1.reduce((acc, val, i) => acc + val * vec2[i], 0);
     const normA = Math.sqrt(vec1.reduce((acc, val) => acc + val * val, 0));
     const normB = Math.sqrt(vec2.reduce((acc, val) => acc + val * val, 0));
+    if (normA === 0 || normB === 0) {
+      return 0;
+    }
     return dot / (normA * normB);
   }
 }
 
 /**
- * Example usage of your conversation manager with a batch of messages.
- * (You already had something similar in your code.)
- */
-export async function processMessages(
-  messages: Message<true>[],
-  conversationManager: ConversationManager,
-) {
-  await Promise.all(
-    messages.map((message) =>
-      conversationManager.addMessageToConversations(message)
-    ),
-  );
-}
-
-/**
  * The function that calls the OpenAI Embedding API to batch-embed texts.
- * This matches your original code snippet, adapted to be used above.
+ * Ensure that this function is correctly imported or defined in your project.
  */
 export async function getEmbeddingBatch(
   texts: string[],
@@ -392,4 +601,16 @@ export async function getEmbeddingBatch(
     }
     return texts.map(() => null);
   }
+}
+
+/**
+ * Example usage of your conversation manager with a batch of messages.
+ */
+export async function processMessages(
+  messages: Message<true>[],
+  conversationManager: ConversationManager,
+): Promise<void> {
+  await Promise.all(
+    messages.map((message) => conversationManager.addMessageToTopics(message)),
+  );
 }

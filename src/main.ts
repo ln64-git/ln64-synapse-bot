@@ -1,6 +1,10 @@
-// main.ts
-
-import { Client, GatewayIntentBits, type Interaction, REST } from "discord.js";
+import {
+  Client,
+  GatewayIntentBits,
+  type Interaction,
+  Message,
+  REST,
+} from "discord.js";
 import dotenv from "dotenv";
 import { Routes } from "discord-api-types/v10";
 import type { RESTPostAPIApplicationCommandsJSONBody } from "discord-api-types/v9";
@@ -8,13 +12,12 @@ import { readdir } from "fs/promises";
 import { join, relative } from "path";
 import logger, { saveLog } from "./function/logger";
 import { getFiresideMessages } from "./lib/discord/discord";
-import { ConversationManager } from "./function/conversationManager";
 import { speakVoiceCall } from "./function/speakVoiceCall";
 import {
   convertToTrimmedMessage,
-  getDeletedMessagesByUser,
   getDeletedMessagesByUser2,
 } from "./utils/utils";
+import { ConversationManager } from "./function/conversationManager";
 
 dotenv.config();
 
@@ -54,31 +57,34 @@ async function main() {
     console.log(`Logged in as ${client.user?.tag}!`);
 
     try {
-      // const hearth = await client.guilds.fetch(guildId);
-      const conversationManager = new ConversationManager();
-      const firesideMessages = await getFiresideMessages(client);
+      // 2) Instantiate the new manager:
+      const conversationThreadManager = new ConversationManager();
 
+      // 2. Fetch messages from the "fireside-chat" channel
+      const firesideMessages: Message<true>[] = await getFiresideMessages(
+        client,
+      );
+
+      // 3. Add each message to the ConversationManager using the Two-Level Topic + Thread Approach
       await Promise.all(
         firesideMessages.map((message) =>
-          conversationManager.addMessageToConversations(message)
+          conversationThreadManager.addMessageToTopics(message)
         ),
       );
-      const trimmedConversations = conversationManager
-        .getConversations()
-        .map(({ conversationEmbedding, ...conversation }) => ({
-          ...conversation,
-          messages: conversation.messages.map((message) =>
-            convertToTrimmedMessage(message)
-          ),
-        }));
 
-      await saveLog(trimmedConversations, "conversations");
+      // 5) Retrieve the final conversation threads
+      const allThreads = conversationThreadManager.getFormattedTopics();
+
+      // 7) Log or store the results
+      await saveLog(allThreads, "conversations");
+
       const data = getDeletedMessagesByUser2("belalugosisdead");
-      console.log("data: ", data);
+      console.log("Deleted messages data: ", data);
+
       await speakVoiceCall(client);
       await logger(client);
     } catch (error) {
-      console.error("Error initializing voice state monitoring:", error);
+      console.error("Error initializing conversation threads:", error);
     }
   });
 
@@ -134,7 +140,6 @@ async function handleInteraction(interaction: Interaction) {
   if (!command) return;
 
   try {
-    // Pass client into the command execution
     await command.execute(interaction, client);
   } catch (error) {
     console.error("Error executing command:", error);

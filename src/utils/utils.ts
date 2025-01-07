@@ -57,21 +57,22 @@ export async function saveAllConversationsToFile(
     console.log(`Saved ${conversations.length} conversations to log file.`);
 }
 
-export function convertToTrimmedMessage(message: Message): TrimmedMessage {
+/**
+ * Converts a Discord message to a trimmed format, excluding sensitive or unnecessary data.
+ * @param message - The Discord message to trim.
+ * @returns A trimmed message object.
+ */
+export function convertToTrimmedMessage(message: Message<true>) {
     return {
-        timestamp: new Date(message.createdTimestamp).toISOString(),
-        server: message.guild?.name || "Direct Message",
-        channel: message.channel.isTextBased() && "name" in message.channel &&
-                message.channel.name
-            ? message.channel.name
-            : "Unknown Channel",
+        id: message.id,
+        timestamp: message.createdTimestamp,
+        server: message.guild?.name,
+        channel: message.channel.name,
         message: {
-            content: message.content || "[No Content]",
-            author: `${message.author.displayName}`,
-            attachments: Array.from(message.attachments.values()).map((a) =>
-                a.url
-            ),
-            mentions: message.mentions.users.map((u) => u.username),
+            content: message.content,
+            author: message.author.username,
+            attachments: message.attachments.map((att) => att.url),
+            mentions: message.mentions.users.map((user) => user.username),
         },
     };
 }
