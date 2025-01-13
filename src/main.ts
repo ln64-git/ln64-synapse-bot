@@ -65,21 +65,18 @@ async function main() {
         client,
       );
 
-      // 3. Add each message to the ConversationManager using the Two-Level Topic + Thread Approach
-      await Promise.all(
-        firesideMessages.map((message) =>
-          conversationThreadManager.addMessageToTopics(message)
-        ),
-      );
+      // // 3. Add each message to the ConversationManager using the Two-Level Topic + Thread Approach
+      // await Promise.all(
+      //   firesideMessages.map((message) =>
+      //     conversationThreadManager.addMessageToTopics(message)
+      //   ),
+      // );
 
-      // 5) Retrieve the final conversation threads
-      const allThreads = conversationThreadManager.getFormattedTopics();
+      // // 5) Retrieve the final conversation threads
+      // const allThreads = conversationThreadManager.getFormattedTopics();
 
       // 7) Log or store the results
-      await saveLog(allThreads, "conversations");
-
-      const data = getDeletedMessagesByUser2("belalugosisdead");
-      console.log("Deleted messages data: ", data);
+      // await saveLog(allThreads, "conversations");
 
       await speakVoiceCall(client);
       await logger(client);

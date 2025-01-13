@@ -6,9 +6,16 @@ export default async function logger(client: Client) {
     console.log(`Client is ready. Logged in as: ${client.user?.tag}`);
 
     client.on("messageDelete", async (message) => {
-        let fullMessage: Message | null = null;
+        let fullMessage: Message<true> | null = null;
+
         try {
-            fullMessage = message.partial ? await message.fetch() : message;
+            if (message.partial) {
+                // Cast the fetched message to Message<true>
+                fullMessage = (await message.fetch()) as Message<true>;
+            } else {
+                // Directly cast the non-partial message to Message<true>
+                fullMessage = message as Message<true>;
+            }
         } catch (err) {
             console.error("Failed to fetch the partial message:", err);
             return;
@@ -36,14 +43,40 @@ export async function saveLog(data: object[], baseFileName: string) {
     const formattedDate = timestamp.toISOString().split("T")[0].replace(
         /-/g,
         "-",
-    ); // Format: 12-03-2024
-    const oldLogsDir = path.join(logsDir, "old", formattedDate); // Use date as folder name
+    );
+    const oldLogsDir = path.join(logsDir, "old", formattedDate);
     const formattedTimestamp = timestamp.toISOString().replace(/[:.]/g, "-");
-    const currentLogFile = path.join(logsDir, `${baseFileName}.json`); // Single main file
+    const currentLogFile = path.join(logsDir, `${baseFileName}.json`);
 
     try {
-        // Ensure the logs and old folders exist
+        // Ensure the logs directory exists
         await fs.mkdir(logsDir, { recursive: true });
+
+        if (baseFileName === "deletedMessages") {
+            // Append to the same file for "deletedMessages"
+            const logExists = await fs
+                .access(currentLogFile)
+                .then(() => true)
+                .catch(() => false);
+
+            const existingData = logExists
+                ? JSON.parse(await fs.readFile(currentLogFile, "utf8"))
+                : [];
+
+            // Combine old and new data, keeping the latest 100 messages
+            const updatedData = [...existingData, ...data].slice(-100);
+
+            await fs.writeFile(
+                currentLogFile,
+                JSON.stringify(updatedData, null, 2),
+                "utf8",
+            );
+
+            console.log(`Appended to log file: ${currentLogFile}`);
+            return;
+        }
+
+        // Ensure the old logs directory exists for other log types
         await fs.mkdir(oldLogsDir, { recursive: true });
 
         // Check if the main log file exists
@@ -52,7 +85,7 @@ export async function saveLog(data: object[], baseFileName: string) {
             .then(() => true)
             .catch(() => false);
 
-        if (logExists && baseFileName !== "deletedMessages") {
+        if (logExists) {
             // Move the current log file to the date-named folder
             const oldFileName = `${baseFileName}-${formattedTimestamp}.json`;
             const oldFilePath = path.join(oldLogsDir, oldFileName);
@@ -60,7 +93,7 @@ export async function saveLog(data: object[], baseFileName: string) {
         }
 
         // Save only the latest 100 messages in the new log file
-        const latestData = data.slice(-100); // Keep only the last 100 messages
+        const latestData = data.slice(-100);
         await fs.writeFile(
             currentLogFile,
             JSON.stringify(latestData, null, 2),
