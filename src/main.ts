@@ -13,10 +13,6 @@ import { join, relative } from "path";
 import logger, { saveLog } from "./function/logger";
 import { getFiresideMessages } from "./lib/discord/discord";
 import { speakVoiceCall } from "./function/speakVoiceCall";
-import {
-  convertToTrimmedMessage,
-  getDeletedMessagesByUser2,
-} from "./utils/utils";
 import { ConversationManager } from "./function/conversationManager";
 
 dotenv.config();
@@ -64,19 +60,21 @@ async function main() {
       const firesideMessages: Message<true>[] = await getFiresideMessages(
         client,
       );
+      firesideMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
 
-      // // 3. Add each message to the ConversationManager using the Two-Level Topic + Thread Approach
-      // await Promise.all(
-      //   firesideMessages.map((message) =>
-      //     conversationThreadManager.addMessageToTopics(message)
-      //   ),
-      // );
 
-      // // 5) Retrieve the final conversation threads
-      // const allThreads = conversationThreadManager.getFormattedTopics();
+      // 3. Add each message to the ConversationManager using the Two-Level Topic + Thread Approach
+      await Promise.all(
+        firesideMessages.map((message) =>
+          conversationThreadManager.addMessageToTopics(message)
+        ),
+      );
+
+      // 5) Retrieve the final conversation threads
+      const allThreads = conversationThreadManager.getFormattedTopics();
 
       // 7) Log or store the results
-      // await saveLog(allThreads, "conversations");
+      await saveLog(allThreads, "conversations");
 
       await speakVoiceCall(client);
       await logger(client);

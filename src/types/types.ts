@@ -8,6 +8,7 @@ export interface DiscordMessageWithEmbedding extends Message<true> {
   /**
    * A numeric vector representing the embedding for this message’s textual content.
    */
+  keywords?: string[];
   cleanContentEmbedding?: number[];
 }
 
