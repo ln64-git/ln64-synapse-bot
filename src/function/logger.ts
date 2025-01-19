@@ -23,7 +23,7 @@ export default async function logger(client: Client) {
 
         if (fullMessage) {
             // Ignore messages from "Euphony"
-            if (fullMessage.author.username === "Euphony") {
+            if (fullMessage.author.username === "Euphony" || "LunaBot 🌙") {
                 console.log("Ignoring message from Euphony:", fullMessage.id);
                 return;
             }
