@@ -6,14 +6,14 @@ export default async function logger(client: Client) {
     console.log(`Client is ready. Logged in as: ${client.user?.tag}`);
 
     client.on("messageDelete", async (message) => {
+        console.log("message: ", message.content);
         let fullMessage: Message<true> | null = null;
 
         try {
             if (message.partial) {
-                // Cast the fetched message to Message<true>
                 fullMessage = (await message.fetch()) as Message<true>;
+                console.log("Fetched fullMessage: ", fullMessage);
             } else {
-                // Directly cast the non-partial message to Message<true>
                 fullMessage = message as Message<true>;
             }
         } catch (err) {
@@ -22,13 +22,20 @@ export default async function logger(client: Client) {
         }
 
         if (fullMessage) {
-            // Ignore messages from "Euphony"
-            if (fullMessage.author.username === "Euphony" || "LunaBot 🌙") {
+            if (
+                fullMessage.author.username === "Euphony" ||
+                fullMessage.author.username === "LunaBot 🌙"
+            ) {
+                console.log(
+                    "fullMessage.author.username: ",
+                    fullMessage.author.username,
+                );
                 console.log("Ignoring message from Euphony:", fullMessage.id);
                 return;
             }
 
             const trimmedData = convertToTrimmedMessage(fullMessage);
+            console.log("trimmedData: ", trimmedData);
             await saveLog([trimmedData], "deletedMessages");
         }
     });
@@ -59,9 +66,22 @@ export async function saveLog(data: object[], baseFileName: string) {
                 .then(() => true)
                 .catch(() => false);
 
-            const existingData = logExists
-                ? JSON.parse(await fs.readFile(currentLogFile, "utf8"))
-                : [];
+            let existingData = [];
+            if (logExists) {
+                try {
+                    const fileContent = await fs.readFile(
+                        currentLogFile,
+                        "utf8",
+                    );
+                    existingData = JSON.parse(fileContent.trim() || "[]");
+                } catch (error) {
+                    console.error(
+                        "Invalid JSON in log file. Resetting to empty array.",
+                        error,
+                    );
+                    existingData = [];
+                }
+            }
 
             // Combine old and new data, keeping the latest 100 messages
             const updatedData = [...existingData, ...data].slice(-100);
@@ -85,11 +105,18 @@ export async function saveLog(data: object[], baseFileName: string) {
             .then(() => true)
             .catch(() => false);
 
+        let existingData = [];
         if (logExists) {
-            // Move the current log file to the date-named folder
-            const oldFileName = `${baseFileName}-${formattedTimestamp}.json`;
-            const oldFilePath = path.join(oldLogsDir, oldFileName);
-            await fs.rename(currentLogFile, oldFilePath);
+            try {
+                const fileContent = await fs.readFile(currentLogFile, "utf8");
+                existingData = JSON.parse(fileContent.trim() || "[]");
+            } catch (error) {
+                console.error(
+                    "Invalid JSON in log file. Resetting to empty array.",
+                    error,
+                );
+                existingData = [];
+            }
         }
 
         // Save only the latest 100 messages in the new log file

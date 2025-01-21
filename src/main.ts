@@ -79,6 +79,8 @@ async function main() {
           JSON.stringify(user.toJSON(relationshipNetwork), null, 2),
         );
       }
+      await speakVoiceCall(client);
+      await logger(client);
     } catch (error) {
       console.error("Error initializing bot:", error);
     }
