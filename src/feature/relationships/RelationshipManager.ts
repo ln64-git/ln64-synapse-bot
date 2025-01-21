@@ -14,6 +14,9 @@ export class RelationshipManager {
                 ? message.mentions.repliedUser?.id
                 : null;
 
+            // Update the sender's activity metrics
+            this.updateUserActivity(authorId, message.createdTimestamp);
+
             if (repliedToUser) {
                 await this.ensureMemberInNetwork(repliedToUser, message);
                 this.addInteraction(authorId, repliedToUser, message, "reply");
@@ -30,29 +33,32 @@ export class RelationshipManager {
                 this.addInteraction(authorId, mentionedId, message, "mention");
             }
         }
-
-        // After processing all messages, update closest relationships for each user
-        this.updateAllClosestRelationships();
-    }
-
-    private updateAllClosestRelationships() {
-        for (const [userId, user] of this.network.users) {
-            const closestRelationships = this.network.getClosestRelationships(
-                userId,
-                5, // Fetch top 5 closest relationships
-            );
-            user.setClosestRelationships(closestRelationships);
-        }
     }
 
     private async ensureMemberInNetwork(userId: string, message: Message) {
-        if (!this.network.hasUser(userId) && message.guild) {
+        const existingUser = this.network.getUser(userId);
+        if (!existingUser && message.guild) {
             try {
                 const member = await message.guild.members.fetch(userId);
                 this.network.addUser(member);
             } catch (error) {
                 console.error(`Error fetching member ${userId}:`, error);
             }
+        } else if (existingUser && message.guild) {
+            try {
+                const currentMember = await message.guild.members.fetch(userId);
+                existingUser.updateGuildMember(currentMember); // Update GuildMember and aliases
+            } catch (error) {
+                console.error(`Error updating member ${userId}:`, error);
+            }
+        }
+    }
+
+    private updateUserActivity(userId: string, timestamp: number) {
+        const user = this.network.getUser(userId);
+        if (user) {
+            user.incrementMessageCount(); // Increment message count
+            user.updateLastActive(timestamp); // Update last active timestamp
         }
     }
 
@@ -62,10 +68,30 @@ export class RelationshipManager {
         message: Message,
         interactionType: "mention" | "reply" | "other",
     ) {
+        const senderUser = this.network.getUser(senderId);
+        const receiverUser = this.network.getUser(receiverId);
+
+        if (!senderUser || !receiverUser) return;
+
+        // Add the interaction to the relationship network
         this.network.addInteraction(senderId, receiverId, {
             content: message.content,
             timestamp: message.createdTimestamp,
             type: interactionType,
         });
+
+        // Update relationship strengths for the sender
+        const senderConnection = this.network.ensureRelationship(
+            senderId,
+            receiverId,
+        );
+        senderUser.addRelationshipStrength(receiverId, senderConnection);
+
+        // Update relationship strengths for the receiver
+        const receiverConnection = this.network.ensureRelationship(
+            receiverId,
+            senderId,
+        );
+        receiverUser.addRelationshipStrength(senderId, receiverConnection);
     }
 }

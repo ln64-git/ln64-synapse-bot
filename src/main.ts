@@ -86,7 +86,7 @@ async function main() {
         // Process messages and update relationships
         await relationshipManager.processMessages(firesideMessages);
 
-        const user = relationshipNetwork.getUser("1160946148832444558");
+        const user = relationshipNetwork.getUser("976224748663095306");
         if (user) {
           console.log(
             JSON.stringify(user.toJSON(relationshipNetwork), null, 2),

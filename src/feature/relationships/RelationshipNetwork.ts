@@ -1,5 +1,5 @@
 import type { GuildMember } from "discord.js";
-import { User } from "./User";
+import { UserProfile } from "./UserProfile";
 
 export class Interaction {
     constructor(
@@ -42,41 +42,49 @@ export class UserConnection {
 }
 
 export class RelationshipNetwork {
-    public users: Map<string, User> = new Map();
+    public users: Map<string, UserProfile> = new Map();
     private relationships: Map<string, Map<string, UserConnection>> = new Map();
 
-    addUser(member: GuildMember) {
+    addUser(member: GuildMember): void {
         if (!this.users.has(member.id)) {
             this.users.set(
                 member.id,
-                new User(member.id, member.user.username, member),
+                new UserProfile(member.id, member.user.username, member),
             );
         }
     }
 
-    getUser(userId: string): User | undefined {
+    getUser(userId: string): UserProfile | undefined {
         return this.users.get(userId);
     }
 
     getUsername(userId: string): string {
-        return this.users.get(userId)?.username || "Unknown";
+        return this.users.get(userId)?.guildMember.user.username || "Unknown";
     }
 
     hasUser(userId: string): boolean {
         return this.users.has(userId);
     }
 
-    getClosestRelationships(
-        userId: string,
-        topN: number = 5,
-    ): UserConnection[] {
+    getClosestRelationships(userId: string, limit: number = 5) {
         const connections = this.relationships.get(userId);
+
         if (!connections) return [];
 
-        // Sort connections by the total number of interactions
-        return Array.from(connections.values())
-            .sort((a, b) => b.getTotalInteractions() - a.getTotalInteractions())
-            .slice(0, topN);
+        // Map and sort the relationships
+        return Array.from(connections.entries())
+            .filter(([relatedUserId]) => relatedUserId !== userId) // Exclude self-interaction
+            .map(([relatedUserId, connection]) => {
+                const totalInteractions = connection.getTotalInteractions();
+                const username = this.getUsername(relatedUserId); // Fetch correct username
+                return {
+                    userId: relatedUserId,
+                    username,
+                    totalInteractions,
+                };
+            })
+            .sort((a, b) => b.totalInteractions - a.totalInteractions) // Sort by interactions
+            .slice(0, limit); // Take top N
     }
 
     ensureRelationship(senderId: string, receiverId: string): UserConnection {
@@ -97,7 +105,7 @@ export class RelationshipNetwork {
         senderId: string,
         receiverId: string,
         interactionData: { content: string; timestamp: number; type: string },
-    ) {
+    ): void {
         const sender = this.getUser(senderId);
         const receiver = this.getUser(receiverId);
 
@@ -109,8 +117,8 @@ export class RelationshipNetwork {
             interactionData.content,
             interactionData.timestamp,
             interactionData.type as "mention" | "reply" | "other",
-            sender.username,
-            receiver.username,
+            sender.guildMember.user.username,
+            receiver.guildMember.user.username,
         );
 
         // Add interaction to both sides
