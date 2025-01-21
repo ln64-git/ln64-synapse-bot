@@ -66,6 +66,35 @@ export class RelationshipNetwork {
         return this.users.has(userId);
     }
 
+    getTotalVoiceTime(userId: string, serverId: string): number {
+        const user = this.getUser(userId);
+        return user?.voiceCallDurations.get(serverId) || 0;
+    }
+
+    getInteractionTime(
+        userId: string,
+        serverId: string,
+        otherUserId: string,
+    ): number {
+        const user = this.getUser(userId);
+        const interactions = user?.voiceInteractionDurations.get(serverId);
+        return interactions?.get(otherUserId) || 0;
+    }
+
+    getMostInteractedUsers(
+        userId: string,
+        serverId: string,
+        limit: number = 5,
+    ): { userId: string; duration: number }[] {
+        const user = this.getUser(userId);
+        const interactions = user?.voiceInteractionDurations.get(serverId);
+        if (!interactions) return [];
+
+        return Array.from(interactions.entries())
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, limit)
+            .map(([id, duration]) => ({ userId: id, duration }));
+    }
     getClosestRelationships(userId: string, limit: number = 5) {
         const connections = this.relationships.get(userId);
 
@@ -87,6 +116,7 @@ export class RelationshipNetwork {
             .slice(0, limit); // Take top N
     }
 
+    
     ensureRelationship(senderId: string, receiverId: string): UserConnection {
         if (!this.relationships.has(senderId)) {
             this.relationships.set(senderId, new Map());

@@ -4,6 +4,11 @@ import type {
     UserConnection,
 } from "./RelationshipNetwork";
 
+type VoiceActivity = {
+    start: number; // Timestamp (milliseconds) when the activity started
+    duration: number; // Total duration (milliseconds) spent in the channel
+};
+
 export class UserProfile {
     // General Information
     public id: string;
@@ -23,6 +28,12 @@ export class UserProfile {
 
     // Relationships
     public relationshipStrengths: Map<string, UserConnection[]> = new Map();
+
+    // Voice activity tracking
+    public voiceActivity: Record<string, VoiceActivity> = {};
+    public voiceCallDurations: Map<string, number> = new Map(); // Server ID -> total duration in seconds
+    public voiceInteractionDurations: Map<string, Map<string, number>> =
+        new Map(); // Server ID -> (User ID -> time spent together in seconds)
 
     constructor(id: string, username: string, guildMember: GuildMember) {
         this.id = id;
@@ -101,6 +112,33 @@ export class UserProfile {
     }
 
     // ---------------------
+    // Voice Status Updates
+    // ---------------------
+
+    startVoiceActivity(channelId: string) {
+        if (!this.voiceActivity[channelId]) {
+            this.voiceActivity[channelId] = { start: Date.now(), duration: 0 };
+        }
+    }
+
+    endVoiceActivity(channelId: string) {
+        const activity = this.voiceActivity[channelId];
+        if (activity) {
+            activity.duration += Date.now() - activity.start;
+            delete this.voiceActivity[channelId];
+        }
+    }
+
+    getVoiceActivityDuration(channelId: string): string {
+        const activity = this.voiceActivity[channelId];
+        const totalDuration = activity ? activity.duration : 0;
+        const hours = Math.floor(totalDuration / 3600000);
+        const minutes = Math.floor((totalDuration % 3600000) / 60000);
+        const seconds = Math.floor((totalDuration % 60000) / 1000);
+        return `${hours}h ${minutes}m ${seconds}s`;
+    }
+
+    // ---------------------
     // Serialization
     // ---------------------
 
@@ -119,8 +157,18 @@ export class UserProfile {
                 lastActive: this.lastActiveTimestamp
                     ? new Date(this.lastActiveTimestamp).toISOString()
                     : "Never active",
-                voiceActivityDuration: `${this.voiceActivityDuration} seconds`,
+                voiceActivityDuration: Object.fromEntries(
+                    this.voiceCallDurations.entries(),
+                ),
             },
+            voiceInteractions: Object.fromEntries(
+                Array.from(this.voiceInteractionDurations.entries()).map(
+                    ([serverId, interactions]) => [
+                        serverId,
+                        Object.fromEntries(interactions.entries()),
+                    ],
+                ),
+            ),
             insights: {
                 sentimentScore: this.sentimentScore.toFixed(2),
                 toxicityScore: this.toxicityScore.toFixed(2),

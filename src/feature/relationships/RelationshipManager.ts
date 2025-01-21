@@ -1,8 +1,39 @@
-import type { Message } from "discord.js";
+import type { GuildMember, Message, VoiceState } from "discord.js";
 import { RelationshipNetwork } from "./RelationshipNetwork";
 
 export class RelationshipManager {
     constructor(private network: RelationshipNetwork) {}
+
+    handleVoiceStateUpdate(oldState: VoiceState, newState: VoiceState) {
+        const userId = newState.id; // Get the user ID
+        const user = this.network.getUser(userId);
+
+        // Ensure the user exists in the relationship network
+        if (!user) {
+            const member = newState.member || oldState.member;
+            if (member) this.network.addUser(member);
+            return;
+        }
+
+        // User joined a voice channel
+        if (!oldState.channelId && newState.channelId) {
+            user.startVoiceActivity(newState.channelId);
+        }
+
+        // User switched voice channels
+        if (
+            oldState.channelId && newState.channelId &&
+            oldState.channelId !== newState.channelId
+        ) {
+            user.endVoiceActivity(oldState.channelId);
+            user.startVoiceActivity(newState.channelId);
+        }
+
+        // User left a voice channel
+        if (oldState.channelId && !newState.channelId) {
+            user.endVoiceActivity(oldState.channelId);
+        }
+    }
 
     public async processMessages(messages: Message[]) {
         for (const message of messages) {
@@ -52,6 +83,13 @@ export class RelationshipManager {
                 console.error(`Error updating member ${userId}:`, error);
             }
         }
+    }
+
+    public async addGuildMembers(guild: any) {
+        const members = await guild.members.fetch();
+        members.forEach((member: any) => {
+            this.network.addUser(member);
+        });
     }
 
     private updateUserActivity(userId: string, timestamp: number) {

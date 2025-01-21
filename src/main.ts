@@ -54,49 +54,33 @@ async function main() {
     console.log(`Logged in as ${client.user?.tag}!`);
 
     try {
-      // // 2) Instantiate the new manager:
-      // const conversationThreadManager = new ConversationManager();
-
-      // // 2. Fetch messages from the "fireside-chat" channel
-      const firesideMessages: Message<true>[] = await getFiresideMessages(
-        client,
-      );
-      // firesideMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-
-      // // 3. Add each message to the ConversationManager using the Two-Level Topic + Thread Approach
-      // await Promise.all(
-      //   firesideMessages.map((message) =>
-      //     conversationThreadManager.addMessageToTopics(message)
-      //   ),
-      // );
-
-      // // 5) Retrieve the final conversation threads
-      // const allThreads = conversationThreadManager.getFormattedTopics();
-
-      // 7) Log or store the results
-      // await saveLog(allThreads, "conversations");
       const relationshipNetwork = new RelationshipNetwork();
       const relationshipManager = new RelationshipManager(relationshipNetwork);
 
-      // Example: Adding guild members
-      const guild = client.guilds.cache.first(); // Adjust to fetch the relevant guild
-
-      // Example: Getting relationships
-      if (guild) {
-        // Process messages and update relationships
-        await relationshipManager.processMessages(firesideMessages);
-
-        const user = relationshipNetwork.getUser("976224748663095306");
-        if (user) {
-          console.log(
-            JSON.stringify(user.toJSON(relationshipNetwork), null, 2),
-          );
-        }
+      // Initialize all guilds
+      for (const [guildId, guild] of client.guilds.cache) {
+        console.log(`Initializing guild: ${guild.name}`);
+        await relationshipManager.addGuildMembers(guild);
       }
-      await speakVoiceCall(client);
-      await logger(client);
+
+      // Set up voice state tracking
+      client.on("voiceStateUpdate", (oldState, newState) => {
+        relationshipManager.handleVoiceStateUpdate(oldState, newState);
+      });
+
+      // Process initial messages
+      const firesideMessages = await getFiresideMessages(client);
+      await relationshipManager.processMessages(firesideMessages);
+
+      // Example: Log a specific user's data
+      const user = relationshipNetwork.getUser("354823920010002432");
+      if (user) {
+        console.log(
+          JSON.stringify(user.toJSON(relationshipNetwork), null, 2),
+        );
+      }
     } catch (error) {
-      console.error("Error initializing conversation threads:", error);
+      console.error("Error initializing bot:", error);
     }
   });
 
