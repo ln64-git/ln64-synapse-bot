@@ -21,6 +21,8 @@
     "discord.js": "^14.16.3",
     "dotenv": "^16.4.5",
     "langchain": "^0.3.6",
+    "mongodb": "^6.12.0",
+    "mongoose": "^8.9.5",
     "natural": "^8.0.1",
     "neo4j-driver": "^5.26.0",
     "node-nlp": "^5.0.0-alpha.4",

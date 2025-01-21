@@ -70,9 +70,8 @@ export function convertToTrimmedMessage(message: Message<true>) {
         channel: message.channel.name,
         message: {
             content: message.content,
-            author: message.author.username,
+            author: message.author.displayName,
             attachments: message.attachments.map((att) => att.url),
-            mentions: message.mentions.users.map((user) => user.username),
         },
     };
 }

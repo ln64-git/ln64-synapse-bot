@@ -5,7 +5,7 @@ import {
   type Snowflake,
   TextChannel,
 } from "discord.js";
-import { saveLog } from "../../function/logger";
+import { saveLog } from "../../utils/logger";
 import { convertToTrimmedMessage } from "../../utils/utils";
 
 export async function getFiresideMessages(

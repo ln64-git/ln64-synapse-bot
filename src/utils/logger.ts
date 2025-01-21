@@ -1,6 +1,5 @@
 import { type Client, Message } from "discord.js";
-import type { TrimmedMessage } from "../types/types";
-import { convertToTrimmedMessage } from "../utils/utils";
+import { convertToTrimmedMessage } from "./utils";
 
 export default async function logger(client: Client) {
     client.on("messageDelete", async (message) => {

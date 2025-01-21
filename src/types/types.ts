@@ -61,3 +61,18 @@ export interface Thread {
   keywords: string[];
   threadEmbedding?: number[];
 }
+
+export type VoiceActivity = {
+  start: number; // Timestamp in milliseconds
+  duration: number; // Duration in milliseconds
+};
+
+export class Interaction {
+  constructor(
+    public content: string,
+    public timestamp: number,
+    public type: "mention" | "reply" | "other",
+    public sender: string,
+    public receiver: string,
+  ) {}
+}
