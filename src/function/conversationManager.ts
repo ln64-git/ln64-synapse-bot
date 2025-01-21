@@ -1,4 +1,4 @@
-// conversationManagerWithAI.ts
+// conversationManager.ts
 
 import type { Message } from "discord.js";
 import type {

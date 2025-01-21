@@ -10,10 +10,11 @@ import { Routes } from "discord-api-types/v10";
 import type { RESTPostAPIApplicationCommandsJSONBody } from "discord-api-types/v9";
 import { readdir } from "fs/promises";
 import { join, relative } from "path";
-import logger, { saveLog } from "./function/logger";
+import logger from "./function/logger";
 import { getFiresideMessages } from "./lib/discord/discord";
 import { speakVoiceCall } from "./function/speakVoiceCall";
-import { ConversationManager } from "./function/conversationManager";
+import { RelationshipManager } from "./feature/relationships/RelationshipManager";
+import { RelationshipNetwork } from "./feature/relationships/RelationshipNetwork";
 
 dotenv.config();
 
@@ -53,29 +54,45 @@ async function main() {
     console.log(`Logged in as ${client.user?.tag}!`);
 
     try {
-      // 2) Instantiate the new manager:
-      const conversationThreadManager = new ConversationManager();
+      // // 2) Instantiate the new manager:
+      // const conversationThreadManager = new ConversationManager();
 
-      // 2. Fetch messages from the "fireside-chat" channel
+      // // 2. Fetch messages from the "fireside-chat" channel
       const firesideMessages: Message<true>[] = await getFiresideMessages(
         client,
       );
-      firesideMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+      // firesideMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
 
+      // // 3. Add each message to the ConversationManager using the Two-Level Topic + Thread Approach
+      // await Promise.all(
+      //   firesideMessages.map((message) =>
+      //     conversationThreadManager.addMessageToTopics(message)
+      //   ),
+      // );
 
-      // 3. Add each message to the ConversationManager using the Two-Level Topic + Thread Approach
-      await Promise.all(
-        firesideMessages.map((message) =>
-          conversationThreadManager.addMessageToTopics(message)
-        ),
-      );
-
-      // 5) Retrieve the final conversation threads
-      const allThreads = conversationThreadManager.getFormattedTopics();
+      // // 5) Retrieve the final conversation threads
+      // const allThreads = conversationThreadManager.getFormattedTopics();
 
       // 7) Log or store the results
-      await saveLog(allThreads, "conversations");
+      // await saveLog(allThreads, "conversations");
+      const relationshipNetwork = new RelationshipNetwork();
+      const relationshipManager = new RelationshipManager(relationshipNetwork);
 
+      // Example: Adding guild members
+      const guild = client.guilds.cache.first(); // Adjust to fetch the relevant guild
+
+      // Example: Getting relationships
+      if (guild) {
+        // Process messages and update relationships
+        await relationshipManager.processMessages(firesideMessages);
+
+        const user = relationshipNetwork.getUser("1160946148832444558");
+        if (user) {
+          console.log(
+            JSON.stringify(user.toJSON(relationshipNetwork), null, 2),
+          );
+        }
+      }
       await speakVoiceCall(client);
       await logger(client);
     } catch (error) {
