@@ -10,5 +10,6 @@ if (!botToken) {
   throw new Error("BOT_TOKEN is missing in the environment.");
 }
 
+
 const bot = new Bot(botToken, mongoUri);
 bot.init().catch((err) => console.error("Failed to initialize bot:", err));

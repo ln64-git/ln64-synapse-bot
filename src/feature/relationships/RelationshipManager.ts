@@ -17,8 +17,31 @@ export class RelationshipManager {
 
     async processMessages(messages: Message[]): Promise<void> {
         for (const message of messages) {
-            const sender = await this.network.addUser(message.member!);
-            await sender.incrementMessageCount();
+            let member = message.member;
+
+            if (!member && message.guild) {
+                try {
+                    // Attempt to fetch the member if it's missing
+                    member = await message.guild.members.fetch(
+                        message.author.id,
+                    );
+                } catch (error) {
+                    console.warn(
+                        `Failed to fetch member for message ID ${message.id} in guild ${message.guild.name}:`,
+                        error,
+                    );
+                    continue;
+                }
+            }
+
+            if (member) {
+                const sender = await this.network.addUser(member);
+                await sender.incrementMessageCount();
+            } else {
+                console.warn(
+                    `Message with ID ${message.id} has no member associated even after fetching.`,
+                );
+            }
         }
     }
 }

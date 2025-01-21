@@ -1,4 +1,4 @@
-import { Client, Collection, GatewayIntentBits } from "discord.js";
+import { Client, Collection, GatewayIntentBits, TextChannel } from "discord.js";
 import { Db, MongoClient } from "mongodb";
 import { getFiresideMessages } from "./lib/discord/discord";
 import { RelationshipNetwork } from "./feature/relationships/RelationshipNetwork";
@@ -30,21 +30,26 @@ export class Bot {
         await this.client.login(this.token);
         console.log("Bot is running!");
 
-        const relationshipNetwork = new RelationshipNetwork(this.db);
-        const relationshipManager = new RelationshipManager(
-            relationshipNetwork,
-        );
+        const guilds = await this.client.guilds.fetch();
+        for (const [guildId, partialGuild] of guilds) {
+            try {
+                const fullGuild = await partialGuild.fetch();
 
-        // Process initial messages
-        const firesideMessages = await getFiresideMessages(this.client);
-        await relationshipManager.processMessages(firesideMessages);
+                const relationshipNetwork = new RelationshipNetwork(this.db);
+                const relationshipManager = new RelationshipManager(
+                    relationshipNetwork,
+                );
 
-        // Log user profile
-        const user = relationshipNetwork.getUser("354823920010002432");
-        if (user) {
-            console.log(
-                JSON.stringify(user.toJSON(), null, 2),
-            );
+                // Process initial messages in the channel
+                if (guildId === "1004111007611895808") {
+                    const firesideMessages = await getFiresideMessages(
+                        this.client,
+                    );
+                    await relationshipManager.processMessages(firesideMessages);
+                }
+            } catch (error) {
+                console.error(`Failed to process guild ${guildId}:`, error);
+            }
         }
 
         await speakVoiceCall(this.client);

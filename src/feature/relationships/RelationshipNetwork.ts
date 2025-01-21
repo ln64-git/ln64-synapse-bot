@@ -8,12 +8,20 @@ export class RelationshipNetwork {
     constructor(private db: Db) {}
 
     async addUser(guildMember: any): Promise<UserProfile> {
+        if (!guildMember || !guildMember.id) {
+            throw new Error("Invalid guildMember passed to addUser.");
+        }
+
         if (!this.users.has(guildMember.id)) {
             const profile = new UserProfile(guildMember, this.db);
             this.users.set(guildMember.id, profile);
             await profile.save();
         }
         return this.users.get(guildMember.id)!;
+    }
+
+    public getUser(userId: string) {
+        return this.users.get(userId);
     }
 
     async addInteraction(

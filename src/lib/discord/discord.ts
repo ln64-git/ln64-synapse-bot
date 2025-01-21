@@ -12,7 +12,7 @@ export async function getFiresideMessages(
   client: Client,
 ): Promise<Message<true>[]> {
   const hearth = await client.guilds.fetch(process.env.GUILD_ID!);
-  const channelId = process.env.CHANNEL_ID;
+  const channelId = process.env.FIRESIDE_CHANNEL_ID;
   if (!channelId) {
     throw new Error("CHANNEL_ID is not set in environment variables.");
   }
