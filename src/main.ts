@@ -72,13 +72,14 @@ async function main() {
       const firesideMessages = await getFiresideMessages(client);
       await relationshipManager.processMessages(firesideMessages);
 
-      // Example: Log a specific user's data
+      // Log user profile
       const user = relationshipNetwork.getUser("354823920010002432");
       if (user) {
         console.log(
           JSON.stringify(user.toJSON(relationshipNetwork), null, 2),
         );
       }
+
       await speakVoiceCall(client);
       await logger(client);
     } catch (error) {
