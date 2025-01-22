@@ -52,8 +52,8 @@ export class Bot {
             }
         }
 
-        await speakVoiceCall(this.client);
-        await logger(this.client);
+        speakVoiceCall(this.client);
+        logger(this.client);
     }
 
     private async connectToDatabase() {
