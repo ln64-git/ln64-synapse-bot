@@ -4,9 +4,10 @@ import type { VoiceActivity } from "../../types/types";
 
 export class UserProfile {
     private collection: Collection;
-
+    // discord GuildMember
     public id: string;
     public aliases: Set<string> = new Set();
+    // profile pictures array
     public keywords: Set<string> = new Set();
     public messageCount: number = 0;
     public lastActive: number = 0;

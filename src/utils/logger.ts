@@ -1,5 +1,7 @@
 import { type Client, Message } from "discord.js";
 import { convertToTrimmedMessage } from "./utils";
+import path from "path";
+import { promises as fs } from "fs";
 
 export default async function logger(client: Client) {
     client.on("messageDelete", async (message) => {
@@ -32,20 +34,11 @@ export default async function logger(client: Client) {
 }
 
 export async function saveLog(data: any[], baseFileName: string) {
-    const fs = await import("fs/promises");
-    const path = await import("path");
-
     const logsDir = path.join(process.cwd(), "logs");
-    const timestamp = new Date();
-    const formattedDate = timestamp.toISOString().split("T")[0].replace(
-        /-/g,
-        "-",
-    );
-    const oldLogsDir = path.join(logsDir, "old", formattedDate);
-    const formattedTimestamp = timestamp.toISOString().replace(/[:.]/g, "-");
     const currentLogFile = path.join(logsDir, `${baseFileName}.json`);
 
     try {
+        // Ensure logs directory exists
         await fs.mkdir(logsDir, { recursive: true });
 
         let existingData: any[] = [];
@@ -55,49 +48,29 @@ export async function saveLog(data: any[], baseFileName: string) {
             .catch(() => false);
 
         if (logExists) {
-            try {
-                const fileContent = await fs.readFile(currentLogFile, "utf8");
-                existingData = JSON.parse(fileContent.trim() || "[]");
-            } catch (error) {
-                console.error(
-                    "Invalid JSON in log file. Resetting to empty array.",
-                    error,
-                );
-                existingData = [];
-            }
+            // Read the existing file content
+            const fileContent = await fs.readFile(currentLogFile, "utf8");
+            existingData = JSON.parse(fileContent.trim() || "[]");
         }
 
-        // Check for unique messages
-        const existingMessageIds = new Set(
-            existingData.map((msg: any) => msg.id),
-        );
-        const allMessagesNew = data.every((msg: any) =>
-            !existingMessageIds.has(msg.id)
-        );
+        // Merge new data with existing data and deduplicate by `id`
+        const mergedData = [
+            ...data,
+            ...existingData.filter(
+                (msg: any) => !data.some((newMsg) => newMsg.id === msg.id),
+            ),
+        ];
 
-        if (allMessagesNew && data.length === 100) {
-            // Backup current log file if it exists
-            if (logExists) {
-                await fs.mkdir(oldLogsDir, { recursive: true });
-                const oldFileName =
-                    `${baseFileName}-${formattedTimestamp}.json`;
-                const oldFilePath = path.join(oldLogsDir, oldFileName);
-                await fs.rename(currentLogFile, oldFilePath);
-                console.log(`Backed up log file: ${oldFilePath}`);
-            }
+        // Sort messages by timestamp in descending order
+        mergedData.sort((a: any, b: any) => b.timestamp - a.timestamp);
 
-            // Save new data as the current log file
-            await fs.writeFile(
-                currentLogFile,
-                JSON.stringify(data, null, 2),
-                "utf8",
-            );
-            console.log(`Saved latest log file: ${currentLogFile}`);
-        } else {
-            console.log(
-                "No backup created. Not all messages are new or incomplete batch.",
-            );
-        }
+        // Save the updated log file (no backups for `deletedMessages`)
+        await fs.writeFile(
+            currentLogFile,
+            JSON.stringify(mergedData, null, 2),
+            "utf8",
+        );
+        console.log(`Saved updated log file: ${currentLogFile}`);
     } catch (err) {
         console.error("Failed to save log:", err);
     }

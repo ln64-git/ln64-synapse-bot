@@ -26,8 +26,8 @@ export class Bot {
     async init() {
         await this.connectToDatabase();
         await this.loadCommands();
-        this.setupEventHandlers();
         await this.client.login(this.token);
+        this.setupEventHandlers();
         console.log("Bot is running!");
 
         const guilds = await this.client.guilds.fetch();
@@ -51,9 +51,6 @@ export class Bot {
                 console.error(`Failed to process guild ${guildId}:`, error);
             }
         }
-
-        speakVoiceCall(this.client);
-        logger(this.client);
     }
 
     private async connectToDatabase() {
@@ -76,5 +73,7 @@ export class Bot {
     private async setupEventHandlers() {
         const { setupHandlers } = await import("./utils/setupHandlers");
         setupHandlers(this.client, this.commands, this.db);
+        speakVoiceCall(this.client);
+        logger(this.client);
     }
 }
