@@ -1,4 +1,4 @@
-import { Client, Collection, GatewayIntentBits, TextChannel } from "discord.js";
+import { Client, Collection, GatewayIntentBits } from "discord.js";
 import { Db, MongoClient } from "mongodb";
 import { getFiresideMessages } from "./lib/discord/discord";
 import { RelationshipNetwork } from "./feature/relationships/RelationshipNetwork";
@@ -24,33 +24,36 @@ export class Bot {
     }
 
     async init() {
+        this.setupEventHandlers();
         await this.connectToDatabase();
         await this.loadCommands();
         await this.client.login(this.token);
-        this.setupEventHandlers();
         console.log("Bot is running!");
 
-        const guilds = await this.client.guilds.fetch();
-        for (const [guildId, partialGuild] of guilds) {
-            try {
-                const fullGuild = await partialGuild.fetch();
+        // const guilds = await this.client.guilds.fetch();
+        // const relationshipNetwork = new RelationshipNetwork(this.db);
+        // const relationshipManager = new RelationshipManager(
+        //     relationshipNetwork,
+        // );
+        // for (const [guildId] of guilds) {
+        //     try {
+        //         if (guildId === "1004111007611895808") {
+        //             const firesideMessages = await getFiresideMessages(
+        //                 this.client,
+        //             );
+        //             await relationshipManager.processMessages(firesideMessages);
+        //         }
+        //     } catch (error) {
+        //         console.error(`Failed to process guild ${guildId}:`, error);
+        //     }
+        // }
+    }
 
-                const relationshipNetwork = new RelationshipNetwork(this.db);
-                const relationshipManager = new RelationshipManager(
-                    relationshipNetwork,
-                );
-
-                // Process initial messages in the channel
-                if (guildId === "1004111007611895808") {
-                    const firesideMessages = await getFiresideMessages(
-                        this.client,
-                    );
-                    await relationshipManager.processMessages(firesideMessages);
-                }
-            } catch (error) {
-                console.error(`Failed to process guild ${guildId}:`, error);
-            }
-        }
+    private async setupEventHandlers() {
+        const { setupHandlers } = await import("./utils/setupHandlers");
+        setupHandlers(this.client, this.commands, this.db);
+        speakVoiceCall(this.client);
+        logger(this.client);
     }
 
     private async connectToDatabase() {
@@ -68,12 +71,5 @@ export class Bot {
     private async loadCommands() {
         const { loadCommands } = await import("./utils/loadCommands");
         await loadCommands(this.commands);
-    }
-
-    private async setupEventHandlers() {
-        const { setupHandlers } = await import("./utils/setupHandlers");
-        setupHandlers(this.client, this.commands, this.db);
-        speakVoiceCall(this.client);
-        logger(this.client);
     }
 }

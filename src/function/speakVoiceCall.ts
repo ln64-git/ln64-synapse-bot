@@ -58,7 +58,7 @@ export async function speakVoiceCall(client: Client) {
                     } else if (oldChannelId && newChannelId) {
                         // User switched voice channels
                         executeCommand(
-                            `${userName} switched from ${oldChannelName} to ${newChannelName} in guild ${guild.name}`,
+                            `${userName} switched from ${oldChannelName} to ${newChannelName} in ${guild.name}`,
                         );
                     }
                 }
