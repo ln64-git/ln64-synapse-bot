@@ -15,7 +15,7 @@ function createServerEmbed() {
         .setTitle("hello and welcome to my server")
         .setColor("#A03232")
         .setDescription(
-            "**: name (Ar-KAH-dos)** \n" +
+            "**: name ** \n" +
                 "a spanish twist on the greek myth of arcadia, domain of pan.\n\n" +
                 "**: origin**\n" +
                 "most of us come from internet communities based around anarchy and neurodivergence.\n\n" +

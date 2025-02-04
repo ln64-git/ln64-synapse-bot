@@ -1,27 +1,14 @@
-import { Message, VoiceState } from "discord.js";
+import { GuildMember, Message, VoiceState } from "discord.js";
 import { RelationshipNetwork } from "./RelationshipNetwork";
 
 export class RelationshipManager {
     constructor(private network: RelationshipNetwork) {}
 
-    async handleVoiceStateUpdate(oldState: VoiceState, newState: VoiceState) {
-        const userId = newState.id;
-        const user = this.network.addUser(newState.member!);
-
-        if (!oldState.channelId && newState.channelId) {
-            await (await user).trackVoiceActivity(newState.channelId, true); // Joining
-        } else if (oldState.channelId && !newState.channelId) {
-            await (await user).trackVoiceActivity(oldState.channelId, false); // Leaving
-        }
-    }
-
     async processMessages(messages: Message[]): Promise<void> {
         for (const message of messages) {
             let member = message.member;
-
             if (!member && message.guild) {
                 try {
-                    // Attempt to fetch the member if it's missing
                     member = await message.guild.members.fetch(
                         message.author.id,
                     );
@@ -33,15 +20,25 @@ export class RelationshipManager {
                     continue;
                 }
             }
-
-            if (member) {
-                const sender = await this.network.addUser(member);
-                await sender.incrementMessageCount();
-            } else {
+            if (!member) {
                 console.warn(
-                    `Message with ID ${message.id} has no member associated even after fetching.`,
+                    `Message ID ${message.id} has no associated member.`,
                 );
+                continue;
             }
+
+            let sender = this.network.getUser(member.id);
+            if (!sender) {
+                sender = await this.network.addUser(member);
+            }
+
+            const shouldUpdate = await sender.hasDifferentData(member);
+            if (shouldUpdate) {
+                console.log("shouldUpdate");
+                await sender.updateUserData();
+            }
+
+            await sender.incrementMessageCount();
         }
     }
 }

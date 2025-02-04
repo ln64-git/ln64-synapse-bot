@@ -1,23 +1,84 @@
-import { Collection, Db } from "mongodb";
+import { Collection, Db, GridFSBucket, ObjectId } from "mongodb";
 import type { GuildMember } from "discord.js";
-import type { VoiceActivity } from "../../types/types";
+import axios from "axios";
+import path from "path";
+import { createWriteStream } from "fs";
+import crypto from "crypto";
 
 export class UserProfile {
     private collection: Collection;
-    // discord GuildMember
+    private photoBucket: GridFSBucket;
     public id: string;
+    public guildMember: GuildMember;
     public aliases: Set<string> = new Set();
-    // profile pictures array
-    public keywords: Set<string> = new Set();
     public messageCount: number = 0;
     public lastActive: number = 0;
-    public voiceActivity: Record<string, VoiceActivity> = {};
 
-    constructor(public guildMember: GuildMember, private db: Db) {
-        this.id = guildMember.id;
+    constructor(public discordGuildMember: GuildMember, private db: Db) {
+        this.id = discordGuildMember.id;
+        this.guildMember = discordGuildMember;
         this.collection = db.collection("userProfiles");
-        this.addAlias(guildMember.user.username);
-        this.addAlias(guildMember.displayName);
+        this.photoBucket = new GridFSBucket(db, {
+            bucketName: "profilePictures",
+        });
+
+        this.addAlias(discordGuildMember.user.username);
+        this.addAlias(discordGuildMember.displayName);
+    }
+
+    async hasDifferentData(member: GuildMember): Promise<boolean> {
+        const newUsername = member.user.username.toLowerCase();
+        const newDisplayName = member.displayName.toLowerCase();
+        const newAvatarUrl = member.user.displayAvatarURL({
+            extension: "png",
+            size: 1024,
+        });
+
+        // Check if username or display name has changed
+        if (
+            !this.aliases.has(newUsername) || !this.aliases.has(newDisplayName)
+        ) {
+            return true;
+        }
+
+        // Check if the stored avatar URL has changed before downloading the image
+        const existingData = await this.collection.findOne({ id: this.id });
+        if (existingData?.lastAvatarUrl === newAvatarUrl) {
+            return false; // Avatar has not changed, no need to download
+        }
+
+        // Now download the image and check its hash
+        const response = await axios.get(newAvatarUrl, {
+            responseType: "arraybuffer",
+        });
+        const imageBuffer = Buffer.from(response.data);
+        const imageHash = crypto.createHash("sha256").update(imageBuffer)
+            .digest("hex");
+
+        return !(await this.hasStoredAvatar(imageHash));
+    }
+
+    async updateUserData(): Promise<void> {
+        const newAvatarUrl = this.guildMember.user.displayAvatarURL({
+            extension: "png",
+            size: 1024,
+        });
+
+        // Store the last known avatar URL to prevent unnecessary downloads
+        await this.collection.updateOne(
+            { id: this.id },
+            { $set: { lastAvatarUrl: newAvatarUrl } },
+            { upsert: true },
+        );
+
+        await this.save();
+    }
+
+    async hasStoredAvatar(imageHash: string): Promise<boolean> {
+        const existingImage = await this.photoBucket.find({
+            "metadata.imageHash": imageHash,
+        }).toArray();
+        return existingImage.length > 0;
     }
 
     async incrementMessageCount(): Promise<void> {
@@ -26,25 +87,10 @@ export class UserProfile {
         await this.save();
     }
 
-    async trackVoiceActivity(
-        channelId: string,
-        isJoining: boolean,
-    ): Promise<void> {
-        const now = Date.now();
-
-        if (isJoining) {
-            this.voiceActivity[channelId] = { start: now, duration: 0 };
-        } else if (this.voiceActivity[channelId]) {
-            this.voiceActivity[channelId].duration += now -
-                this.voiceActivity[channelId].start;
-            delete this.voiceActivity[channelId];
-        }
-
-        await this.save();
-    }
-
     addAlias(alias: string): void {
-        this.aliases.add(alias.toLowerCase());
+        if (!this.aliases.has(alias.toLowerCase())) {
+            this.aliases.add(alias.toLowerCase());
+        }
     }
 
     async save(): Promise<void> {
@@ -61,7 +107,6 @@ export class UserProfile {
             aliases: Array.from(this.aliases),
             messageCount: this.messageCount,
             lastActive: this.lastActive,
-            voiceActivity: this.voiceActivity,
         };
     }
 
@@ -69,8 +114,8 @@ export class UserProfile {
         const data = await db.collection("userProfiles").findOne({ id });
         if (!data) return null;
 
-        const profile = new UserProfile({ id } as GuildMember, db); // Mock guildMember if needed
-        Object.assign(profile, data); // Apply saved data to the profile instance
+        const profile = new UserProfile({ id } as GuildMember, db);
+        Object.assign(profile, data);
         return profile;
     }
 }

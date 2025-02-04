@@ -30,23 +30,32 @@ export class Bot {
         await this.client.login(this.token);
         console.log("Bot is running!");
 
-        // const guilds = await this.client.guilds.fetch();
-        // const relationshipNetwork = new RelationshipNetwork(this.db);
-        // const relationshipManager = new RelationshipManager(
-        //     relationshipNetwork,
-        // );
-        // for (const [guildId] of guilds) {
-        //     try {
-        //         if (guildId === "1004111007611895808") {
-        //             const firesideMessages = await getFiresideMessages(
-        //                 this.client,
-        //             );
-        //             await relationshipManager.processMessages(firesideMessages);
-        //         }
-        //     } catch (error) {
-        //         console.error(`Failed to process guild ${guildId}:`, error);
-        //     }
-        // }
+        const guilds = await this.client.guilds.fetch();
+        const relationshipNetwork = new RelationshipNetwork(this.db);
+        const relationshipManager = new RelationshipManager(
+            relationshipNetwork,
+        );
+        for (const [guildId] of guilds) {
+            try {
+                if (guildId === "1004111007611895808") {
+                    const firesideMessages = await getFiresideMessages(
+                        this.client,
+                    );
+                    await relationshipManager.processMessages(firesideMessages);
+
+                    const userProfile = relationshipNetwork.getUser(
+                        "940191264752664576",
+                    );
+                    if (userProfile) {
+                        console.log("User found");
+                    } else {
+                        console.log("User not found.");
+                    }
+                }
+            } catch (error) {
+                console.error(`Failed to process guild ${guildId}:`, error);
+            }
+        }
     }
 
     private async setupEventHandlers() {
