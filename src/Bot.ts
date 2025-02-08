@@ -25,27 +25,19 @@ export class Bot {
     }
 
     async init() {
-        // 1) Log in first so we can fetch the guilds
         await this.client.login(this.token);
         console.log(`Logged in as ${this.client.user?.tag}!`);
 
-        // 2) Set up event handlers
         this.setupEventHandlers();
-
-        // 3) Connect to database
         await this.connectToDatabase();
-
-        // 4) Load slash commands for ALL guilds
         await this.loadCommands();
-
         console.log("Bot is running!");
 
-        // (Optional) Relationship logic
         const relationshipNetwork = new RelationshipNetwork(this.db);
         const relationshipManager = new RelationshipManager(
             relationshipNetwork,
         );
-        
+
         const arcados = await this.client.guilds.fetch("1254694808228986912");
         const arcadosMessages = await getArcadosMessages(arcados);
         await relationshipManager.processMessages(arcadosMessages);

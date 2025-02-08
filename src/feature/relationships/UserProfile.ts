@@ -25,46 +25,19 @@ export class UserProfile {
     }
 
     async hasDifferentData(member: GuildMember): Promise<boolean> {
-        const newUsername = member.user.username.toLowerCase();
-        const newDisplayName = member.displayName.toLowerCase();
-        const newAvatarUrl = member.user.displayAvatarURL({
-            extension: "png",
-            size: 1024,
-        });
-
-        // Check if username or display name has changed
-        if (
-            !this.aliases.has(newUsername) || !this.aliases.has(newDisplayName)
-        ) {
-            return true;
-        }
-
-        // Check if the stored avatar URL has changed before downloading the image
-        const existingData = await this.collection.findOne({ id: this.id });
-        if (existingData?.lastAvatarUrl === newAvatarUrl) {
-            return false; // Avatar has not changed, no need to download
-        }
-
-        // Now download the image and check its hash
-        const response = await axios.get(newAvatarUrl, {
-            responseType: "arraybuffer",
-        });
-        const imageBuffer = Buffer.from(response.data);
-        const imageHash = crypto.createHash("sha256").update(imageBuffer)
-            .digest("hex");
-
-        return !(await this.hasStoredAvatar(imageHash));
+        return (
+            this.guildMember.id !== member.id || // Different user
+            this.guildMember.user.username !== member.user.username || // Username changed
+            this.guildMember.displayName !== member.displayName || // Nickname changed
+            this.guildMember.roles.cache.size !== member.roles.cache.size || // Role count changed
+            ![...this.guildMember.roles.cache.keys()].every((role) =>
+                member.roles.cache.has(role)
+            ) // Roles changed
+        );
     }
 
     async updateUserData(): Promise<void> {
         await this.save();
-    }
-
-    async hasStoredAvatar(imageHash: string): Promise<boolean> {
-        const existingImage = await this.photoBucket.find({
-            "metadata.imageHash": imageHash,
-        }).toArray();
-        return existingImage.length > 0;
     }
 
     async incrementMessageCount(): Promise<void> {
