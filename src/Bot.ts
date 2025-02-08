@@ -24,17 +24,28 @@ export class Bot {
     }
 
     async init() {
-        this.setupEventHandlers();
-        await this.connectToDatabase();
-        await this.loadCommands();
+        // 1) Log in first so we can fetch the guilds
         await this.client.login(this.token);
+        console.log(`Logged in as ${this.client.user?.tag}!`);
+
+        // 2) Set up event handlers
+        this.setupEventHandlers();
+
+        // 3) Connect to database
+        await this.connectToDatabase();
+
+        // 4) Load slash commands for ALL guilds
+        await this.loadCommands();
+
         console.log("Bot is running!");
 
+        // (Optional) Relationship logic
         const guilds = await this.client.guilds.fetch();
         const relationshipNetwork = new RelationshipNetwork(this.db);
         const relationshipManager = new RelationshipManager(
             relationshipNetwork,
         );
+
         for (const [guildId] of guilds) {
             try {
                 if (guildId === "1004111007611895808") {
@@ -58,8 +69,8 @@ export class Bot {
         }
     }
 
-    private async setupEventHandlers() {
-        const { setupHandlers } = await import("./utils/setupHandlers");
+    private setupEventHandlers() {
+        const { setupHandlers } = require("./utils/setupHandlers");
         setupHandlers(this.client, this.commands, this.db);
         speakVoiceCall(this.client);
         logger(this.client);
@@ -78,7 +89,8 @@ export class Bot {
     }
 
     private async loadCommands() {
+        // Make sure your loadCommands function accepts (client, commandsCollection)
         const { loadCommands } = await import("./utils/loadCommands");
-        await loadCommands(this.commands);
+        await loadCommands(this.client, this.commands);
     }
 }

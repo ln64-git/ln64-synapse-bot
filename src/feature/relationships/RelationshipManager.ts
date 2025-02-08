@@ -34,7 +34,9 @@ export class RelationshipManager {
 
             const shouldUpdate = await sender.hasDifferentData(member);
             if (shouldUpdate) {
-                console.log("shouldUpdate");
+                console.log(
+                    `hasDifferentData found, updateing.. ${sender.discordGuildMember.displayName}`,
+                );
                 await sender.updateUserData();
             }
 
