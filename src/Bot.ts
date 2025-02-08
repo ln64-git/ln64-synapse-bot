@@ -1,10 +1,11 @@
 import { Client, Collection, GatewayIntentBits } from "discord.js";
 import { Db, MongoClient } from "mongodb";
-import { getFiresideMessages } from "./lib/discord/discord";
+import { getArcadosMessages, getFiresideMessages } from "./lib/discord/discord";
 import { RelationshipNetwork } from "./feature/relationships/RelationshipNetwork";
 import { RelationshipManager } from "./feature/relationships/RelationshipManager";
 import logger from "./utils/logger";
 import { speakVoiceCall } from "./function/speakVoiceCall";
+import type { UserProfile } from "./feature/relationships/UserProfile";
 
 export class Bot {
     public client: Client;
@@ -40,33 +41,22 @@ export class Bot {
         console.log("Bot is running!");
 
         // (Optional) Relationship logic
-        const guilds = await this.client.guilds.fetch();
         const relationshipNetwork = new RelationshipNetwork(this.db);
         const relationshipManager = new RelationshipManager(
             relationshipNetwork,
         );
+        
+        const arcados = await this.client.guilds.fetch("1254694808228986912");
+        const arcadosMessages = await getArcadosMessages(arcados);
+        await relationshipManager.processMessages(arcadosMessages);
 
-        for (const [guildId] of guilds) {
-            try {
-                if (guildId === "1004111007611895808") {
-                    const firesideMessages = await getFiresideMessages(
-                        this.client,
-                    );
-                    await relationshipManager.processMessages(firesideMessages);
+        const userProfile = relationshipNetwork.getUser(
+            "940191264752664576",
+        ) as UserProfile || (() => {
+            console.log("User not found");
+        });
 
-                    const userProfile = relationshipNetwork.getUser(
-                        "940191264752664576",
-                    );
-                    if (userProfile) {
-                        console.log("User found");
-                    } else {
-                        console.log("User not found.");
-                    }
-                }
-            } catch (error) {
-                console.error(`Failed to process guild ${guildId}:`, error);
-            }
-        }
+        console.log(`${userProfile.guildMember.displayName} found.`);
     }
 
     private setupEventHandlers() {

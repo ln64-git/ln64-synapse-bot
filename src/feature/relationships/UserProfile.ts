@@ -1,8 +1,6 @@
-import { Collection, Db, GridFSBucket, ObjectId } from "mongodb";
+import { Collection, Db, GridFSBucket } from "mongodb";
 import type { GuildMember } from "discord.js";
 import axios from "axios";
-import path from "path";
-import { createWriteStream } from "fs";
 import crypto from "crypto";
 
 export class UserProfile {
@@ -59,18 +57,6 @@ export class UserProfile {
     }
 
     async updateUserData(): Promise<void> {
-        const newAvatarUrl = this.guildMember.user.displayAvatarURL({
-            extension: "png",
-            size: 1024,
-        });
-
-        // Store the last known avatar URL to prevent unnecessary downloads
-        await this.collection.updateOne(
-            { id: this.id },
-            { $set: { lastAvatarUrl: newAvatarUrl } },
-            { upsert: true },
-        );
-
         await this.save();
     }
 

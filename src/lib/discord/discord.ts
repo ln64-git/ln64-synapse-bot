@@ -1,12 +1,33 @@
 import {
   Client,
   Collection,
+  Guild,
   Message,
   type Snowflake,
   TextChannel,
 } from "discord.js";
 import { saveLog } from "../../utils/logger";
 import { convertToTrimmedMessage } from "../../utils/utils";
+
+export async function getArcadosMessages(
+  guild: Guild,
+): Promise<Message<true>[]> {
+  const channelId = process.env.CHAT_CHANNEL_ID;
+  if (!channelId) throw new Error("CHAT_CHANNEL_ID missing");
+  const channel = await guild.channels.fetch(channelId);
+  if (!channel || !(channel instanceof TextChannel)) {
+    throw new Error("Channel not found or not a text channel.");
+  }
+
+  const fetchedMessages = await channel.messages.fetch({ limit: 10 });
+  const convertedMessages = [...fetchedMessages.values()]
+    .sort((a, b) => b.createdTimestamp - a.createdTimestamp)
+    .map(convertToTrimmedMessage);
+
+  await saveLog(convertedMessages, "firesideMessages");
+
+  return [...fetchedMessages.values()];
+}
 
 export async function getFiresideMessages(
   client: Client,
