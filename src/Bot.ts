@@ -1,19 +1,19 @@
+import logger, { saveLog } from "./utils/logger";
 import { Client, Collection, GatewayIntentBits } from "discord.js";
 import { Db, MongoClient } from "mongodb";
-import { getArcadosMessages, getFiresideMessages } from "./lib/discord/discord";
+import { getArcadosMessages } from "./lib/discord/discord";
 import { RelationshipNetwork } from "./feature/relationships/RelationshipNetwork";
-import logger from "./utils/logger";
 import { speakVoiceCall } from "./function/speakVoiceCall";
-import type { UserProfile } from "./feature/relationships/UserProfile";
 import { setupHandlers } from "./utils/setupHandlers";
 import { loadCommands } from "./utils/loadCommands";
-import { processMessages } from "./feature/relationships/utils";
+import { ConversationManager } from "./feature/covnersations/ConversationManager";
 
 export class Bot {
     public client: Client;
     public db!: Db;
     public commands = new Collection<string, any>();
-    public relationshipNetwork = new RelationshipNetwork(this.db);
+    public relationshipNetwork!: RelationshipNetwork;
+    public conversationManager!: ConversationManager; // Add ConversationManager
 
     constructor(private token: string, private mongoUri: string) {
         this.client = new Client({
@@ -33,20 +33,20 @@ export class Bot {
 
         this.setupEventHandlers();
         await this.connectToDatabase();
-        await this.loadCommands();
+        // await this.loadCommands();
+
         console.log("Bot is running!");
 
         const arcados = await this.client.guilds.fetch("1254694808228986912");
         const arcadosMessages = await getArcadosMessages(arcados);
-        await processMessages(this.relationshipNetwork, arcadosMessages);
 
-        const userProfile = this.relationshipNetwork.getUser(
-            "940191264752664576",
-        ) as UserProfile || (() => {
-            console.log("User not found");
-        });
+        await this.conversationManager.processMessages(arcadosMessages);
 
-        console.log(`${userProfile.guildMember.displayName} found.`);
+        const threads = this.conversationManager.getSortedThreads();
+
+        await saveLog(threads, "arcadosThreads");
+
+        console.log("Finished processing messages into threads.");
     }
 
     private setupEventHandlers() {
@@ -61,6 +61,8 @@ export class Bot {
             await mongoClient.connect();
             this.db = mongoClient.db("discordData");
             console.log("Connected to MongoDB.");
+            this.relationshipNetwork = new RelationshipNetwork(this.db);
+            this.conversationManager = new ConversationManager(); // Initialize ConversationManager
         } catch (error) {
             console.error("Failed to connect to MongoDB:", error);
             process.exit(1);

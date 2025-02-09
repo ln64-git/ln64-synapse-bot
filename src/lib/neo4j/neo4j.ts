@@ -10,8 +10,7 @@ import { ChannelType, type Snowflake } from "discord-api-types/v10";
 import neo4j, { Driver, Transaction } from "neo4j-driver";
 import dotenv from "dotenv";
 import process from "node:process";
-import { ConversationManager } from "../../function/conversationManager";
-import type { Conversation } from "../../types/types";
+import { ConversationManager } from "../../feature/covnersations/ConversationManager";
 
 dotenv.config();
 
@@ -444,65 +443,6 @@ async function syncUserToMessage(message: Message): Promise<void> {
     } catch (error) {
         console.error(
             `Error syncing User ${message.author.id} to Message ${message.id}:`,
-            error,
-        );
-    } finally {
-        await session.close();
-    }
-}
-
-async function saveConversationToDatabase(conversation: Conversation) {
-    const session = driver.session();
-    try {
-        // Structure your conversation data
-        const conversationData = {
-            id: conversation.id,
-            participants: conversation.participants,
-            startTime: conversation.startTime.toISOString(),
-            lastActive: conversation.lastActive.toISOString(),
-            messages: conversation.messages.map((msg, index, array) => ({
-                id: msg.id,
-                content: msg.content,
-                createdAt: msg.createdAt.toISOString(),
-                authorId: msg.author.id,
-                displayName: msg.member?.displayName || msg.author.username,
-                nextMessageId: array[index + 1]?.id || null, // Add next message ID
-            })),
-        };
-
-        // Save conversation and messages with `SENT_MESSAGE` relationship
-        await session.run(
-            `
-            MERGE (c:Conversation {id: $id})
-            ON CREATE SET c.participants = $participants,
-                          c.startTime = $startTime,
-                          c.lastActive = $lastActive
-            ON MATCH SET c.lastActive = $lastActive
-
-            WITH c
-            UNWIND $messages AS message
-            MERGE (m:Message {id: message.id})
-            ON CREATE SET m.content = message.content,
-                          m.createdAt = message.createdAt,
-                          m.authorId = message.authorId,
-                          m.displayName = message.displayName
-            MERGE (c)-[:HAS_MESSAGE]->(m)
-            
-            // Create the NEXT_MESSAGE relationship
-            FOREACH (nextMessage IN CASE WHEN message.nextMessageId IS NOT NULL THEN [message.nextMessageId] ELSE [] END |
-                MERGE (next:Message {id: nextMessage})
-                MERGE (m)-[:NEXT_MESSAGE]->(next)
-            )
-            `,
-            conversationData,
-        );
-
-        console.log(
-            `Saved conversation ${conversation.id} with message order to the database.`,
-        );
-    } catch (error) {
-        console.error(
-            `Error saving conversation ${conversation.id} to the database:`,
             error,
         );
     } finally {

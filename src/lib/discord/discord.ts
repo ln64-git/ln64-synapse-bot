@@ -19,7 +19,7 @@ export async function getArcadosMessages(
     throw new Error("Channel not found or not a text channel.");
   }
 
-  const fetchedMessages = await channel.messages.fetch({ limit: 10 });
+  const fetchedMessages = await channel.messages.fetch({ limit: 30 });
   const convertedMessages = [...fetchedMessages.values()]
     .sort((a, b) => b.createdTimestamp - a.createdTimestamp)
     .map(convertToTrimmedMessage);
