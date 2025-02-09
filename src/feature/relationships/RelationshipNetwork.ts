@@ -1,6 +1,5 @@
 import { Db } from "mongodb";
 import { UserProfile } from "./UserProfile";
-import type { Interaction } from "../../types/types";
 
 export class RelationshipNetwork {
     private users = new Map<string, UserProfile>();
@@ -27,7 +26,6 @@ export class RelationshipNetwork {
     async addInteraction(
         senderId: string,
         receiverId: string,
-        interaction: Interaction,
     ): Promise<void> {
         const sender = this.users.get(senderId) ||
             (await UserProfile.load(this.db, senderId));
@@ -38,7 +36,6 @@ export class RelationshipNetwork {
             // Example: Update some relationship-specific property
             console.log(
                 `Logged interaction between ${senderId} and ${receiverId}:`,
-                interaction.content,
             );
         }
     }
