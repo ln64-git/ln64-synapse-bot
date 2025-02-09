@@ -1,24 +1,17 @@
-import { Collection, Db, GridFSBucket } from "mongodb";
+import { Collection, Db } from "mongodb";
 import type { GuildMember } from "discord.js";
-import axios from "axios";
-import crypto from "crypto";
 
 export class UserProfile {
     private collection: Collection;
-    private photoBucket: GridFSBucket;
     public id: string;
     public guildMember: GuildMember;
     public aliases: Set<string> = new Set();
-    public messageCount: number = 0;
     public lastActive: number = 0;
 
     constructor(public discordGuildMember: GuildMember, private db: Db) {
         this.id = discordGuildMember.id;
         this.guildMember = discordGuildMember;
         this.collection = db.collection("userProfiles");
-        this.photoBucket = new GridFSBucket(db, {
-            bucketName: "profilePictures",
-        });
 
         this.addAlias(discordGuildMember.user.username);
         this.addAlias(discordGuildMember.displayName);
@@ -41,7 +34,6 @@ export class UserProfile {
     }
 
     async incrementMessageCount(): Promise<void> {
-        this.messageCount++;
         this.lastActive = Date.now();
         await this.save();
     }
@@ -64,7 +56,6 @@ export class UserProfile {
         return {
             id: this.id,
             aliases: Array.from(this.aliases),
-            messageCount: this.messageCount,
             lastActive: this.lastActive,
         };
     }
