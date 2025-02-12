@@ -41,19 +41,27 @@ export class Bot {
         const channelId = process.env.CHANNEL_ID || "";
 
         const arcadosMessages = await getMessages(arcados, channelId);
-        const sortedMessages = arcadosMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-        const messagesJson = sortedMessages.map((message) => ({
-            content: message.cleanContent,
-            username: message.author.username,
-        }));
-        console.log(messagesJson);
-
+        const sortedMessages = arcadosMessages.sort((a, b) =>
+            a.createdTimestamp - b.createdTimestamp
+        );
+        const message = sortedMessages[1];
         // await this.conversationManager.processMessages(arcadosMessages);
 
-        const threads = this.conversationManager.getSortedThreads();
+        // const threads = this.conversationManager.getSortedThreads();
+        const { keywords } = await this.conversationManager
+            .getMessageKeywordsAndEmbedding(
+                message,
+            );
 
-        await saveLog(threads, "arcadosThreads");
+        const messagesJson = {
+            content: message.cleanContent,
+            username: message.author.username,
+            keywords: keywords,
+        };
 
+        console.log(messagesJson);
+
+        // await saveLog(threads, "arcadosThreads");
         console.log("Finished processing messages into threads.");
     }
 

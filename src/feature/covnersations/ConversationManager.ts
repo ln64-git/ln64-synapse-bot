@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import { convertToTrimmedMessage } from "../../utils/utils";
 import type { DiscordMessageWithEmbedding, Thread } from "./types";
 import { getEmbeddingBatch } from "./utils";
-import { extractKeywordsWithAI } from "./extractKeywords";
+import { extractKeywordsWithOpenAi } from "./extractKeywords";
 
 dotenv.config();
 
@@ -48,10 +48,10 @@ export class ConversationManager {
             message.attachments.size === 0;
     }
 
-    private async getMessageKeywordsAndEmbedding(
+    public async getMessageKeywordsAndEmbedding(
         message: Message,
     ): Promise<{ keywords: string[]; embedding: number[] | null }> {
-        const keywords = await extractKeywordsWithAI(message.content);
+        const keywords = await extractKeywordsWithOpenAi(message.content);
         const embedding = message.content.length >= 10
             ? await getEmbeddingBatch([message.content])
             : null;

@@ -1,37 +1,33 @@
 import OpenAI from "openai";
+import dotenv from "dotenv";
 
-export async function generateCypherQuery(question: string): Promise<string> {
-  // Initialize OpenAI
-  const openaiApiKey = process.env.OPENAI_API_KEY;
-  if (!openaiApiKey) {
-    throw new Error("Missing OPENAI_API_KEY environment variable.");
-  }
+// Initialize OpenAI client
 
-  const openai = new OpenAI({
-    apiKey: openaiApiKey,
-  });
+dotenv.config();
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY, // Ensure your API key is set in your environment variables
+});
 
-  // Generate Cypher Query using OpenAI
-  const prompt = `
-You are an AI assistant that translates English questions into Cypher queries for a Neo4j database. The database contains nodes labeled User, Message, Channel, and Guild, with relationships such as SENT_MESSAGE, IN_CHANNEL, MENTIONS, HAS_MEMBER, etc.
-
-Translate the following question into a Cypher query. Only provide the Cypher query and nothing else.
-
-Question: "${question}"
-
-Cypher Query:
-`;
-
-  const response = await openai.completions.create({
-    model: "text-davinci-003",
-    prompt,
-    max_tokens: 100,
-  });
-
-  const cypherQuery = response.choices[0].text?.trim();
-  if (!cypherQuery) {
-    throw new Error("Failed to generate Cypher query.");
-  }
-
-  return cypherQuery;
+export async function callModel(
+    prompt: string,
+): Promise<string> {
+    try {
+        // Use OpenAI's chat completions endpoint for conversation
+        const response = await openai.chat.completions.create({
+            model: "gpt-3.5-turbo", // Replace with your preferred model
+            messages: [{ role: "user", content: prompt }],
+        });
+        // Return the content of the first choice
+        const content = response.choices[0].message.content;
+        if (content === null) {
+            throw new Error("Model response content is null");
+        }
+        return content;
+    } catch (error) {
+        if (error instanceof Error) {
+            throw new Error(`Failed to call model: ${error.message}`);
+        } else {
+            throw new Error("Failed to call model: Unknown error");
+        }
+    }
 }

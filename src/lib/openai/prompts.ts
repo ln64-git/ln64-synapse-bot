@@ -1,4 +1,4 @@
-import { callModel } from "./model.ts";
+import { callModel } from "./openai.ts";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 
 export async function generateSentimentAnalysis(
