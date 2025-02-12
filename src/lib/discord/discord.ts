@@ -9,17 +9,18 @@ import {
 import { saveLog } from "../../utils/logger";
 import { convertToTrimmedMessage } from "../../utils/utils";
 
-export async function getArcadosMessages(
+export async function getMessages(
   guild: Guild,
+  channelId: string,
+  count: number = 8,
 ): Promise<Message<true>[]> {
-  const channelId = process.env.CHAT_CHANNEL_ID;
-  if (!channelId) throw new Error("CHAT_CHANNEL_ID missing");
+  if (!channelId || channelId == "") throw new Error("CHANNEL_ID missing");
   const channel = await guild.channels.fetch(channelId);
   if (!channel || !(channel instanceof TextChannel)) {
     throw new Error("Channel not found or not a text channel.");
   }
 
-  const fetchedMessages = await channel.messages.fetch({ limit: 30 });
+  const fetchedMessages = await channel.messages.fetch({ limit: count });
   const convertedMessages = [...fetchedMessages.values()]
     .sort((a, b) => b.createdTimestamp - a.createdTimestamp)
     .map(convertToTrimmedMessage);

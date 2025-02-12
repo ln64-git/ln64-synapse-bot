@@ -1,7 +1,7 @@
 import logger, { saveLog } from "./utils/logger";
 import { Client, Collection, GatewayIntentBits } from "discord.js";
 import { Db, MongoClient } from "mongodb";
-import { getArcadosMessages } from "./lib/discord/discord";
+import { getMessages } from "./lib/discord/discord";
 import { RelationshipNetwork } from "./feature/relationships/RelationshipNetwork";
 import { speakVoiceCall } from "./function/speakVoiceCall";
 import { setupHandlers } from "./utils/setupHandlers";
@@ -38,9 +38,17 @@ export class Bot {
         console.log("Bot is running!");
 
         const arcados = await this.client.guilds.fetch("1254694808228986912");
-        const arcadosMessages = await getArcadosMessages(arcados);
+        const channelId = process.env.CHANNEL_ID || "";
 
-        await this.conversationManager.processMessages(arcadosMessages);
+        const arcadosMessages = await getMessages(arcados, channelId);
+        const sortedMessages = arcadosMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+        const messagesJson = sortedMessages.map((message) => ({
+            content: message.cleanContent,
+            username: message.author.username,
+        }));
+        console.log(messagesJson);
+
+        // await this.conversationManager.processMessages(arcadosMessages);
 
         const threads = this.conversationManager.getSortedThreads();
 

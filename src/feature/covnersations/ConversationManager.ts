@@ -2,12 +2,14 @@ import type { Message } from "discord.js";
 import dotenv from "dotenv";
 import { convertToTrimmedMessage } from "../../utils/utils";
 import type { DiscordMessageWithEmbedding, Thread } from "./types";
+import { getEmbeddingBatch } from "./utils";
+import { extractKeywordsWithAI } from "./extractKeywords";
 
 dotenv.config();
 
 export class ConversationManager {
     private threadIdCounter = 0;
-    private threads: Thread[] = []; // ✅ Store threads in memory instead of Redis
+    private threads: Thread[] = [];
 
     public async processMessages(messages: Message<true>[]): Promise<void> {
         for (const message of messages) {
@@ -49,13 +51,13 @@ export class ConversationManager {
     private async getMessageKeywordsAndEmbedding(
         message: Message,
     ): Promise<{ keywords: string[]; embedding: number[] | null }> {
-        // const keywords = await extractKeywordsWithAI(message.content);
-        // const embedding = message.content.length >= 10
-        //     ? await getEmbeddingBatch([message.content])
-        //     : null;
+        const keywords = await extractKeywordsWithAI(message.content);
+        const embedding = message.content.length >= 10
+            ? await getEmbeddingBatch([message.content])
+            : null;
 
-        const keywords = [""];
-        const embedding: (number[] | null)[] = [];
+        // const keywords = [""];
+        // const embedding: (number[] | null)[] = [];
 
         return { keywords, embedding: embedding ? embedding[0] : null };
     }
