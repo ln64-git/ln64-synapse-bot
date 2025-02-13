@@ -44,24 +44,46 @@ export class Bot {
         const sortedMessages = arcadosMessages.sort((a, b) =>
             a.createdTimestamp - b.createdTimestamp
         );
-        const message = sortedMessages[1];
-        // await this.conversationManager.processMessages(arcadosMessages);
 
-        // const threads = this.conversationManager.getSortedThreads();
-        const { keywords } = await this.conversationManager
-            .getMessageKeywordsAndEmbedding(
-                message,
-            );
+        // const message = sortedMessages[1];
+        // const { keywords } = await this.conversationManager
+        //     .getMessageKeywordsAndEmbedding(
+        //         message,
+        //     );
+        // const messageJson = {
+        //     content: message.cleanContent,
+        //     username: message.author.username,
+        //     keywords: keywords,
+        // };
 
-        const messagesJson = {
-            content: message.cleanContent,
-            username: message.author.username,
-            keywords: keywords,
-        };
+        const messagesJson = await Promise.all(
+            sortedMessages.map(async (msg) => {
+                let replyUsername = null;
+                if (msg.reference?.messageId) {
+                    const replyMessage = await msg.channel.messages.fetch(
+                        msg.reference.messageId,
+                    );
+                    replyUsername = replyMessage.author.username;
+                }
+                return {
+                    content: msg.cleanContent,
+                    username: msg.author.username,
+                    timestamp: msg.createdTimestamp,
+                    isReply: !!msg.reference?.messageId,
+                    replyUsername: replyUsername,
+                };
+            }),
+        );
 
-        console.log(messagesJson);
+        // console.log(messagesJson);
 
-        // await saveLog(threads, "arcadosThreads");
+        console.log("Starting to process messages...");
+        await this.conversationManager.processMessages(arcadosMessages);
+        console.log("Finished processing messages.");
+        const threads = this.conversationManager.getSortedThreads();
+        console.log("Finished processing messages into threads...");
+
+        await saveLog(threads, "arcadosThreads");
         console.log("Finished processing messages into threads.");
     }
 

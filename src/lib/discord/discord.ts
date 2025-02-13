@@ -12,7 +12,7 @@ import { convertToTrimmedMessage } from "../../utils/utils";
 export async function getMessages(
   guild: Guild,
   channelId: string,
-  count: number = 8,
+  count: number = 30,
 ): Promise<Message<true>[]> {
   if (!channelId || channelId == "") throw new Error("CHANNEL_ID missing");
   const channel = await guild.channels.fetch(channelId);
