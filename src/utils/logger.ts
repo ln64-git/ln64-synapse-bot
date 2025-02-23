@@ -42,9 +42,7 @@ export async function saveLog(data: any[], baseFileName: string) {
         await fs.mkdir(logsDir, { recursive: true });
 
         let existingData: any[] = [];
-        const logExists = await fs
-            .access(currentLogFile)
-            .then(() => true)
+        const logExists = await fs.access(currentLogFile).then(() => true)
             .catch(() => false);
 
         if (logExists) {
@@ -53,25 +51,58 @@ export async function saveLog(data: any[], baseFileName: string) {
             existingData = JSON.parse(fileContent.trim() || "[]");
         }
 
-        // Append new data to existing logs
-        existingData.push(...data);
+        // ✅ **Remove Duplicates Before Appending**
+        const uniqueEntries = new Map<string, any>();
 
-        // **Fix: Ensure safe sorting by checking for 'activity' field**
+        // Store existing logs in a Set for faster lookup
+        existingData.forEach((entry) => {
+            const key = JSON.stringify(entry); // Convert log to string for comparison
+            uniqueEntries.set(key, entry);
+        });
+
+        // Add new entries only if they are unique
+        data.forEach((newEntry) => {
+            const key = JSON.stringify(newEntry);
+            if (!uniqueEntries.has(key)) {
+                uniqueEntries.set(key, newEntry);
+            }
+        });
+
+        // Convert back to an array
+        existingData = Array.from(uniqueEntries.values());
+
+        // ✅ **Ensure Safe Sorting (Timestamps First)**
         existingData.sort((a: any, b: any) => {
             const timeA = a.activity?.startTime
                 ? new Date(a.activity.startTime).getTime()
-                : a.activity?.timestamp
-                ? new Date(a.activity.timestamp).getTime()
+                : a.timestamp
+                ? new Date(a.timestamp).getTime()
                 : 0; // Default to 0 if no valid timestamp
 
             const timeB = b.activity?.startTime
                 ? new Date(b.activity.startTime).getTime()
-                : b.activity?.timestamp
-                ? new Date(b.activity.timestamp).getTime()
+                : b.timestamp
+                ? new Date(b.timestamp).getTime()
                 : 0; // Default to 0 if no valid timestamp
 
-            return timeB - timeA; // Sort in descending order (latest first)
+            return timeB - timeA; // Sort latest logs first
         });
+
+        // ✅ **Prevent Writing If No Changes Occurred**
+        if (logExists) {
+            const previousFileContent = await fs.readFile(
+                currentLogFile,
+                "utf8",
+            );
+            const previousData = JSON.parse(previousFileContent.trim() || "[]");
+
+            if (JSON.stringify(previousData) === JSON.stringify(existingData)) {
+                console.log(
+                    `No new changes detected. Skipping log update for ${baseFileName}`,
+                );
+                return;
+            }
+        }
 
         // Save the updated log file
         await fs.writeFile(
@@ -79,8 +110,8 @@ export async function saveLog(data: any[], baseFileName: string) {
             JSON.stringify(existingData, null, 2),
             "utf8",
         );
-        console.log(`Saved updated log file: ${currentLogFile}`);
+        console.log(`✅ Saved updated log file: ${currentLogFile}`);
     } catch (err) {
-        console.error("Failed to save log:", err);
+        console.error("❌ Failed to save log:", err);
     }
 }

@@ -1,7 +1,8 @@
 import type { Client, Presence, User } from "discord.js";
 import { saveLog } from "./logger";
 
-const lastStatusMap = new Map<string, string>(); // Track last known status
+const lastStatusMap = new Map<string, { status: string; timestamp: number }>();
+const debounceTime = 3000; // 3 seconds debounce
 
 export function trackOnline(userIds: string[], client: Client) {
     if (!userIds || userIds.length === 0) {
@@ -11,9 +12,8 @@ export function trackOnline(userIds: string[], client: Client) {
     console.log(`Tracking online status for: ${userIds.join(", ")}`);
 
     const trackedUsers = new Set(userIds);
-    const logFileName = userIds.length > 1
-        ? "userStatusLogsCombined"
-        : "userStatusLogs";
+    const individualLogFile = "userStatusLogs"; // ✅ Only for user2
+    const combinedLogFile = "userStatusLogsCombined"; // ✅ Contains both
 
     client.on(
         "presenceUpdate",
@@ -24,33 +24,39 @@ export function trackOnline(userIds: string[], client: Client) {
                 newPresence.userId,
             );
             if (!user) {
-                console.warn(
-                    `User ${newPresence.userId} not found in cache, presence update may be limited.`,
-                );
+                console.warn(`User ${newPresence.userId} not found in cache.`);
                 return;
             }
 
-            const newStatus = newPresence.status; // "online", "offline", "idle", "dnd", "invisible"
-            const lastStatus = lastStatusMap.get(user.id);
+            const newStatus = newPresence.status;
+            const now = Date.now();
+            const lastEntry = lastStatusMap.get(user.id);
 
-            if (lastStatus === newStatus) {
-                return; // No status change, skip logging
+            // ✅ Skip duplicate logs
+            if (lastEntry && lastEntry.status === newStatus) {
+                return;
             }
 
-            lastStatusMap.set(user.id, newStatus); // Update last known status
+            // ✅ Prevent instant duplicate logs with debounce
+            if (lastEntry && now - lastEntry.timestamp < debounceTime) {
+                return;
+            }
 
-            // Prepare log entry
+            lastStatusMap.set(user.id, { status: newStatus, timestamp: now });
+
             const logEntry = {
                 username: user.username,
                 status: newStatus,
                 timestamp: new Date().toISOString(),
             };
 
-            // Save log for individual users
-            saveLog([logEntry], "userStatusLogs");
+            // ✅ Only log user2 in `userStatusLogs`
+            if (user.id === process.env.USER_2) {
+                saveLog([logEntry], individualLogFile);
+            }
 
-            // Save log for combined users
-            saveLog([logEntry], "userStatusLogsCombined");
+            // ✅ Always log both users in `userStatusLogsCombined`
+            saveLog([logEntry], combinedLogFile);
 
             console.log(
                 `[${logEntry.timestamp}] ${user.username} is now ${newStatus.toUpperCase()}`,
