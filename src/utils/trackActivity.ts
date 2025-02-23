@@ -30,8 +30,8 @@ export function trackActivity(userIds: string[], client: Client) {
 
         const trackedUsers = new Set(userIds);
         const logFileName = userIds.length > 1
-            ? "activityLogCombined"
-            : "activityLog";
+            ? "userActivityLogCombined"
+            : "userActivityLog";
 
         // Listen for presence updates
         client.on("presenceUpdate", (oldPresence, newPresence) => {

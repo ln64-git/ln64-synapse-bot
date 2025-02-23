@@ -8,6 +8,7 @@ import { setupHandlers } from "./utils/setupHandlers";
 import { loadCommands } from "./utils/loadCommands";
 import { ConversationManager } from "./feature/covnersations/ConversationManager";
 import { trackActivity } from "./utils/trackActivity";
+import { trackOnline } from "./utils/trackOnline";
 
 export class Bot {
     public client: Client;
@@ -104,6 +105,9 @@ export class Bot {
 
         trackActivity([user1Id, user2Id], this.client);
         trackActivity([user2Id], this.client);
+
+        trackOnline([user1Id, user2Id], this.client);
+        trackOnline([user2Id], this.client);
     }
 
     private async connectToDatabase() {
