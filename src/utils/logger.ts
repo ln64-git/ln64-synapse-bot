@@ -53,21 +53,30 @@ export async function saveLog(data: any[], baseFileName: string) {
             existingData = JSON.parse(fileContent.trim() || "[]");
         }
 
-        // Merge new data with existing data and deduplicate by `id`
-        const mergedData = [
-            ...data,
-            ...existingData.filter(
-                (msg: any) => !data.some((newMsg) => newMsg.id === msg.id),
-            ),
-        ];
+        // Append new data to existing logs
+        existingData.push(...data);
 
-        // Sort messages by timestamp in descending order
-        mergedData.sort((a: any, b: any) => b.timestamp - a.timestamp);
+        // **Fix: Ensure safe sorting by checking for 'activity' field**
+        existingData.sort((a: any, b: any) => {
+            const timeA = a.activity?.startTime
+                ? new Date(a.activity.startTime).getTime()
+                : a.activity?.timestamp
+                ? new Date(a.activity.timestamp).getTime()
+                : 0; // Default to 0 if no valid timestamp
 
-        // Save the updated log file (no backups for `deletedMessages`)
+            const timeB = b.activity?.startTime
+                ? new Date(b.activity.startTime).getTime()
+                : b.activity?.timestamp
+                ? new Date(b.activity.timestamp).getTime()
+                : 0; // Default to 0 if no valid timestamp
+
+            return timeB - timeA; // Sort in descending order (latest first)
+        });
+
+        // Save the updated log file
         await fs.writeFile(
             currentLogFile,
-            JSON.stringify(mergedData, null, 2),
+            JSON.stringify(existingData, null, 2),
             "utf8",
         );
         console.log(`Saved updated log file: ${currentLogFile}`);

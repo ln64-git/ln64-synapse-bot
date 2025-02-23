@@ -7,6 +7,7 @@ import { speakVoiceCall } from "./function/speakVoiceCall";
 import { setupHandlers } from "./utils/setupHandlers";
 import { loadCommands } from "./utils/loadCommands";
 import { ConversationManager } from "./feature/covnersations/ConversationManager";
+import { trackActivity } from "./utils/trackActivity";
 
 export class Bot {
     public client: Client;
@@ -23,6 +24,7 @@ export class Bot {
                 GatewayIntentBits.MessageContent,
                 GatewayIntentBits.GuildMembers,
                 GatewayIntentBits.GuildVoiceStates,
+                GatewayIntentBits.GuildPresences,
             ],
         });
     }
@@ -77,20 +79,30 @@ export class Bot {
 
         // console.log(messagesJson);
 
-        console.log("Starting to process messages...");
-        await this.conversationManager.processMessages(arcadosMessages);
-        console.log("Finished processing messages.");
-        const threads = this.conversationManager.getSortedThreads();
-        console.log("Finished processing messages into threads...");
+        // console.log("Starting to process messages...");
+        // await this.conversationManager.processMessages(arcadosMessages);
+        // console.log("Finished processing messages.");
+        // const threads = this.conversationManager.getSortedThreads();
+        // console.log("Finished processing messages into threads...");
 
-        await saveLog(threads, "arcadosThreads");
+        // await saveLog(threads, "arcadosThreads");
         console.log("Finished processing messages into threads.");
     }
 
     private setupEventHandlers() {
+        const user1Id = process.env.USER_1;
+        const user2Id = process.env.USER_2;
+
+        if (!user1Id || !user2Id) {
+            throw new Error(
+                "One or both USER_1 and USER_2 environment variables are missing.",
+            );
+        }
         setupHandlers(this.client, this.commands, this.db);
         speakVoiceCall(this.client);
         logger(this.client);
+        trackActivity([user1Id, user2Id], this.client);
+        trackActivity([user2Id], this.client);
     }
 
     private async connectToDatabase() {
