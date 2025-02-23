@@ -23,54 +23,66 @@ type UserActivity = SpotifyActivity | GeneralActivity;
 const lastLoggedActivities = new Map<string, string>();
 
 export function trackActivity(userIds: string[], client: Client) {
-    if (!userIds || userIds.length === 0) {
-        throw new Error("At least one user ID must be provided.");
-    }
-
-    const trackedUsers = new Set(userIds);
-    const logFileName = userIds.length > 1
-        ? "activityLogCombined"
-        : "activityLog";
-
-    // Listen for presence updates (Ensure only one listener is attached)
-    client.removeAllListeners("presenceUpdate");
-    client.on("presenceUpdate", (oldPresence, newPresence) => {
-        if (!newPresence || !trackedUsers.has(newPresence.userId)) return;
-
-        const activeUser = client.users.cache.get(newPresence.userId);
-        if (!activeUser) return;
-
-        const newActivity = newPresence.activities.find(
-            (a) => a.type === 2 || a.type === 4, // Prioritize Spotify
-        );
-
-        if (newActivity) {
-            const userActivity: UserActivity = newActivity.name === "Spotify"
-                ? extractSpotifyActivity(newActivity)
-                : extractGeneralActivity(newActivity);
-
-            const activityHash = JSON.stringify(userActivity);
-            if (lastLoggedActivities.get(activeUser.id) === activityHash) {
-                return; // Skip duplicate logs
-            }
-
-            lastLoggedActivities.set(activeUser.id, activityHash);
-            saveLog(
-                [{ username: activeUser.username, activity: userActivity }],
-                logFileName, // Use correct log file name based on number of users
-            );
-
-            console.log(
-                `Logged activity for ${activeUser.username} in ${logFileName}:`,
-                userActivity,
-            );
+    try {
+        if (!userIds || userIds.length === 0) {
+            throw new Error("At least one user ID must be provided.");
         }
-    });
 
-    console.log(`Tracking activity for: ${userIds.join(", ")}`);
+        const trackedUsers = new Set(userIds);
+        const logFileName = userIds.length > 1
+            ? "activityLogCombined"
+            : "activityLog";
+
+        // Listen for presence updates
+        client.on("presenceUpdate", (oldPresence, newPresence) => {
+            if (!newPresence || !trackedUsers.has(newPresence.userId)) return;
+
+            const user = client.users.cache.get(newPresence.userId);
+            if (!user) return;
+
+            const newActivity = newPresence.activities.find((a) =>
+                a.type === 2 || a.type === 4
+            ); // Prioritize Spotify
+
+            if (newActivity) {
+                const userActivity: UserActivity =
+                    newActivity.name === "Spotify"
+                        ? extractSpotifyActivity(newActivity)
+                        : extractGeneralActivity(newActivity);
+
+                const activityHash = JSON.stringify(userActivity); // Unique identifier
+
+                // Check if the same activity was already logged
+                if (lastLoggedActivities.get(user.id) === activityHash) return;
+
+                lastLoggedActivities.set(user.id, activityHash); // Update last logged activity
+
+                // Save for both user1 & user2 (combined log)
+                saveLog(
+                    [{ username: user.username, activity: userActivity }],
+                    logFileName,
+                );
+
+                console.log(
+                    `Logged activity for ${user.username}:`,
+                    userActivity,
+                );
+            }
+        });
+    } catch (error) {
+        console.error("Error setting up activity tracking:", error);
+    }
 }
 
 function extractSpotifyActivity(activity: Activity): SpotifyActivity {
+    const startTime = activity.timestamps?.start?.getTime();
+    const endTime = activity.timestamps?.end?.getTime();
+    const duration = startTime && endTime
+        ? `${Math.floor((endTime - startTime) / 60000)}m ${
+            Math.floor(((endTime - startTime) % 60000) / 1000)
+        }s`
+        : "Unknown Duration";
+
     return {
         type: "Spotify",
         trackName: activity.details || "Unknown Track",
@@ -80,10 +92,7 @@ function extractSpotifyActivity(activity: Activity): SpotifyActivity {
             "Unknown Start Time",
         endTime: activity.timestamps?.end?.toLocaleString() ||
             "Unknown End Time",
-        duration: activity.timestamps?.end && activity.timestamps?.start
-            ? `${((activity.timestamps.end.getTime() -
-                activity.timestamps.start.getTime()) / 1000)}s`
-            : "Unknown Duration",
+        duration,
     };
 }
 
@@ -91,6 +100,6 @@ function extractGeneralActivity(activity: Activity): GeneralActivity {
     return {
         type: "General",
         activityName: activity.name,
-        timestamp: new Date().toISOString(), // Log timestamp in ISO format
+        timestamp: new Date().toISOString(),
     };
 }

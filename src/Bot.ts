@@ -88,7 +88,6 @@ export class Bot {
         // await saveLog(threads, "arcadosThreads");
         console.log("Finished processing messages into threads.");
     }
-
     private setupEventHandlers() {
         const user1Id = process.env.USER_1;
         const user2Id = process.env.USER_2;
@@ -98,9 +97,11 @@ export class Bot {
                 "One or both USER_1 and USER_2 environment variables are missing.",
             );
         }
+
         setupHandlers(this.client, this.commands, this.db);
         speakVoiceCall(this.client);
         logger(this.client);
+
         trackActivity([user1Id, user2Id], this.client);
         trackActivity([user2Id], this.client);
     }
