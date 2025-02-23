@@ -57,11 +57,12 @@ export function trackActivity(userIds: string[], client: Client) {
                 } else {
                     return extractGeneralActivity(activity);
                 }
-            }
+            },
         );
 
         // ✅ **Ignore logs if only Custom Status is present**
-        const hasCustomStatusOnly = activities.length === 1 && activities[0].type === "CustomStatus";
+        const hasCustomStatusOnly = activities.length === 1 &&
+            activities[0].type === "CustomStatus";
         if (hasCustomStatusOnly) return;
 
         // ✅ **Prevent duplicate logs & debounce**
@@ -70,16 +71,23 @@ export function trackActivity(userIds: string[], client: Client) {
         const lastActivityHash = lastLoggedActivities.get(user.id);
         const lastTimestamp = lastLogTimestamps.get(user.id) || 0;
 
-        if (lastActivityHash === activityHash && now - lastTimestamp < debounceTime) {
+        if (
+            lastActivityHash === activityHash &&
+            now - lastTimestamp < debounceTime
+        ) {
             return; // Skip logging if no changes or within debounce time
         }
 
         lastLoggedActivities.set(user.id, activityHash);
         lastLogTimestamps.set(user.id, now);
 
-        console.log(`Logged updated activities for ${user.username}:`, activities);
+        console.log(
+            `Logged updated activities for ${user.username}:`,
+            activities,
+        );
 
         // ✅ **Save log properly**
+        console.log("Saving Log...");
         saveLog([{ username: user.username, activities }], logFileName);
     });
 }
@@ -88,7 +96,9 @@ function extractSpotifyActivity(activity: Activity): SpotifyActivity {
     const startTime = activity.timestamps?.start?.getTime();
     const endTime = activity.timestamps?.end?.getTime();
     const duration = startTime && endTime
-        ? `${Math.floor((endTime - startTime) / 60000)}m ${Math.floor(((endTime - startTime) % 60000) / 1000)}s`
+        ? `${Math.floor((endTime - startTime) / 60000)}m ${
+            Math.floor(((endTime - startTime) % 60000) / 1000)
+        }s`
         : "Unknown Duration";
 
     return {
@@ -96,8 +106,10 @@ function extractSpotifyActivity(activity: Activity): SpotifyActivity {
         trackName: activity.details || "Unknown Track",
         artistName: activity.state || "Unknown Artist",
         albumArt: activity.assets?.largeImageURL() || "No Album Art",
-        startTime: activity.timestamps?.start?.toLocaleString() || "Unknown Start Time",
-        endTime: activity.timestamps?.end?.toLocaleString() || "Unknown End Time",
+        startTime: activity.timestamps?.start?.toLocaleString() ||
+            "Unknown Start Time",
+        endTime: activity.timestamps?.end?.toLocaleString() ||
+            "Unknown End Time",
         duration,
     };
 }

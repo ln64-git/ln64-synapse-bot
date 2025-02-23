@@ -104,10 +104,10 @@ export class Bot {
         logger(this.client);
 
         trackActivity([user1Id, user2Id], this.client);
-        trackActivity([user2Id], this.client);
+        // trackActivity([user2Id], this.client);
 
-        trackOnline([user1Id, user2Id], this.client);
-        trackOnline([user2Id], this.client);
+        // trackOnline([user1Id, user2Id], this.client);
+        // trackOnline([user2Id], this.client);
     }
 
     private async connectToDatabase() {
