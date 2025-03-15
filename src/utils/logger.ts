@@ -1,4 +1,4 @@
-import { type Client, Message } from "discord.js";
+import { Activity, type Client, Message } from "discord.js";
 import { convertToTrimmedMessage } from "./utils";
 import path from "path";
 import { promises as fs } from "fs";
@@ -202,14 +202,14 @@ function mergeActivities(
                 // ✅ **Preserve earliest `startTime`**
                 existingActivity.startTime =
                     new Date(existingActivity.startTime).getTime() <
-                            new Date(activity.startTime).getTime()
+                        new Date(activity.startTime).getTime()
                         ? existingActivity.startTime
                         : activity.startTime;
 
                 // ✅ **Update `endTime` to latest**
                 existingActivity.endTime =
                     new Date(existingActivity.endTime).getTime() >
-                            new Date(activity.endTime).getTime()
+                        new Date(activity.endTime).getTime()
                         ? existingActivity.endTime
                         : activity.endTime;
 
@@ -258,4 +258,49 @@ function calculateDuration(startTime: string, endTime: string): string {
     const seconds = Math.floor((durationMs % 60000) / 1000);
 
     return `${minutes}m ${seconds}s`;
+}
+
+export async function syncLog(data: any[], baseFileName: string) {
+    const logsDir = path.join(process.cwd(), "logs");
+    const currentLogFile = path.join(logsDir, `${baseFileName}.json`);
+
+    try {
+        await fs.mkdir(logsDir, { recursive: true });
+
+        let existingData: any[] = [];
+        const logExists = await fs.access(currentLogFile).then(() => true).catch(() => false);
+
+        if (logExists) {
+            const fileContent = await fs.readFile(currentLogFile, "utf8");
+            existingData = JSON.parse(fileContent.trim() || "[]");
+        }
+
+        // Merge activities under the same username and remove duplicates
+        const userMap = new Map<string, any>();
+
+        [...data, ...existingData].forEach(entry => {
+            if (!userMap.has(entry.username)) {
+                userMap.set(entry.username, {
+                    username: entry.username,
+                    activities: [...entry.activities],
+                });
+            } else {
+                const existingActivities = userMap.get(entry.username).activities;
+                const newActivities = entry.activities.filter((newAct: any) =>
+                    !existingActivities.some((existingAct: any) =>
+                        existingAct.status === newAct.status &&
+                        existingAct.startTime === newAct.startTime
+                    )
+                );
+                userMap.get(entry.username).activities.push(...newActivities);
+            }
+        });
+
+        const mergedData = Array.from(userMap.values()).slice(0, 1000); // Keep log size manageable
+
+        await fs.writeFile(currentLogFile, JSON.stringify(mergedData, null, 2), "utf8");
+        console.log(`✅ Synced log file: ${currentLogFile}`);
+    } catch (err) {
+        console.error("❌ Failed to sync log:", err);
+    }
 }

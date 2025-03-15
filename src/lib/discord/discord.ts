@@ -20,14 +20,23 @@ export async function getMessages(
     throw new Error("Channel not found or not a text channel.");
   }
 
-  const fetchedMessages = await channel.messages.fetch({ limit: count });
-  const convertedMessages = [...fetchedMessages.values()]
-    .sort((a, b) => b.createdTimestamp - a.createdTimestamp)
-    .map(convertToTrimmedMessage);
+  try {
+    const fetchedMessages = await channel.messages.fetch({ limit: count });
+    const convertedMessages = [...fetchedMessages.values()]
+      .sort((a, b) => b.createdTimestamp - a.createdTimestamp)
+      .map(convertToTrimmedMessage);
 
-  await saveLog(convertedMessages, "firesideMessages");
+    await saveLog(convertedMessages, "firesideMessages");
 
-  return [...fetchedMessages.values()];
+    return [...fetchedMessages.values()];
+  } catch (error) {
+    if ((error as any).code === 10008) {
+      console.error("Unknown Message error: The message does not exist.");
+    } else {
+      console.error("Error fetching messages:", error);
+    }
+    return [];
+  }
 }
 
 export async function getFiresideMessages(

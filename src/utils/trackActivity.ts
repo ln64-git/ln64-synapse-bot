@@ -1,5 +1,5 @@
 import type { Activity, Client } from "discord.js";
-import { saveLog } from "./logger";
+import { syncLog } from "./logger";
 
 type SpotifyActivity = {
     type: "Spotify";
@@ -11,25 +11,7 @@ type SpotifyActivity = {
     duration: string;
 };
 
-type GeneralActivity = {
-    type: "General";
-    activityName: string;
-    timestamp: string;
-};
-
-type CustomStatusActivity = {
-    type: "CustomStatus";
-    statusText: string;
-    timestamp: string;
-};
-
-// ✅ **Union Type for Activities**
-type UserActivity = SpotifyActivity | GeneralActivity | CustomStatusActivity;
-
-// Track last logged activities per user
-const lastLoggedActivities = new Map<string, string>();
-const lastLogTimestamps = new Map<string, number>(); // Debounce mechanism
-const debounceTime = 3000; // 3 seconds
+type UserActivity = SpotifyActivity;
 
 export function trackActivity(userIds: string[], client: Client) {
     if (!userIds || userIds.length === 0) {
@@ -37,9 +19,7 @@ export function trackActivity(userIds: string[], client: Client) {
     }
 
     const trackedUsers = new Set(userIds);
-    const logFileName = userIds.length > 1
-        ? "userActivityLogCombined"
-        : "userActivityLog";
+    const logFileName = "spotifyActivityLog";
 
     client.on("presenceUpdate", (oldPresence, newPresence) => {
         if (!newPresence || !trackedUsers.has(newPresence.userId)) return;
@@ -47,57 +27,27 @@ export function trackActivity(userIds: string[], client: Client) {
         const user = client.users.cache.get(newPresence.userId);
         if (!user) return;
 
-        // ✅ **Extract all activities, including Custom Status**
-        const activities: UserActivity[] = newPresence.activities.map(
-            (activity) => {
-                if (activity.name === "Spotify") {
-                    return extractSpotifyActivity(activity);
-                } else if (activity.type === 4 && activity.state) {
-                    return extractCustomStatus(activity);
-                } else {
-                    return extractGeneralActivity(activity);
-                }
-            },
-        );
+        // ✅ **Extract only Spotify activity**
+        const activities: UserActivity[] = newPresence.activities
+            .filter((activity) => activity.name === "Spotify")
+            .map(extractSpotifyActivity);
 
-        // ✅ **Ignore logs if only Custom Status is present**
-        const hasCustomStatusOnly = activities.length === 1 &&
-            activities[0].type === "CustomStatus";
-        if (hasCustomStatusOnly) return;
+        // ✅ **Ignore logs if there is no Spotify activity**
+        if (activities.length === 0) return;
 
-        // ✅ **Prevent duplicate logs & debounce**
-        const now = Date.now();
-        const activityHash = JSON.stringify(activities);
-        const lastActivityHash = lastLoggedActivities.get(user.id);
-        const lastTimestamp = lastLogTimestamps.get(user.id) || 0;
-
-        if (
-            lastActivityHash === activityHash &&
-            now - lastTimestamp < debounceTime
-        ) {
-            return; // Skip logging if no changes or within debounce time
-        }
-
-        lastLoggedActivities.set(user.id, activityHash);
-        lastLogTimestamps.set(user.id, now);
-
-        console.log(
-            `Logged updated activities for ${user.username}:`,
-            activities,
-        );
-
-        // ✅ **Save log properly**
-        console.log("Saving Log...");
-        saveLog([{ username: user.username, activities }], logFileName);
+        // ✅ **Sync log properly**
+        console.log("Syncing Log...");
+        syncLog([{ username: user.username, activities }], logFileName);
     });
 }
+
+
 
 function extractSpotifyActivity(activity: Activity): SpotifyActivity {
     const startTime = activity.timestamps?.start?.getTime();
     const endTime = activity.timestamps?.end?.getTime();
     const duration = startTime && endTime
-        ? `${Math.floor((endTime - startTime) / 60000)}m ${
-            Math.floor(((endTime - startTime) % 60000) / 1000)
+        ? `${Math.floor((endTime - startTime) / 60000)}m ${Math.floor(((endTime - startTime) % 60000) / 1000)
         }s`
         : "Unknown Duration";
 
@@ -111,21 +61,5 @@ function extractSpotifyActivity(activity: Activity): SpotifyActivity {
         endTime: activity.timestamps?.end?.toLocaleString() ||
             "Unknown End Time",
         duration,
-    };
-}
-
-function extractGeneralActivity(activity: Activity): GeneralActivity {
-    return {
-        type: "General",
-        activityName: activity.name || "Unknown Activity",
-        timestamp: new Date().toISOString(),
-    };
-}
-
-function extractCustomStatus(activity: Activity): CustomStatusActivity {
-    return {
-        type: "CustomStatus",
-        statusText: activity.state || "No Status",
-        timestamp: new Date().toISOString(),
     };
 }
