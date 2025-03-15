@@ -22,8 +22,7 @@ export function trackOnline(userIds: string[], client: Client) {
 
     const logEntry = {
       username,
-      userId,
-      activities: [{ status, startTime: now.toISOString() }],
+      activities: [{ status, timestamp: now.toISOString(), humanTime: now.toLocaleString() }],
     };
 
     await syncLog([logEntry], "userStatusLog");
