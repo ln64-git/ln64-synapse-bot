@@ -12,6 +12,7 @@ type SpotifyActivity = {
 };
 
 type UserActivity = SpotifyActivity;
+const lastLoggedActivityMap = new Map<string, string>(); // userId -> trackName-startTime
 
 export function trackActivity(userIds: string[], client: Client) {
     if (!userIds || userIds.length === 0) {
@@ -21,38 +22,54 @@ export function trackActivity(userIds: string[], client: Client) {
     const trackedUsers = new Set(userIds);
     const logFileName = "spotifyActivityLog";
 
-    client.on("presenceUpdate", (oldPresence, newPresence) => {
+    client.on("presenceUpdate", async (oldPresence, newPresence) => {
         if (!newPresence || !trackedUsers.has(newPresence.userId)) return;
 
-        const user = client.users.cache.get(newPresence.userId);
-        if (!user) return;
+        let user = client.users.cache.get(newPresence.userId);
+        if (!user) {
+            try {
+                user = await client.users.fetch(newPresence.userId);
+            } catch (err) {
+                console.error(`Failed to fetch user ${newPresence.userId}`, err);
+                return;
+            }
+        }
+        const activities: UserActivity[] = Array.from(
+            new Map(
+                newPresence.activities
+                    .filter(
+                        (activity) =>
+                            activity.name === "Spotify" &&
+                            activity.type === ActivityType.Listening
+                    )
+                    .map(extractSpotifyActivity)
+                    .map((a) => [`${a.trackName}-${a.startTime}`, a])
+            ).values()
+        );
 
-        // ✅ **Extract only Spotify activity**
-        const activities: UserActivity[] = newPresence.activities
-            .filter(
-                (activity) =>
-                    activity.name === "Spotify" &&
-                    activity.type === ActivityType.Listening
-            )
-            .map(extractSpotifyActivity);
-
-        // ✅ **Ignore logs if there is no Spotify activity**
         if (activities.length === 0) return;
 
-        // ✅ **Sync log properly**
-        console.log("Syncing Log...");
+        const latest = activities[0]; // assume deduped + sorted latest
+        const cacheKey = `${latest.trackName}-${latest.startTime}`;
+        const lastKey = lastLoggedActivityMap.get(newPresence.userId);
+
+        if (lastKey === cacheKey) {
+            console.log("⏩ Duplicate Spotify activity, skipping");
+            return;
+        }
+
+        lastLoggedActivityMap.set(newPresence.userId, cacheKey);
+
+        console.log("✅ New Spotify track detected. Logging...");
         syncLog([{ username: user.username, activities }], logFileName);
     });
 }
-
-
 
 function extractSpotifyActivity(activity: Activity): SpotifyActivity {
     const startTime = activity.timestamps?.start?.getTime();
     const endTime = activity.timestamps?.end?.getTime();
     const duration = startTime && endTime
-        ? `${Math.floor((endTime - startTime) / 60000)}m ${Math.floor(((endTime - startTime) % 60000) / 1000)
-        }s`
+        ? `${Math.floor((endTime - startTime) / 60000)}m ${Math.floor(((endTime - startTime) % 60000) / 1000)}s`
         : "Unknown Duration";
 
     return {
@@ -60,10 +77,8 @@ function extractSpotifyActivity(activity: Activity): SpotifyActivity {
         trackName: activity.details || "Unknown Track",
         artistName: activity.state || "Unknown Artist",
         albumArt: activity.assets?.largeImageURL() || "No Album Art",
-        startTime: activity.timestamps?.start?.toLocaleString() ||
-            "Unknown Start Time",
-        endTime: activity.timestamps?.end?.toLocaleString() ||
-            "Unknown End Time",
+        startTime: activity.timestamps?.start?.toLocaleString() || "Unknown Start Time",
+        endTime: activity.timestamps?.end?.toLocaleString() || "Unknown End Time",
         duration,
     };
 }
