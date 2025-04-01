@@ -54,13 +54,11 @@ export function trackActivity(userIds: string[], client: Client) {
         const lastKey = lastLoggedActivityMap.get(newPresence.userId);
 
         if (lastKey === cacheKey) {
-            console.log("⏩ Duplicate Spotify activity, skipping");
             return;
         }
 
         lastLoggedActivityMap.set(newPresence.userId, cacheKey);
 
-        console.log("✅ New Spotify track detected. Logging...");
         syncLog([{ username: user.username, activities }], logFileName);
     });
 }
