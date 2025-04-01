@@ -40,13 +40,13 @@ export class Bot {
 
         console.log("Bot is running!");
 
-        // const arcados = await this.client.guilds.fetch("1254694808228986912");
-        // const channelId = process.env.CHANNEL_ID || "";
+        const arcados = await this.client.guilds.fetch("1254694808228986912");
+        const channelId = process.env.CHANNEL_ID || "";
 
-        // const arcadosMessages = await getMessages(arcados, channelId);
-        // const sortedMessages = arcadosMessages.sort((a, b) =>
-        //     a.createdTimestamp - b.createdTimestamp
-        // );
+        const arcadosMessages = await getMessages(arcados, channelId);
+        const sortedMessages = arcadosMessages.sort((a, b) =>
+            b.createdTimestamp - a.createdTimestamp
+        );
 
         // const message = sortedMessages[1];
         // const { keywords } = await this.conversationManager
@@ -58,40 +58,16 @@ export class Bot {
         //     username: message.author.username,
         //     keywords: keywords,
         // };
-        const arcados = await this.client.guilds.fetch("1254694808228986912");
-        const channelId = process.env.CHANNEL_ID || "";
 
-        const arcadosMessages = await getMessages(arcados, channelId);
+        // console.log(messageJson);
+        // const arcados = await this.client.guilds.fetch("1254694808228986912");
+        // const channelId = process.env.CHANNEL_ID || "";
+
+        // const arcadosMessages = await getMessages(arcados, channelId);
         if (arcadosMessages.length === 0) {
             console.warn("No messages fetched from the channel.");
             return;
         }
-
-        // const sortedMessages = arcadosMessages.sort((a, b) =>
-        //     a.createdTimestamp - b.createdTimestamp
-        // );
-
-        // const messagesJson = await Promise.all(
-        //     sortedMessages.map(async (msg) => {
-        //         let replyUsername = null;
-        //         if (msg.reference?.messageId) {
-        //             const replyMessage = await msg.channel.messages.fetch(
-        //                 msg.reference.messageId,
-        //             ).catch(() => null);
-        //             replyUsername = replyMessage?.author.username || null;
-        //         }
-        //         return {
-        //             content: msg.cleanContent,
-        //             username: msg.author.username,
-        //             timestamp: msg.createdTimestamp,
-        //             isReply: !!msg.reference?.messageId,
-        //             replyUsername: replyUsername,
-        //         };
-        //     }),
-        // );
-
-
-        // console.log(messagesJson);
 
         // console.log("Starting to process messages...");
         // await this.conversationManager.processMessages(arcadosMessages);
@@ -105,8 +81,9 @@ export class Bot {
     private setupEventHandlers() {
         const user1Id = process.env.USER_1;
         const user2Id = process.env.USER_2;
+        const user3Id = process.env.USER_3;
 
-        if (!user1Id || !user2Id) {
+        if (!user1Id || !user2Id || !user3Id) {
             throw new Error(
                 "One or both USER_1 and USER_2 environment variables are missing.",
             );

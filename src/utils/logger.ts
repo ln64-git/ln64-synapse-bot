@@ -275,24 +275,23 @@ export async function syncLog(data: any[], baseFileName: string) {
             existingData = JSON.parse(fileContent.trim() || "[]");
         }
 
-        // Merge activities under the same username and remove duplicates
+        // Merge user data without overwriting previous statuses
         const userMap = new Map<string, any>();
 
-        [...data, ...existingData].forEach(entry => {
+        [...existingData, ...data].forEach(entry => {
             if (!userMap.has(entry.username)) {
                 userMap.set(entry.username, {
                     username: entry.username,
-                    activities: [...entry.activities],
+                    activities: Array.isArray(entry.activities) ? [...entry.activities] : [],
                 });
             } else {
-                const existingActivities = userMap.get(entry.username).activities;
-                const newActivities = entry.activities.filter((newAct: any) =>
-                    !existingActivities.some((existingAct: any) =>
-                        existingAct.status === newAct.status &&
-                        existingAct.startTime === newAct.startTime
-                    )
-                );
-                userMap.get(entry.username).activities.push(...newActivities);
+                const existingEntry = userMap.get(entry.username);
+
+                // Append new activities instead of replacing them
+                const newActivities = Array.isArray(entry.activities) ? entry.activities : [];
+                existingEntry.activities.push(...newActivities);
+
+                userMap.set(entry.username, existingEntry);
             }
         });
 

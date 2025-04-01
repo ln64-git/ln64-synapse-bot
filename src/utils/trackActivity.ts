@@ -1,4 +1,4 @@
-import type { Activity, Client } from "discord.js";
+import { ActivityType, type Activity, type Client } from "discord.js";
 import { syncLog } from "./logger";
 
 type SpotifyActivity = {
@@ -29,7 +29,11 @@ export function trackActivity(userIds: string[], client: Client) {
 
         // ✅ **Extract only Spotify activity**
         const activities: UserActivity[] = newPresence.activities
-            .filter((activity) => activity.name === "Spotify")
+            .filter(
+                (activity) =>
+                    activity.name === "Spotify" &&
+                    activity.type === ActivityType.Listening
+            )
             .map(extractSpotifyActivity);
 
         // ✅ **Ignore logs if there is no Spotify activity**
