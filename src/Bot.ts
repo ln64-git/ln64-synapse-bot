@@ -40,13 +40,13 @@ export class Bot {
 
         console.log("Bot is running!");
 
-        const arcados = await this.client.guilds.fetch("1254694808228986912");
-        const channelId = process.env.CHANNEL_ID || "";
+        // const arcados = await this.client.guilds.fetch("1254694808228986912");
+        // const channelId = process.env.CHANNEL_ID || "";
 
-        const arcadosMessages = await getMessages(arcados, channelId);
-        const sortedMessages = arcadosMessages.sort((a, b) =>
-            b.createdTimestamp - a.createdTimestamp
-        );
+        // const arcadosMessages = await getMessages(arcados, channelId);
+        // const sortedMessages = arcadosMessages.sort((a, b) =>
+        //     b.createdTimestamp - a.createdTimestamp
+        // );
 
         // const message = sortedMessages[1];
         // const { keywords } = await this.conversationManager
@@ -64,10 +64,10 @@ export class Bot {
         // const channelId = process.env.CHANNEL_ID || "";
 
         // const arcadosMessages = await getMessages(arcados, channelId);
-        if (arcadosMessages.length === 0) {
-            console.warn("No messages fetched from the channel.");
-            return;
-        }
+        // if (arcadosMessages.length === 0) {
+        //     console.warn("No messages fetched from the channel.");
+        //     return;
+        // }
 
         // console.log("Starting to process messages...");
         // await this.conversationManager.processMessages(arcadosMessages);
@@ -93,7 +93,7 @@ export class Bot {
         speakVoiceCall(this.client);
         logger(this.client);
 
-        trackActivity([user1Id, user2Id], this.client);
+        // trackActivity([user1Id, user2Id], this.client);
         // trackActivity([user2Id], this.client);
         trackOnline([user1Id, user2Id], this.client);
         // trackOnline([user2Id], this.client);

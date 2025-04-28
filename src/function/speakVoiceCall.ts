@@ -13,7 +13,7 @@ export async function speakVoiceCall(client: Client) {
                 // Function to execute the command
                 const executeCommand = (input: string) => {
                     exec(
-                        `/home/ln64/Documents/Scripts/voxctl -input "${input}"`,
+                        `/home/ln64/Documents/Scripts/voxctl -port 8081 -input "${input}"`,
                         (error, stdout, stderr) => {
                             if (error) {
                                 console.error(

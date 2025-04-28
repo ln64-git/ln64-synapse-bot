@@ -4,8 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "bun src/main.ts",
-    "watch": "bun src/main.ts --watch",
-    "dev": "nodemon --loader ts-node/esm src/main.ts"
+    "watch": "bun src/main.ts --watch"
   },
   "devDependencies": {
     "@types/bun": "latest",
