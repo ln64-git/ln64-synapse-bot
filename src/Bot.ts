@@ -1,5 +1,5 @@
 import logger, { saveLog } from "./utils/logger";
-import { Client, Collection, GatewayIntentBits } from "discord.js";
+import { Client, Collection, GatewayIntentBits, REST, Routes } from "discord.js";
 import { Db, MongoClient } from "mongodb";
 import { getMessages } from "./lib/discord/discord";
 import { RelationshipNetwork } from "./feature/relationships/RelationshipNetwork";
@@ -36,7 +36,7 @@ export class Bot {
 
         this.setupEventHandlers();
         await this.connectToDatabase();
-        // await this.loadCommands();
+        await this.registerCommands();
 
         console.log("Bot is running!");
 
@@ -80,10 +80,8 @@ export class Bot {
     }
     private setupEventHandlers() {
         const user1Id = process.env.USER_1;
-        const user2Id = process.env.USER_2;
-        const user3Id = process.env.USER_3;
 
-        if (!user1Id || !user2Id || !user3Id) {
+        if (!user1Id) {
             throw new Error(
                 "One or both USER_1 and USER_2 environment variables are missing.",
             );
@@ -95,7 +93,7 @@ export class Bot {
 
         // trackActivity([user1Id, user2Id], this.client);
         // trackActivity([user2Id], this.client);
-        trackOnline([user1Id, user2Id], this.client);
+        trackOnline([user1Id], this.client);
         // trackOnline([user2Id], this.client);
     }
 
@@ -113,7 +111,36 @@ export class Bot {
         }
     }
 
-    private async loadCommands() {
-        await loadCommands(this.client, this.commands);
+    private async registerCommands() {
+        const rest = new REST({ version: "10" }).setToken(this.token);
+        const commands = await loadCommands(this.client, this.commands);
+
+        const appId = this.client.application?.id;
+        if (!appId) {
+            throw new Error("Application ID is missing. Make sure the client is fully logged in.");
+        }
+
+        try {
+            if (process.env.GUILD_ID) {
+                // Fast guild-specific deployment for testing
+                await rest.put(
+                    Routes.applicationGuildCommands(appId, process.env.GUILD_ID),
+                    { body: commands },
+                );
+                console.log(`✅ Slash commands registered to guild ${process.env.GUILD_ID}.`);
+            } else {
+                // Global deployment (takes up to an hour)
+                await rest.put(
+                    Routes.applicationCommands(appId),
+                    { body: commands },
+                );
+                console.log("✅ Global slash commands registered.");
+            }
+        } catch (error) {
+            console.error("❌ Error registering slash commands:", error);
+        }
     }
+
+
+
 }
