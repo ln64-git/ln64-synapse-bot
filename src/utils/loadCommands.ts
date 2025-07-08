@@ -1,11 +1,15 @@
 // src/utils/loadCommands.ts
-import { Client, REST, Routes, Collection } from "discord.js";
+import { Client, Collection } from "discord.js";
 import fs from "fs";
-import path from "path";
-import { pathToFileURL } from "url";
+import { pathToFileURL, fileURLToPath } from "url";
 import dotenv from "dotenv";
+import path from "path";
 
 dotenv.config();
+
+// ESM workaround for __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export async function loadCommands(client: Client, commandsCollection: Collection<string, any>) {
     const commands = [];

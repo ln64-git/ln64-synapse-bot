@@ -1,7 +1,7 @@
 import { Client, Events, type Interaction } from "discord.js";
 import { Db } from "mongodb";
 
-export function setupHandlers(client: Client, commands: any, db: Db) {
+export function initializeClientHandlers(client: Client, commands: any, db: Db) {
     client.once(Events.ClientReady, () => {
         console.log(`Logged in as ${client.user?.tag}!`);
     });
