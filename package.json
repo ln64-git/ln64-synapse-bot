@@ -3,8 +3,8 @@
   "module": "src/main.ts",
   "type": "module",
   "scripts": {
-    "start": "bun src/main.ts",
-    "watch": "bun src/main.ts --watch"
+    "start": "npx tsx src/main.ts",
+    "watch": "npx tsx src/main.ts --watch"
   },
   "devDependencies": {
     "@types/bun": "latest",

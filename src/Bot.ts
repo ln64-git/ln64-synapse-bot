@@ -38,10 +38,15 @@ export class Bot {
         await this.connectToDatabase();
         await this.registerCommands();
         console.log("Bot is running!");
+
+        this.client.on("voiceStateUpdate", () => {
+            console.log("voiceStateUpdate fired!!");
+        });
+
     }
 
     private setupEventHandlers() {
-        const user1Id = process.env.USER_1;
+        const user1Id = process.env.USER_2;
 
         if (!user1Id) {
             throw new Error(
