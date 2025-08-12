@@ -9,7 +9,6 @@ import { addSpeechEvent } from "discord-speech-recognition";
 import trackVoiceActivity from "./features/availability/trackVoiceActivity";
 import { RelationshipNetwork } from "./features/synapse/relationships/RelationshipNetwork";
 import { ConversationManager } from "./features/synapse/covnersations/ConversationManager";
-import { trackServerAvailability } from "./features/availability/trackServerAvailability";
 import { scheduleWeeklyVcActivity } from "./features/availability/weeklyVcActivity";
 
 // TODO 
@@ -63,7 +62,6 @@ export class Bot {
         initializeClientHandlers(this.client, this.commands, this.db);
 
         trackVoiceActivity(this.client, this.db);
-        trackServerAvailability(this.client, this.db);
         scheduleWeeklyVcActivity(this.client, this.db);
 
         speakVoiceCall(this.client);

@@ -34,8 +34,8 @@ export function scheduleWeeklyVcActivity(client: Client, db: Db) {
     // Kick off an immediate run for all guilds to ensure the message exists
     void runForAllGuilds(client, db);
 
-    // Schedule weekly runs at Monday 00:00 America/New_York
-    scheduleNextRun(client, db);
+    // Schedule daily runs at 08:00 America/New_York
+    scheduleNextDailyRun(client, db);
   };
 
   if (client.isReady()) {
@@ -45,23 +45,28 @@ export function scheduleWeeklyVcActivity(client: Client, db: Db) {
   }
 }
 
-function scheduleNextRun(client: Client, db: Db) {
+function scheduleNextDailyRun(client: Client, db: Db) {
   const now = Date.now();
-  const { thisMondayStartEtMs } = getEtWeekBounds(now);
-  // If we are exactly at or past this Monday start, schedule to next Monday
-  const targetEtMs = thisMondayStartEtMs <= now
-    ? addDaysEt(thisMondayStartEtMs, 7)
-    : thisMondayStartEtMs;
-
-  // Compute delay in ms from now to targetEtMs (both absolute UTC epoch ms)
+  const parts = toTimeZoneParts(new Date(now), "America/New_York");
+  const today8amEtMs = fromTimeZoneComponents(
+    "America/New_York",
+    parts.year,
+    parts.month,
+    parts.day,
+    8,
+    0,
+    0,
+    0,
+  );
+  const targetEtMs = now < today8amEtMs ? today8amEtMs : addDaysEt(today8amEtMs, 1);
   const delayMs = Math.max(0, targetEtMs - now);
 
   setTimeout(async () => {
     try {
       await runForAllGuilds(client, db);
     } finally {
-      // Chain the next weekly run
-      scheduleNextRun(client, db);
+      // Chain the next daily run
+      scheduleNextDailyRun(client, db);
     }
   }, delayMs);
 }
@@ -82,7 +87,7 @@ async function generateAndUpsertForGuild(client: Client, db: Db, guild: Guild) {
   const { lastMondayStartEtMs, thisMondayStartEtMs } = getEtWeekBounds(now);
   // First try: last complete ET week
   let stats = await computeWeeklyStatsForGuild(db, guild.id, lastMondayStartEtMs, thisMondayStartEtMs);
-  let subtitle = `${formatDateEt(new Date(lastMondayStartEtMs))} → ${formatDateEt(new Date(thisMondayStartEtMs))} (ET week)`;
+  let subtitle = `${formatDateEt(new Date(lastMondayStartEtMs))}  →  ${formatDateEt(new Date(thisMondayStartEtMs))} (ET week)`;
   stats.subtitle = subtitle;
   let png = await renderWeeklyHeatmapPng(
     stats,
@@ -96,7 +101,7 @@ async function generateAndUpsertForGuild(client: Client, db: Db, guild: Guild) {
     const sevenDaysMs = 7 * 24 * 3600 * 1000;
     const startFallback = now - sevenDaysMs;
     stats = await computeWeeklyStatsForGuild(db, guild.id, startFallback, now);
-    subtitle = `${formatDateEt(new Date(startFallback))} → ${formatDateEt(new Date(now))} (last 7 days ET)`;
+    subtitle = `${formatDateEt(new Date(startFallback))} → ${formatDateEt(new Date(now))}`;
     stats.subtitle = subtitle;
     png = await renderWeeklyHeatmapPng(
       stats,
@@ -145,7 +150,7 @@ async function generateAndUpsertForGuild(client: Client, db: Db, guild: Guild) {
 
 function buildEmbed(stats: WeeklyStats) {
   const embed = new EmbedBuilder()
-    .setTitle("Weekly VC Activity (ET)")
+    .setTitle("Weekly VC Activity (EST)")
     .setDescription(stats.subtitle || "")
     .setImage("attachment://weekly-vc-activity.png")
     .setColor(0x2b6cb0);
