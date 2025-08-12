@@ -5,6 +5,12 @@ import {
   EmbedBuilder,
   Guild,
   TextChannel,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } from "discord.js";
 import { Db } from "mongodb";
 import { createCanvas } from "@napi-rs/canvas";
@@ -36,6 +42,9 @@ export function scheduleWeeklyVcActivity(client: Client, db: Db) {
 
     // Schedule daily runs at 08:00 America/New_York
     scheduleNextDailyRun(client, db);
+
+    // Register interactions for timezone selection (idempotent)
+    registerTimezoneInteractions(client, db);
   };
 
   if (client.isReady()) {
@@ -121,12 +130,14 @@ async function generateAndUpsertForGuild(client: Client, db: Db, guild: Guild) {
       await msg.edit({
         content: ``,
         embeds: [buildEmbed(stats)],
+        components: [buildTimezoneButtonRow()],
         files: [attachment],
       });
     } catch (e) {
       // If the message is gone, post anew and update record
       const newMsg = await channel.send({
         embeds: [buildEmbed(stats)],
+        components: [buildTimezoneButtonRow()],
         files: [attachment],
       });
       await db.collection("vcActivityMessages").updateOne(
@@ -138,6 +149,7 @@ async function generateAndUpsertForGuild(client: Client, db: Db, guild: Guild) {
   } else {
     const newMsg = await channel.send({
       embeds: [buildEmbed(stats)],
+      components: [buildTimezoneButtonRow()],
       files: [attachment],
     });
     await db.collection("vcActivityMessages").updateOne(
@@ -155,6 +167,218 @@ function buildEmbed(stats: WeeklyStats) {
     .setImage("attachment://weekly-vc-activity.png")
     .setColor(0x2b6cb0);
   return embed;
+}
+
+function buildTimezoneButtonRow() {
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId("vc-activity-change-tz")
+      .setLabel("Change Timezone")
+      .setStyle(ButtonStyle.Primary),
+  );
+  return row;
+}
+
+let timezoneInteractionsRegistered = false;
+function registerTimezoneInteractions(client: Client, db: Db) {
+  if (timezoneInteractionsRegistered) return;
+  timezoneInteractionsRegistered = true;
+
+  client.on("interactionCreate", async (interaction) => {
+    try {
+      if (interaction.isButton() && interaction.customId === "vc-activity-change-tz") {
+        const modal = new ModalBuilder()
+          .setCustomId("vc-activity-tz-modal")
+          .setTitle("Set Timezone");
+        const tzInput = new TextInputBuilder()
+          .setCustomId("tz-input")
+          .setLabel("Timezone (IANA, e.g. America/New_York)")
+          .setPlaceholder("America/Los_Angeles")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true);
+        const row = new ActionRowBuilder<TextInputBuilder>().addComponents(tzInput);
+        modal.addComponents(row);
+        await interaction.showModal(modal);
+        return;
+      }
+
+      if (interaction.isModalSubmit() && interaction.customId === "vc-activity-tz-modal") {
+        const tz = interaction.fields.getTextInputValue("tz-input").trim();
+        if (!isValidTimeZone(tz)) {
+          await interaction.reply({ content: `Invalid timezone: \`${tz}\`. Please enter a valid IANA timezone like \`America/New_York\`.`, ephemeral: true });
+          return;
+        }
+
+        const now = Date.now();
+        const sevenDaysMs = 7 * 24 * 3600 * 1000;
+        const startWindow = now - sevenDaysMs;
+        const stats = await computeWeeklyStatsForGuildZoned(db, interaction.guildId!, startWindow, now, tz);
+        const subtitle = `${formatDateInTz(new Date(startWindow), tz)} → ${formatDateInTz(new Date(now), tz)}`;
+        stats.subtitle = subtitle;
+        const png = await renderWeeklyHeatmapPng(stats, startWindow, now, subtitle);
+        const attachment = new AttachmentBuilder(Buffer.from(png), { name: `weekly-vc-activity.png` });
+        const embed = new EmbedBuilder()
+          .setTitle(`VC Activity (Last 7 Days, ${tz})`)
+          .setDescription(subtitle)
+          .setImage("attachment://weekly-vc-activity.png")
+          .setColor(0x2b6cb0);
+        await interaction.reply({ ephemeral: true, embeds: [embed], files: [attachment] });
+        return;
+      }
+    } catch (error) {
+      console.error("vc-activity timezone interaction failed:", error);
+      if (interaction.isRepliable()) {
+        try { await interaction.reply({ content: "Something went wrong.", ephemeral: true }); } catch { }
+      }
+    }
+  });
+}
+
+function isValidTimeZone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz }).format(new Date());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function computeWeeklyStatsForGuildZoned(db: Db, guildId: string, startMs: number, endMs: number, timeZone: string): Promise<WeeklyStats> {
+  const eventsColl = db.collection<VoiceEvent>("voiceEvents");
+
+  // Initial state per user at start
+  const lastBeforeCursor = eventsColl.aggregate([
+    { $match: { guildId, timestampMs: { $lt: startMs } } },
+    { $sort: { userId: 1 as any, timestampMs: -1 as any } },
+    { $group: { _id: "$userId", lastEvent: { $first: "$$ROOT" } } },
+  ]);
+  const lastBefore: Record<string, VoiceEvent | undefined> = {};
+  for await (const doc of lastBeforeCursor) {
+    lastBefore[doc._id as string] = doc.lastEvent as VoiceEvent;
+  }
+
+  // All events during window
+  const eventsDuring = await eventsColl
+    .find({ guildId, timestampMs: { $gte: startMs, $lt: endMs } })
+    .sort({ timestampMs: 1 })
+    .toArray();
+
+  // Build sessions per user
+  type OpenState = { openAt: number; username: string } | undefined;
+  const openByUser: Record<string, OpenState> = {};
+  const usernameByUser: Record<string, string> = {};
+  const sessions: Array<{ userId: string; start: number; end: number }> = [];
+
+  // Initialize from lastBefore
+  for (const [userId, ev] of Object.entries(lastBefore)) {
+    if (ev && ev.type === "join") {
+      openByUser[userId] = { openAt: startMs, username: ev.username || userId };
+      usernameByUser[userId] = ev.username || userId;
+    }
+  }
+
+  for (const ev of eventsDuring) {
+    const userId = ev.userId;
+    if (ev.username) {
+      usernameByUser[userId] = ev.username;
+    }
+    const open = openByUser[userId];
+    if (ev.type === "join") {
+      if (!open) {
+        openByUser[userId] = { openAt: ev.timestampMs, username: (ev.username || usernameByUser[userId] || userId) };
+      } else {
+        // Already open; ignore duplicate join
+      }
+    } else if (ev.type === "leave") {
+      if (open) {
+        const start = Math.max(open.openAt, startMs);
+        const end = Math.min(ev.timestampMs, endMs);
+        if (end > start) {
+          sessions.push({ userId, start, end });
+        }
+        openByUser[userId] = undefined;
+      } else {
+        // Leave without open; ignore
+      }
+    }
+  }
+
+  // Close any remaining open sessions at endMs
+  for (const [userId, open] of Object.entries(openByUser)) {
+    if (open) {
+      const start = Math.max(open.openAt, startMs);
+      const end = endMs;
+      if (end > start) {
+        sessions.push({ userId, start, end });
+      }
+    }
+  }
+
+  // Aggregate into 7x24 matrix using the given time zone
+  const matrix: number[][] = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0));
+  const totalMinutesByUser: Record<string, number> = {};
+
+  for (const s of sessions) {
+    totalMinutesByUser[s.userId] = (totalMinutesByUser[s.userId] || 0) + Math.round((s.end - s.start) / 60000);
+    accumulateSessionIntoMatrixZoned(s.start, s.end, matrix, timeZone);
+  }
+
+  const topRegulars = Object.keys(totalMinutesByUser)
+    .map((userId) => ({
+      userId,
+      username: usernameByUser[userId] || userId,
+      totalMinutes: totalMinutesByUser[userId],
+      avgJoinHourUtc: null,
+    }))
+    .sort((a, b) => b.totalMinutes - a.totalMinutes)
+    .slice(0, 10);
+
+  let maxCellMinutes = 0;
+  for (let d = 0; d < 7; d++) {
+    for (let h = 0; h < 24; h++) {
+      if (matrix[d][h] > maxCellMinutes) maxCellMinutes = matrix[d][h];
+    }
+  }
+
+  return { matrix, topRegulars, maxCellMinutes };
+}
+
+function accumulateSessionIntoMatrixZoned(startMs: number, endMs: number, matrix: number[][], timeZone: string) {
+  let cursor = startMs;
+  while (cursor < endMs) {
+    const parts = toTimeZoneParts(new Date(cursor), timeZone);
+    const nextLocalHour = fromTimeZoneComponents(
+      timeZone,
+      parts.year,
+      parts.month,
+      parts.day,
+      parts.hour + 1,
+      0,
+      0,
+      0,
+    );
+    const sliceEnd = Math.min(endMs, nextLocalHour);
+    const minutes = Math.ceil((sliceEnd - cursor) / 60000);
+    const row = dayIndexZoned(parts.weekday);
+    const col = parts.hour;
+    matrix[row][col] += minutes;
+    cursor = sliceEnd;
+  }
+}
+
+function dayIndexZoned(weekdayLocal: number): number {
+  // weekdayLocal: 0=Sun..6=Sat → return 0=Mon..6=Sun
+  return (weekdayLocal + 6) % 7;
+}
+
+function formatDateInTz(d: Date, timeZone: string): string {
+  const f = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  });
+  return f.format(d);
 }
 
 function formatTopRegulars(list: WeeklyStats["topRegulars"]) {
@@ -587,7 +811,7 @@ function formatDateUtcShort(d: Date): string {
 }
 
 function toTimeZoneParts(d: Date, timeZone: string) {
-  // Uses Intl API to get calendar parts in a given time zone
+  // Robustly derive calendar parts in the requested time zone, including the correct local weekday
   const fmt = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",
@@ -596,23 +820,24 @@ function toTimeZoneParts(d: Date, timeZone: string) {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+    weekday: "short",
     hour12: false,
   });
   const parts = fmt.formatToParts(d);
-  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
-  const res = {
-    year: get("year"),
-    month: get("month"),
-    day: get("day"),
-    hour: get("hour"),
-    minute: get("minute"),
-    second: get("second"),
+  const getNum = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  const weekdayStr = (parts.find((p) => p.type === "weekday")?.value || "Sun").slice(0, 3);
+  const weekdayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return {
+    year: getNum("year"),
+    month: getNum("month"),
+    day: getNum("day"),
+    hour: getNum("hour"),
+    minute: getNum("minute"),
+    second: getNum("second"),
     millisecond: 0,
-    weekday: new Date(
-      Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second")),
-    ).getUTCDay(), // 0=Sun..6=Sat in that local day
+    // 0=Sun..6=Sat in the LOCAL time zone
+    weekday: weekdayMap[weekdayStr] ?? 0,
   };
-  return res;
 }
 
 function fromTimeZoneComponents(
@@ -625,10 +850,18 @@ function fromTimeZoneComponents(
   second: number,
   millisecond: number,
 ): number {
-  // Convert local time-zone components to epoch ms by iteratively compensating the local offset
-  const guessUtc = Date.UTC(year, month - 1, day, hour, minute, second, millisecond);
-  const offset = tzOffsetMs(timeZone, guessUtc);
-  return guessUtc - offset;
+  // Convert local wall clock time in the given time zone to epoch ms.
+  // Use fixed-point iteration to handle DST transitions (overlaps/gaps).
+  let utc = Date.UTC(year, month - 1, day, hour, minute, second, millisecond);
+  let lastUtc = Number.NaN;
+  // Iterate until the computed offset stabilizes (usually 1-2 iterations)
+  for (let i = 0; i < 6 && utc !== lastUtc; i++) {
+    lastUtc = utc;
+    const offset = tzOffsetMs(timeZone, utc);
+    // Local time = UTC + offset, so UTC = Local - offset
+    utc = Date.UTC(year, month - 1, day, hour, minute, second, millisecond) - offset;
+  }
+  return utc;
 }
 
 function tzOffsetMs(timeZone: string, utcTimestampMs: number): number {
