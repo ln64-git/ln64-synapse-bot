@@ -1,9 +1,9 @@
 import type { Message } from "discord.js";
 import dotenv from "dotenv";
-import { convertToTrimmedMessage } from "../../utils/utils";
 import type { DiscordMessageWithEmbedding, Thread } from "./types";
 import { getEmbeddingBatch } from "./utils";
 import { extractKeywordsWithOpenAi } from "./extractKeywords";
+import { convertToTrimmedMessage } from "../../../utils/utils";
 
 dotenv.config();
 
@@ -16,8 +16,7 @@ export class ConversationManager {
     public async processMessages(messages: Message<true>[]): Promise<void> {
         for (const message of messages) {
             console.log(
-                `Processing message ${
-                    messages.indexOf(message) + 1
+                `Processing message ${messages.indexOf(message) + 1
                 } of ${messages.length}`,
             );
             await this.processSingleMessage(message);

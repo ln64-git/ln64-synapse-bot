@@ -1,5 +1,5 @@
 import { Filter } from "bad-words";
-import { callModel } from "../../lib/openai/openai";
+import { callModel } from "../../../lib/openai/openai";
 
 const filter = new Filter();
 

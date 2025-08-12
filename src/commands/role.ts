@@ -8,7 +8,10 @@ const TOGGLEABLE_ROLE_NAMES = [
     "Fortnite",
     "Repo",
     "Movies",
-    "vc ping"
+    "vc ping",
+    "Lethal Company",
+    "Peak",
+    "Lockdown Protocol",
 ];
 
 export const data = new SlashCommandBuilder()

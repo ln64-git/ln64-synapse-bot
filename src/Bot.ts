@@ -1,13 +1,26 @@
 import logger from "./utils/logger";
 import { Client, Collection, GatewayIntentBits, REST, Routes } from "discord.js";
 import { Db, MongoClient } from "mongodb";
-import { RelationshipNetwork } from "./insight/relationships/RelationshipNetwork";
-import { speakVoiceCall } from "./handlers/speakVoiceCall";
+import { speakVoiceCall } from "./features/speak-voice-call/speakVoiceCall";
 import { initializeClientHandlers } from "./utils/setupHandlers";
 import { loadCommands } from "./utils/loadCommands";
-import { ConversationManager } from "./insight/covnersations/ConversationManager";
 import { trackOnline } from "./utils/trackOnline";
 import { addSpeechEvent } from "discord-speech-recognition";
+import trackVoiceActivity from "./features/availability/trackVoiceActivity";
+import { RelationshipNetwork } from "./features/synapse/relationships/RelationshipNetwork";
+import { ConversationManager } from "./features/synapse/covnersations/ConversationManager";
+import { trackServerAvailability } from "./features/availability/trackServerAvailability";
+
+// TODO 
+// - Implement database for users and messages
+// - Improve logging system for deleted messages
+// - Look over role command 
+
+// IDEAS
+// - Users can setup custom vc ping based on member count
+// - Users can block other users from entering calls with them
+// - Generate custom playlist based on comparing user's last.fm data
+// - Queue multiple songs with one command 
 
 export class Bot {
     public client: Client;
@@ -28,38 +41,40 @@ export class Bot {
                 GatewayIntentBits.GuildPresences,
             ],
         });
-        addSpeechEvent(this.client);  // ← This is essential
+        addSpeechEvent(this.client);
     }
 
     async init() {
         await this.client.login(this.token);
         console.log(`Logged in as ${this.client.user?.tag}!`);
-        this.setupEventHandlers();
         await this.connectToDatabase();
+        this.setupEventHandlers();
         await this.registerCommands();
         console.log("Bot is running!");
-
-        this.client.on("voiceStateUpdate", () => {
-            console.log("voiceStateUpdate fired!!");
-        });
-
     }
 
     private setupEventHandlers() {
-        const user1Id = process.env.USER_2;
-
-        if (!user1Id) {
-            throw new Error(
-                "One or both USER_1 and USER_2 environment variables are missing.",
-            );
+        if (!this.db) {
+            console.warn("trackVoiceActivity: database is not initialized yet.");
+            return;
         }
 
         initializeClientHandlers(this.client, this.commands, this.db);
+        
+        trackVoiceActivity(this.client, this.db);
+        trackServerAvailability(this.client, this.db);
+
         speakVoiceCall(this.client);
         // listenVoiceCall(this.client);
         // stayBanned(this.client, this.db);
         logger(this.client);
 
+        const user1Id = process.env.USER_1;
+        if (!user1Id) {
+            throw new Error(
+                "One or both USER_1 and USER_2 environment variables are missing.",
+            );
+        }
         trackOnline([user1Id], this.client);
     }
 

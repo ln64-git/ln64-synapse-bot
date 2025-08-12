@@ -1,5 +1,7 @@
 import { type Client } from "discord.js";
 import { syncLog } from "./logger";
+// Import or define your notifier here
+import notifier from "node-notifier";
 
 const STATUS_BUFFER_TIME = 5000;
 const lastStatusLog = new Map<string, number>();
@@ -35,6 +37,13 @@ export function trackOnline(userIds: string[], client: Client) {
         },
       ],
     };
+
+    // Notify when status changes
+    notifier.notify({
+      message: `${newStatus}`,
+      // message: `${username} is now ${newStatus}`,
+      sound: true,
+    });
 
     console.log("Syncing Log...", logEntry);
     await syncLog([logEntry], "userStatusLog");

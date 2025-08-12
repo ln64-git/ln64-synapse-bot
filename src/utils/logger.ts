@@ -2,6 +2,8 @@ import { Activity, type Client, Message } from "discord.js";
 import { convertToTrimmedMessage } from "./utils";
 import path from "path";
 import { promises as fs } from "fs";
+import { sendPushoverNotification } from "./pushover";
+import notifier from "node-notifier";
 
 export default async function logger(client: Client) {
     client.on("messageDelete", async (message) => {
@@ -291,6 +293,8 @@ export async function syncLog(data: any[], baseFileName: string) {
                 const newActivities = Array.isArray(entry.activities) ? entry.activities : [];
                 existingEntry.activities.push(...newActivities);
 
+
+
                 userMap.set(entry.username, existingEntry);
             }
         });
@@ -303,3 +307,6 @@ export async function syncLog(data: any[], baseFileName: string) {
         console.error("❌ Failed to sync log:", err);
     }
 }
+
+
+
