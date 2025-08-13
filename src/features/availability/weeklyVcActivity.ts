@@ -94,8 +94,9 @@ async function runForAllGuilds(client: Client, db: Db) {
 async function generateAndUpsertForGuild(client: Client, db: Db, guild: Guild) {
   const now = Date.now();
   const { lastMondayStartEtMs, thisMondayStartEtMs } = getEtWeekBounds(now);
+
   // First try: last complete ET week
-  let stats = await computeWeeklyStatsForGuild(db, guild.id, lastMondayStartEtMs, thisMondayStartEtMs);
+  let stats = await computeWeeklyStatsForGuildZoned(db, guild.id, lastMondayStartEtMs, thisMondayStartEtMs, "America/New_York");
   let subtitle = `${formatDateEt(new Date(lastMondayStartEtMs))}  →  ${formatDateEt(new Date(thisMondayStartEtMs))} (ET week)`;
   stats.subtitle = subtitle;
   let png = await renderWeeklyHeatmapPng(
@@ -109,7 +110,7 @@ async function generateAndUpsertForGuild(client: Client, db: Db, guild: Guild) {
   if (stats.maxCellMinutes === 0) {
     const sevenDaysMs = 7 * 24 * 3600 * 1000;
     const startFallback = now - sevenDaysMs;
-    stats = await computeWeeklyStatsForGuild(db, guild.id, startFallback, now);
+    stats = await computeWeeklyStatsForGuildZoned(db, guild.id, startFallback, now, "America/New_York");
     subtitle = `${formatDateEt(new Date(startFallback))} → ${formatDateEt(new Date(now))}`;
     stats.subtitle = subtitle;
     png = await renderWeeklyHeatmapPng(
@@ -162,7 +163,7 @@ async function generateAndUpsertForGuild(client: Client, db: Db, guild: Guild) {
 
 function buildEmbed(stats: WeeklyStats) {
   const embed = new EmbedBuilder()
-    .setTitle("Weekly VC Activity (EST)")
+    .setTitle("Weekly VC Activity (ET)")
     .setDescription(stats.subtitle || "")
     .setImage("attachment://weekly-vc-activity.png")
     .setColor(0x2b6cb0);
@@ -344,25 +345,12 @@ async function computeWeeklyStatsForGuildZoned(db: Db, guildId: string, startMs:
 }
 
 function accumulateSessionIntoMatrixZoned(startMs: number, endMs: number, matrix: number[][], timeZone: string) {
-  let cursor = startMs;
-  while (cursor < endMs) {
-    const parts = toTimeZoneParts(new Date(cursor), timeZone);
-    const nextLocalHour = fromTimeZoneComponents(
-      timeZone,
-      parts.year,
-      parts.month,
-      parts.day,
-      parts.hour + 1,
-      0,
-      0,
-      0,
-    );
-    const sliceEnd = Math.min(endMs, nextLocalHour);
-    const minutes = Math.ceil((sliceEnd - cursor) / 60000);
+  // Process the session in 1-minute increments to ensure accurate timezone mapping
+  for (let timestamp = startMs; timestamp < endMs; timestamp += 60000) { // 1 minute increments
+    const parts = toTimeZoneParts(new Date(timestamp), timeZone);
     const row = dayIndexZoned(parts.weekday);
     const col = parts.hour;
-    matrix[row][col] += minutes;
-    cursor = sliceEnd;
+    matrix[row][col] += 1; // Add 1 minute
   }
 }
 
@@ -811,31 +799,34 @@ function formatDateUtcShort(d: Date): string {
 }
 
 function toTimeZoneParts(d: Date, timeZone: string) {
-  // Robustly derive calendar parts in the requested time zone, including the correct local weekday
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    weekday: "short",
-    hour12: false,
-  });
-  const parts = fmt.formatToParts(d);
-  const getNum = (t: string) => Number(parts.find((p) => p.type === t)?.value);
-  const weekdayStr = (parts.find((p) => p.type === "weekday")?.value || "Sun").slice(0, 3);
+  // Use Intl.DateTimeFormat to get the date parts in the target timezone
+  // This is the most reliable way to get timezone-aware date components
+  const yearFmt = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric" });
+  const monthFmt = new Intl.DateTimeFormat("en-US", { timeZone, month: "2-digit" });
+  const dayFmt = new Intl.DateTimeFormat("en-US", { timeZone, day: "2-digit" });
+  const hourFmt = new Intl.DateTimeFormat("en-US", { timeZone, hour: "2-digit", hour12: false });
+  const minuteFmt = new Intl.DateTimeFormat("en-US", { timeZone, minute: "2-digit" });
+  const secondFmt = new Intl.DateTimeFormat("en-US", { timeZone, second: "2-digit" });
+  const weekdayFmt = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" });
+
+  const year = parseInt(yearFmt.format(d));
+  const month = parseInt(monthFmt.format(d));
+  const day = parseInt(dayFmt.format(d));
+  const hour = parseInt(hourFmt.format(d));
+  const minute = parseInt(minuteFmt.format(d));
+  const second = parseInt(secondFmt.format(d));
+  const weekdayStr = weekdayFmt.format(d).slice(0, 3);
+
   const weekdayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
   return {
-    year: getNum("year"),
-    month: getNum("month"),
-    day: getNum("day"),
-    hour: getNum("hour"),
-    minute: getNum("minute"),
-    second: getNum("second"),
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
     millisecond: 0,
-    // 0=Sun..6=Sat in the LOCAL time zone
     weekday: weekdayMap[weekdayStr] ?? 0,
   };
 }
@@ -854,13 +845,15 @@ function fromTimeZoneComponents(
   // Use fixed-point iteration to handle DST transitions (overlaps/gaps).
   let utc = Date.UTC(year, month - 1, day, hour, minute, second, millisecond);
   let lastUtc = Number.NaN;
+
   // Iterate until the computed offset stabilizes (usually 1-2 iterations)
   for (let i = 0; i < 6 && utc !== lastUtc; i++) {
     lastUtc = utc;
     const offset = tzOffsetMs(timeZone, utc);
     // Local time = UTC + offset, so UTC = Local - offset
-    utc = Date.UTC(year, month - 1, day, hour, minute, second, millisecond) - offset;
+    utc = utc - offset;
   }
+
   return utc;
 }
 
@@ -886,6 +879,7 @@ function tzOffsetMs(timeZone: string, utcTimestampMs: number): number {
     values.minute,
     values.second,
   );
+
   return asUtc - utcTimestampMs;
 }
 
