@@ -50,6 +50,7 @@ export class Bot {
         await this.connectToDatabase();
         this.setupEventHandlers();
         await this.registerCommands();
+        // log all usernames in discord server
         console.log("Bot is running!");
     }
 
@@ -75,7 +76,7 @@ export class Bot {
                 "One or both USER_1 and USER_2 environment variables are missing.",
             );
         }
-        trackOnline([user1Id], this.client);
+        // trackOnline([user1Id], this.client);
     }
 
     private async connectToDatabase() {

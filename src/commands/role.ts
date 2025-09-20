@@ -4,14 +4,12 @@ import {
     GuildMember,
 } from "discord.js";
 
-const TOGGLEABLE_ROLE_NAMES = [
+export const TOGGLEABLE_ROLE_NAMES = [
     "Fortnite",
-    "Repo",
-    "Movies",
     "vc ping",
-    "Lethal Company",
-    "Peak",
-    "Lockdown Protocol",
+    "film club",
+    "anime club",
+    "dnd",
 ];
 
 export const data = new SlashCommandBuilder()
