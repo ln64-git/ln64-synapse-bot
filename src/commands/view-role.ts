@@ -14,6 +14,7 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(
   interaction: ChatInputCommandInteraction,
+  context?: { db: any, client: any, databaseService: any }
 ) {
   if (!interaction.guild) {
     await interaction.reply("This command can only be used in a server.");

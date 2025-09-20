@@ -6,6 +6,6 @@ export const data = new SlashCommandBuilder()
     .setName("setup")
     .setDescription("Post the bonfire image and server lore embed to #lore");
 
-export async function execute(interaction: ChatInputCommandInteraction) {
+export async function execute(interaction: ChatInputCommandInteraction, context?: { db: any, client: any, databaseService: any }) {
     await setupServerLore(interaction);
 }

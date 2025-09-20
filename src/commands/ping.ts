@@ -7,8 +7,9 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(
     interaction: ChatInputCommandInteraction,
+    context?: { db: any, client: any, databaseService: any }
 ) {
-    
+
     // Now you can access the `client` directly if needed
     console.log(`Command executed by ${interaction.user.tag}`);
     await interaction.reply("Pong!");

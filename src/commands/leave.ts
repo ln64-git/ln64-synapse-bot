@@ -5,7 +5,7 @@ export const data = new SlashCommandBuilder()
   .setName("leave")
   .setDescription("Bot leaves the voice channel.");
 
-export async function execute(interaction: ChatInputCommandInteraction) {
+export async function execute(interaction: ChatInputCommandInteraction, context?: { db: any, client: any, databaseService: any }) {
   const guildId = interaction.guildId;
   if (!guildId) {
     await interaction.reply({ content: "This can only be used in a server.", ephemeral: true });

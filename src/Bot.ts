@@ -10,6 +10,9 @@ import trackVoiceActivity from "./features/availability/trackVoiceActivity";
 import { RelationshipNetwork } from "./features/synapse/relationships/RelationshipNetwork";
 import { ConversationManager } from "./features/synapse/covnersations/ConversationManager";
 import { scheduleWeeklyVcActivity } from "./features/availability/weeklyVcActivity";
+import { DatabaseService } from "./services/DatabaseService.js";
+import { UserTrackingService } from "./services/UserTrackingService.js";
+import { MessageTrackingService } from "./services/MessageTrackingService.js";
 
 // TODO 
 // - Implement database for users and messages
@@ -28,6 +31,9 @@ export class Bot {
     public commands = new Collection<string, any>();
     public relationshipNetwork!: RelationshipNetwork;
     public conversationManager!: ConversationManager; // Add ConversationManager
+    public databaseService!: DatabaseService;
+    public userTrackingService!: UserTrackingService;
+    public messageTrackingService!: MessageTrackingService;
 
     constructor(private token: string, private mongoUri: string) {
         this.client = new Client({
@@ -60,7 +66,11 @@ export class Bot {
             return;
         }
 
-        initializeClientHandlers(this.client, this.commands, this.db);
+        initializeClientHandlers(this.client, this.commands, this.db, this.databaseService);
+
+        // Initialize tracking services
+        this.userTrackingService.initialize();
+        this.messageTrackingService.initialize();
 
         trackVoiceActivity(this.client, this.db);
         scheduleWeeklyVcActivity(this.client, this.db);
@@ -85,8 +95,15 @@ export class Bot {
             await mongoClient.connect();
             this.db = mongoClient.db("discordData");
             console.log("Connected to MongoDB.");
+
+            // Initialize services
+            this.databaseService = new DatabaseService(this.db);
             this.relationshipNetwork = new RelationshipNetwork(this.db);
-            this.conversationManager = new ConversationManager(); // Initialize ConversationManager
+            this.conversationManager = new ConversationManager();
+            this.userTrackingService = new UserTrackingService(this.client, this.databaseService);
+            this.messageTrackingService = new MessageTrackingService(this.client, this.databaseService);
+
+            console.log("✅ All services initialized.");
         } catch (error) {
             console.error("Failed to connect to MongoDB:", error);
             process.exit(1);

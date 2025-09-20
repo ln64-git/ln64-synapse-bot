@@ -1,7 +1,7 @@
 import { Client, Events, type Interaction } from "discord.js";
 import { Db } from "mongodb";
 
-export function initializeClientHandlers(client: Client, commands: any, db: Db) {
+export function initializeClientHandlers(client: Client, commands: any, db: Db, databaseService?: any) {
     client.once(Events.ClientReady, () => {
         console.log(`Logged in as ${client.user?.tag}!`);
     });
@@ -13,7 +13,7 @@ export function initializeClientHandlers(client: Client, commands: any, db: Db) 
         if (!command) return;
 
         try {
-            await command.execute(interaction, { db, client });
+            await command.execute(interaction, { db, client, databaseService });
         } catch (error) {
             console.error("Error executing command:", error);
             const replyContent = {

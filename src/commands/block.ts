@@ -10,7 +10,8 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(
-  interaction: ChatInputCommandInteraction & { client: any }
+  interaction: ChatInputCommandInteraction,
+  context?: { db: any, client: any, databaseService: any }
 ) {
   const userToBlock = interaction.options.getUser("user");
   const blockerId = interaction.user.id;
@@ -19,7 +20,7 @@ export async function execute(
     return;
   }
 
-  const db: Db = interaction.client.bot.db; // Assumes you attach your Bot instance to client
+  const db: Db = context?.db; // Use the database from context
   const alreadyBlocked = await db.collection("vcBlocks").findOne({
     blocker: blockerId,
     blocked: userToBlock?.id,

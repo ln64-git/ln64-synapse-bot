@@ -8,7 +8,7 @@ export const data = new SlashCommandBuilder()
   .setName("join")
   .setDescription("Bot joins your current voice channel and records audio.");
 
-export async function execute(interaction: ChatInputCommandInteraction) {
+export async function execute(interaction: ChatInputCommandInteraction, context?: { db: any, client: any, databaseService: any }) {
   console.log("[/join command] Handler called");
   const member = interaction.guild?.members.cache.get(interaction.user.id);
   if (!member?.voice.channel) {

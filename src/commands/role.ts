@@ -25,7 +25,7 @@ export const data = new SlashCommandBuilder()
             )
     );
 
-export async function execute(interaction: ChatInputCommandInteraction) {
+export async function execute(interaction: ChatInputCommandInteraction, context?: { db: any, client: any, databaseService: any }) {
     if (!interaction.inGuild()) {
         return interaction.reply({ content: "This command only works in servers.", ephemeral: true });
     }
